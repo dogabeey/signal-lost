@@ -1,0 +1,56 @@
+:root {
+  font-family: Georgia, 'Times New Roman', serif;
+  color: #e7f0ec;
+  background: #101b25;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* { box-sizing: border-box; }
+
+body { margin: 0; overflow: hidden; }
+button { font: inherit; }
+
+.game-shell { min-height: 100svh; position: relative; overflow: hidden; }
+#game { display: block; height: 100svh; width: 100%; }
+
+.hud {
+  align-items: flex-start;
+  display: flex;
+  justify-content: space-between;
+  left: 0;
+  padding: 28px 32px;
+  pointer-events: none;
+  position: absolute;
+  right: 0;
+  top: 0;
+}
+
+.brand, .stats, .instructions, .eyebrow, button {
+  font-family: 'Trebuchet MS', Arial, sans-serif;
+  letter-spacing: 0;
+}
+
+.brand { align-items: center; color: #f5f0d7; display: flex; font-size: 15px; font-weight: 700; gap: 10px; }
+.brand-mark { background: #ff795f; box-shadow: 0 0 18px #ff795f; clip-path: polygon(50% 0, 100% 100%, 0 100%); display: block; height: 18px; width: 18px; }
+.stats { display: flex; gap: 28px; margin: 0; text-align: right; }
+.stats div { min-width: 56px; }
+.stats dt { color: #9ab6b8; font-size: 10px; font-weight: 700; margin-bottom: 4px; }
+.stats dd { color: #f7f1d3; font-size: 19px; font-weight: 700; margin: 0; }
+.instructions { bottom: 28px; color: #a7c0bf; display: flex; font-size: 11px; gap: 10px; left: 32px; position: absolute; }
+.instructions b { color: #63f5cd; }
+
+.overlay { align-items: center; background: rgba(10, 20, 28, 0.3); display: flex; flex-direction: column; inset: 0; justify-content: center; padding: 24px; position: absolute; text-align: center; transition: opacity 240ms ease, visibility 240ms ease; }
+.overlay.hidden { opacity: 0; pointer-events: none; visibility: hidden; }
+.eyebrow { color: #63f5cd; font-size: 11px; font-weight: 700; margin: 0 0 12px; }
+h1 { color: #fff4d2; font-size: clamp(40px, 8vw, 84px); font-weight: 400; line-height: 0.95; margin: 0; }
+.overlay > p:not(.eyebrow) { color: #c7d3cd; font-size: 16px; margin: 20px 0 28px; max-width: 320px; }
+button { background: #ff795f; border: 0; box-shadow: 4px 4px 0 #862f2a; color: #171c21; cursor: pointer; font-size: 13px; font-weight: 700; padding: 14px 22px; transition: transform 120ms ease, box-shadow 120ms ease; }
+button:hover { box-shadow: 2px 2px 0 #862f2a; transform: translate(2px, 2px); }
+button:focus-visible { outline: 2px solid #fff4d2; outline-offset: 4px; }
+
+@media (max-width: 580px) {
+  .hud { padding: 20px; }
+  .stats { gap: 16px; }
+  .instructions { bottom: 20px; font-size: 10px; left: 20px; }
+}
