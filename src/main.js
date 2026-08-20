@@ -33,18 +33,31 @@ const startButton = document.querySelector('#start-button')
 function createSoundSystem() {
   let context
   let masterGain
+  const buffers = new Map()
+  let soundLoadPromise
+
+  async function loadSound(name, url) {
+    try {
+      const response = await fetch(url)
+      if (!response.ok) return
+      buffers.set(name, await context.decodeAudioData(await response.arrayBuffer()))
+    } catch {
+      // The synthesized fallback remains available when a custom file cannot load.
+    }
+  }
 
   function initialize() {
     if (!context) {
       const AudioContext = window.AudioContext || window.webkitAudioContext
-      if (!AudioContext) return
+      if (!AudioContext) return Promise.resolve()
       context = new AudioContext()
       masterGain = context.createGain()
       masterGain.gain.value = SOUND.masterVolume
       masterGain.connect(context.destination)
+      soundLoadPromise = Promise.all(Object.entries(SOUND.assets).map(([name, url]) => loadSound(name, url)))
     }
-    if (context.state === 'suspended') return context.resume()
-    return Promise.resolve()
+    const resumePromise = context.state === 'suspended' ? context.resume() : Promise.resolve()
+    return Promise.all([resumePromise, soundLoadPromise])
   }
 
   function getSpatialMix(sourcePosition) {
@@ -64,22 +77,15 @@ function createSoundSystem() {
     return { attenuation, pan: THREE.MathUtils.clamp(offset.normalize().dot(cameraRight), -1, 1) }
   }
 
-  function playTone(frequency, duration, volume, sourcePosition, type = 'sine', endFrequency = frequency) {
-    if (!context || context.state !== 'running') return
-    const oscillator = context.createOscillator()
+  function connectSpatialSource(source, volume, sourcePosition) {
     const gain = context.createGain()
     const spatialGain = context.createGain()
     const stereoPanner = context.createStereoPanner?.()
     const now = context.currentTime
     const { attenuation, pan } = getSpatialMix(sourcePosition)
-    oscillator.type = type
-    oscillator.frequency.setValueAtTime(frequency, now)
-    oscillator.frequency.linearRampToValueAtTime(endFrequency, now + duration)
-    gain.gain.setValueAtTime(0.0001, now)
-    gain.gain.exponentialRampToValueAtTime(volume, now + 0.008)
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + duration)
+    gain.gain.setValueAtTime(volume, now)
     spatialGain.gain.setValueAtTime(attenuation, now)
-    oscillator.connect(gain)
+    source.connect(gain)
     gain.connect(spatialGain)
     if (stereoPanner) {
       stereoPanner.pan.setValueAtTime(pan, now)
@@ -88,27 +94,79 @@ function createSoundSystem() {
     } else {
       spatialGain.connect(masterGain)
     }
+  }
+
+  function playTone(startFrequency, endFrequency, duration, volume, sourcePosition, type) {
+    if (!context || context.state !== 'running') return
+    const oscillator = context.createOscillator()
+    const now = context.currentTime
+    oscillator.type = type
+    oscillator.frequency.setValueAtTime(startFrequency, now)
+    oscillator.frequency.linearRampToValueAtTime(endFrequency, now + duration)
+    connectSpatialSource(oscillator, volume, sourcePosition)
     oscillator.start(now)
     oscillator.stop(now + duration)
+  }
+
+  function playFallingWhoosh(duration, volume, sourcePosition) {
+    if (!context || context.state !== 'running') return
+    const now = context.currentTime
+    const noise = context.createBuffer(1, Math.ceil(context.sampleRate * duration), context.sampleRate)
+    const samples = noise.getChannelData(0)
+    for (let index = 0; index < samples.length; index += 1) samples[index] = Math.random() * 2 - 1
+
+    const source = context.createBufferSource()
+    const filter = context.createBiquadFilter()
+    const envelope = context.createGain()
+    source.buffer = noise
+    filter.type = 'bandpass'
+    filter.Q.value = 0.65
+    filter.frequency.setValueAtTime(180, now)
+    filter.frequency.exponentialRampToValueAtTime(720, now + duration)
+    envelope.gain.setValueAtTime(0.0001, now)
+    envelope.gain.exponentialRampToValueAtTime(1, now + 0.18)
+    envelope.gain.exponentialRampToValueAtTime(0.0001, now + duration)
+    source.connect(filter)
+    filter.connect(envelope)
+    connectSpatialSource(envelope, volume, sourcePosition)
+    source.start(now)
+  }
+
+  function playSound(name, volume, sourcePosition, fallback) {
+    if (!context || context.state !== 'running') return
+    const buffer = buffers.get(name)
+    if (!buffer) {
+      fallback()
+      return
+    }
+    const source = context.createBufferSource()
+    source.buffer = buffer
+    connectSpatialSource(source, volume, sourcePosition)
+    source.start()
   }
 
   return {
     initialize,
     playBangerPulse(progress, position) {
-      const frequency = THREE.MathUtils.lerp(SOUND.bangerPulseStartFrequency, SOUND.bangerPulseEndFrequency, progress)
-      playTone(frequency, SOUND.bangerPulseDuration, SOUND.bangerPulseVolume, position, 'square')
+      const fallback = SOUND.fallback.bangerPulse
+      const frequency = THREE.MathUtils.lerp(fallback.startFrequency, fallback.endFrequency, progress)
+      playSound('bangerPulse', SOUND.bangerPulseVolume, position, () => playTone(frequency, frequency, fallback.duration, SOUND.bangerPulseVolume, position, fallback.type))
     },
     playFallingObstacle(position) {
-      playTone(SOUND.fallingObstacleStartFrequency, SOUND.fallingObstacleDuration, SOUND.fallingObstacleVolume, position, 'sawtooth', SOUND.fallingObstacleEndFrequency)
+      const fallback = SOUND.fallback.fallingObstacle
+      playSound('fallingObstacle', SOUND.fallingObstacleVolume, position, () => playFallingWhoosh(fallback.duration, SOUND.fallingObstacleVolume, position))
     },
     playCellCollect(position) {
-      playTone(SOUND.cellCollectStartFrequency, SOUND.cellCollectDuration, SOUND.cellCollectVolume, position, 'triangle', SOUND.cellCollectEndFrequency)
+      const fallback = SOUND.fallback.cellCollect
+      playSound('cellCollect', SOUND.cellCollectVolume, position, () => playTone(fallback.startFrequency, fallback.endFrequency, fallback.duration, SOUND.cellCollectVolume, position, fallback.type))
     },
     playObstacleSummon(position) {
-      playTone(SOUND.obstacleSummonStartFrequency, GAME.obstacleSpawnWarningDuration, SOUND.obstacleSummonVolume, position, 'sine', SOUND.obstacleSummonEndFrequency)
+      const fallback = SOUND.fallback.obstacleSummon
+      playSound('obstacleSummon', SOUND.obstacleSummonVolume, position, () => playTone(fallback.startFrequency, fallback.endFrequency, fallback.duration, SOUND.obstacleSummonVolume, position, fallback.type))
     },
     playButtonClick() {
-      playTone(SOUND.buttonClickStartFrequency, SOUND.buttonClickDuration, SOUND.buttonClickVolume, player.position, 'square', SOUND.buttonClickEndFrequency)
+      const fallback = SOUND.fallback.buttonClick
+      playSound('buttonClick', SOUND.buttonClickVolume, player.position, () => playTone(fallback.startFrequency, fallback.endFrequency, fallback.duration, SOUND.buttonClickVolume, player.position, fallback.type))
     },
   }
 }

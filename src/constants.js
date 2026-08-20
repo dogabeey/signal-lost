@@ -136,27 +136,27 @@ export const ANIMATION = {
 
 export const SOUND = {
   masterVolume: 0.16,
-  bangerPulseStartFrequency: 180,
-  bangerPulseEndFrequency: 860,
-  bangerPulseDuration: 0.055,
   bangerPulseVolume: 0.32,
-  fallingObstacleStartFrequency: 300,
-  fallingObstacleEndFrequency: 90,
-  fallingObstacleDuration: 0.24,
-  fallingObstacleVolume: 0.28,
-  cellCollectStartFrequency: 540,
-  cellCollectEndFrequency: 960,
-  cellCollectDuration: 0.13,
+  fallingObstacleVolume: 0.82,
   cellCollectVolume: 0.26,
-  obstacleSummonStartFrequency: 130,
-  obstacleSummonEndFrequency: 310,
-  obstacleSummonVolume: 0.07,
-  buttonClickStartFrequency: 440,
-  buttonClickEndFrequency: 660,
-  buttonClickDuration: 0.07,
+  obstacleSummonVolume: 0.17,
   buttonClickVolume: 0.2,
   spatialMaxDistance: 24,
   spatialMinGain: 0.04,
+  fallback: {
+    bangerPulse: { startFrequency: 180, endFrequency: 860, duration: 0.055, type: 'square' },
+    fallingObstacle: { duration: GAME.fallingBlockDuration },
+    cellCollect: { startFrequency: 540, endFrequency: 960, duration: 0.13, type: 'triangle' },
+    obstacleSummon: { startFrequency: 130, endFrequency: 310, duration: 2, type: 'sine' },
+    buttonClick: { startFrequency: 440, endFrequency: 660, duration: 0.07, type: 'square' },
+  },
+  assets: {
+    bangerPulse: '/audio/banger-pulse.wav',
+    fallingObstacle: '/audio/falling-obstacle.wav',
+    cellCollect: '/audio/cell-collect.wav',
+    obstacleSummon: '/audio/obstacle-summon.wav',
+    buttonClick: '/audio/button-click.wav',
+  },
 }
 
 export const OBSTACLE_TYPES = {
