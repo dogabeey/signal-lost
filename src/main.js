@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { ANIMATION, CAMERA, COLORS, ENTITIES, GAME, LIGHTING, OBSTACLE_TYPES, SCENE, SOUND } from './constants.js'
+import { ANIMATION, CAMERA, COLORS, DIFFICULTY, ENTITIES, GAME, LIGHTING, OBSTACLE_TYPES, SCENE, SOUND } from './constants.js'
 import './style.css'
 
 document.querySelector('#app').innerHTML = `
@@ -17,6 +17,16 @@ document.querySelector('#app').innerHTML = `
       <p class="eyebrow">SYSTEM OVERRIDE</p>
       <h1 id="overlay-title">NEON DRIFT</h1>
       <p id="overlay-copy">Collect energy cells. Avoid the rising blocks.</p>
+      <div class="tier-selection" aria-label="Difficulty tier selection">
+        <div class="tier-heading"><span class="tier-icon" aria-hidden="true">✦</span><span>Difficulty</span></div>
+        <div class="tier-carousel">
+          <button class="tier-nav" id="previous-tier" type="button" aria-label="Select previous tier">‹</button>
+          <span class="tier-options" id="tier-options" aria-live="polite"></span>
+          <button class="tier-nav" id="next-tier" type="button" aria-label="Select next tier">›</button>
+        </div>
+        <p class="highest-cell">HIGHEST CELL: <span id="highest-cells">000</span></p>
+        <p class="tier-requirement" id="tier-requirement"></p>
+      </div>
       <button id="start-button" type="button">START RUN</button>
     </section>
   </main>
@@ -29,6 +39,109 @@ const overlay = document.querySelector('#overlay')
 const overlayTitle = document.querySelector('#overlay-title')
 const overlayCopy = document.querySelector('#overlay-copy')
 const startButton = document.querySelector('#start-button')
+const highestCellsElement = document.querySelector('#highest-cells')
+const tierRequirementElement = document.querySelector('#tier-requirement')
+const tierOptions = document.querySelector('#tier-options')
+const previousTierButton = document.querySelector('#previous-tier')
+const nextTierButton = document.querySelector('#next-tier')
+
+const CELL_BANK_STORAGE_KEY = 'neon-drift-banked-cells'
+const TIER_STORAGE_KEY = 'neon-drift-selected-tier'
+const TIER_HIGH_SCORES_STORAGE_KEY = 'neon-drift-tier-high-scores'
+const tierKeys = Object.keys(DIFFICULTY)
+
+function readStoredNumber(key, fallback = 0) {
+  try {
+    const value = Number.parseInt(window.localStorage.getItem(key), 10)
+    return Number.isFinite(value) && value >= 0 ? value : fallback
+  } catch {
+    return fallback
+  }
+}
+
+function writeStoredNumber(key, value) {
+  try {
+    window.localStorage.setItem(key, String(value))
+  } catch {
+    // The game remains playable when storage is unavailable.
+  }
+}
+
+function readStoredTierHighScores() {
+  try {
+    const storedScores = JSON.parse(window.localStorage.getItem(TIER_HIGH_SCORES_STORAGE_KEY))
+    if (!storedScores || typeof storedScores !== 'object') return {}
+    return Object.fromEntries(tierKeys.map((tierKey) => [
+      tierKey,
+      Number.isFinite(storedScores[tierKey]) && storedScores[tierKey] >= 0 ? storedScores[tierKey] : 0,
+    ]))
+  } catch {
+    return {}
+  }
+}
+
+function writeStoredTierHighScores() {
+  try {
+    window.localStorage.setItem(TIER_HIGH_SCORES_STORAGE_KEY, JSON.stringify(tierHighScores))
+  } catch {
+    // The game remains playable when storage is unavailable.
+  }
+}
+
+function getUnlockedTierIndex(cells) {
+  let unlockedTierIndex = 0
+  let cellsRequired = 0
+  for (let index = 0; index < tierKeys.length - 1; index += 1) {
+    cellsRequired += DIFFICULTY[tierKeys[index]].cellsRequiredToAdvance
+    if (cells < cellsRequired) break
+    unlockedTierIndex = index + 1
+  }
+  return unlockedTierIndex
+}
+
+let bankedCells = readStoredNumber(CELL_BANK_STORAGE_KEY)
+let selectedTierIndex = Math.min(readStoredNumber(TIER_STORAGE_KEY), getUnlockedTierIndex(bankedCells))
+const tierHighScores = readStoredTierHighScores()
+
+function getCurrentDifficulty() {
+  return DIFFICULTY[tierKeys[selectedTierIndex]]
+}
+
+function updateBankedCells(amount = 0) {
+  bankedCells += amount
+  writeStoredNumber(CELL_BANK_STORAGE_KEY, bankedCells)
+  renderTierOptions()
+}
+
+function recordTierHighScore() {
+  const tierKey = tierKeys[selectedTierIndex]
+  if (score <= (tierHighScores[tierKey] ?? 0)) return
+  tierHighScores[tierKey] = score
+  writeStoredTierHighScores()
+  renderTierOptions()
+}
+
+function renderTierOptions() {
+  const unlockedTierIndex = getUnlockedTierIndex(bankedCells)
+  if (selectedTierIndex > unlockedTierIndex) selectedTierIndex = unlockedTierIndex
+  tierOptions.textContent = `Tier ${selectedTierIndex + 1}`
+  const tierKey = tierKeys[selectedTierIndex]
+  highestCellsElement.textContent = String(tierHighScores[tierKey] ?? 0).padStart(3, '0')
+  tierRequirementElement.textContent = `CELLS REQUIRED: ${DIFFICULTY[tierKey].cellsRequiredToAdvance}`
+  previousTierButton.disabled = selectedTierIndex === 0
+  nextTierButton.disabled = selectedTierIndex >= unlockedTierIndex
+}
+
+function selectTier(tierIndex) {
+  if (tierIndex < 0 || tierIndex > getUnlockedTierIndex(bankedCells)) return
+  selectedTierIndex = tierIndex
+  writeStoredNumber(TIER_STORAGE_KEY, selectedTierIndex)
+  applyDifficulty()
+  renderTierOptions()
+}
+
+previousTierButton.addEventListener('click', () => selectTier(selectedTierIndex - 1))
+nextTierButton.addEventListener('click', () => selectTier(selectedTierIndex + 1))
 
 function createSoundSystem() {
   let context
@@ -206,17 +319,36 @@ const grid = new THREE.GridHelper(GAME.arenaSize, GAME.arenaSize, COLORS.gridMaj
 grid.position.y = 0.01
 scene.add(grid)
 
+function createArenaBoundaryGeometry(limit) {
+  return new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(-limit, 0.04, -limit),
+    new THREE.Vector3(limit, 0.04, -limit),
+    new THREE.Vector3(limit, 0.04, limit),
+    new THREE.Vector3(-limit, 0.04, limit),
+  ])
+}
+
 const arenaBoundary = new THREE.LineLoop(
-  new THREE.BufferGeometry().setFromPoints([
-    new THREE.Vector3(-GAME.arenaLimit, 0.04, -GAME.arenaLimit),
-    new THREE.Vector3(GAME.arenaLimit, 0.04, -GAME.arenaLimit),
-    new THREE.Vector3(GAME.arenaLimit, 0.04, GAME.arenaLimit),
-    new THREE.Vector3(-GAME.arenaLimit, 0.04, GAME.arenaLimit),
-  ]),
+  createArenaBoundaryGeometry(GAME.arenaLimit),
   new THREE.LineDashedMaterial({ color: COLORS.arenaBoundary, dashSize: 0.45, gapSize: 0.2 }),
 )
 arenaBoundary.computeLineDistances()
 scene.add(arenaBoundary)
+
+function getArenaLimit() {
+  return GAME.arenaLimit + getCurrentDifficulty().extraArenaPadding
+}
+
+function applyDifficulty() {
+  const difficulty = getCurrentDifficulty()
+  const arenaSize = GAME.arenaSize + difficulty.extraArenaPadding * 2
+  const arenaLimit = getArenaLimit()
+  floor.scale.setScalar(arenaSize / GAME.arenaSize)
+  grid.scale.setScalar(arenaSize / GAME.arenaSize)
+  arenaBoundary.geometry.dispose()
+  arenaBoundary.geometry = createArenaBoundaryGeometry(arenaLimit)
+  arenaBoundary.computeLineDistances()
+}
 
 const player = new THREE.Group()
 const playerCore = new THREE.Mesh(
@@ -275,9 +407,10 @@ function createSpikyBallGeometry() {
 }
 
 function randomArenaPosition(minDistance = 0) {
+  const arenaLimit = getArenaLimit()
   let position
   do {
-    position = new THREE.Vector3(THREE.MathUtils.randFloat(-GAME.arenaLimit, GAME.arenaLimit), 0, THREE.MathUtils.randFloat(-GAME.arenaLimit, GAME.arenaLimit))
+    position = new THREE.Vector3(THREE.MathUtils.randFloat(-arenaLimit, arenaLimit), 0, THREE.MathUtils.randFloat(-arenaLimit, arenaLimit))
   } while (position.distanceTo(player.position) < minDistance)
   return position
 }
@@ -298,8 +431,18 @@ function addObstacle(type) {
 
 function scheduleObstacle() {
   const position = randomArenaPosition(GAME.obstacleMinDistance)
-  const types = Object.keys(OBSTACLE_TYPES)
-  const type = types[Math.floor(Math.random() * types.length)]
+  const difficulty = getCurrentDifficulty()
+  const weightedTypes = difficulty.availableObstacleTypes.map((type) => ({ type, weight: difficulty[`${type}SpawnWeight`] ?? 0 }))
+  const totalWeight = weightedTypes.reduce((total, entry) => total + entry.weight, 0)
+  let randomWeight = Math.random() * totalWeight
+  let type = weightedTypes[weightedTypes.length - 1].type
+  for (const entry of weightedTypes) {
+    randomWeight -= entry.weight
+    if (randomWeight <= 0) {
+      type = entry.type
+      break
+    }
+  }
   const obstacleType = OBSTACLE_TYPES[type]
   const ring = new THREE.Mesh(
     new THREE.RingGeometry(ENTITIES.spawnRingInnerRadius, ENTITIES.spawnRingOuterRadius, ENTITIES.spawnRingSegments),
@@ -455,12 +598,15 @@ function resetGame() {
   scoreElement.textContent = '000'
   timeElement.textContent = '00:00'
   for (let index = 0; index < GAME.initialCellCount; index += 1) addCell()
-  for (const type of GAME.initialObstacleTypes) addObstacle(type)
+  for (const type of GAME.initialObstacleTypes) {
+    if (getCurrentDifficulty().availableObstacleTypes.includes(type)) addObstacle(type)
+  }
 }
 
 function endGame() {
   started = false
   ended = true
+  recordTierHighScore()
   overlayTitle.textContent = 'SIGNAL LOST'
   overlayCopy.textContent = `You secured ${score} energy ${score === 1 ? 'cell' : 'cells'}.`
   startButton.textContent = 'RUN AGAIN'
@@ -475,10 +621,13 @@ function updateHud() {
 }
 
 function updateGame(delta, total) {
-  const regularObstacleLifetime = GAME.regularObstacleLifetime + score * GAME.regularObstacleLifetimeIncreasePerCell
+  const difficulty = getCurrentDifficulty()
+  const regularObstacleLifetime = GAME.regularObstacleLifetime + difficulty.obstacleLifetimeOffset
+    + score * (GAME.regularObstacleLifetimeIncreasePerCell + difficulty.obstacleLifetimeIncreasePerCellOffset)
   const obstacleSpawnInterval = Math.max(
     GAME.obstacleSpawnWarningDuration,
-    GAME.obstacleSpawnInterval - score * GAME.obstacleSpawnDecreasePerCell,
+    GAME.obstacleSpawnInterval + difficulty.obstacleSpawnIntervalOffset
+      - score * (GAME.obstacleSpawnDecreasePerCell + difficulty.obstacleSpawnDecreasePerCellOffset),
   )
   const direction = new THREE.Vector3(
     (keys.has('KeyD') || keys.has('ArrowRight') ? 1 : 0) - (keys.has('KeyA') || keys.has('ArrowLeft') ? 1 : 0),
@@ -492,8 +641,9 @@ function updateGame(delta, total) {
     player.rotation.y = Math.atan2(direction.x, direction.z)
   }
 
-  player.position.x = THREE.MathUtils.clamp(player.position.x, -GAME.arenaLimit, GAME.arenaLimit)
-  player.position.z = THREE.MathUtils.clamp(player.position.z, -GAME.arenaLimit, GAME.arenaLimit)
+  const arenaLimit = getArenaLimit()
+  player.position.x = THREE.MathUtils.clamp(player.position.x, -arenaLimit, arenaLimit)
+  player.position.z = THREE.MathUtils.clamp(player.position.z, -arenaLimit, arenaLimit)
   player.rotation.y += delta * ANIMATION.playerTurnSpeed
   playerCore.rotation.x += delta * ANIMATION.playerCoreSpinSpeed
   playerRing.rotation.z += delta * ANIMATION.playerRingSpinSpeed
@@ -507,6 +657,7 @@ function updateGame(delta, total) {
       scene.remove(cell)
       cells.splice(index, 1)
       score += 1
+      updateBankedCells(1)
       addCell()
     }
   }
@@ -690,5 +841,7 @@ window.addEventListener('resize', () => {
   renderer.setSize(window.innerWidth, window.innerHeight)
 })
 
+applyDifficulty()
+updateBankedCells()
 resetGame()
 animate()

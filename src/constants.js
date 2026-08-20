@@ -30,6 +30,63 @@ export const GAME = {
   fallingBlockIntervalPerCell: 0.35,
 }
 
+export const DIFFICULTY = {
+  tier1: {
+    extraArenaPadding: 0, // Extra padding added to the arena size and playable area for this difficulty tier. A positive value increases the arena size, while a negative value decreases it.
+    cellsRequiredToAdvance: 10, // Number of cells the player must collect to advance to the next difficulty tier.
+
+    availableObstacleTypes: ['regular', 'creeper'], // Available obstacle types for this difficulty tier. If an obstacle type is not included here, it will not spawn in this tier.
+    obstacleSpawnIntervalOffset: 3, // This offset is added to the base obstacle spawn interval defined in the GAME constant. A positive value increases the interval (slower spawning), while a negative value decreases it (faster spawning).
+    obstacleSpawnDecreasePerCellOffset: -0.01, // This offset is added to the base obstacle spawn decrease per cell defined in the GAME constant. A positive value increases the decrease (faster spawning as cells are collected), while a negative value decreases it (slower spawning as cells are collected).
+    obstacleLifetimeOffset: -4, // This offset is added to the base obstacle lifetime defined in the GAME constant. A positive value increases the lifetime (obstacles last longer), while a negative value decreases it (obstacles disappear sooner).
+    obstacleLifetimeIncreasePerCellOffset: -0.02, // This offset is added to the base obstacle lifetime increase per cell defined in the GAME constant. A positive value increases the increase (obstacles last longer as cells are collected), while a negative value decreases it (obstacles disappear sooner as cells are collected).
+    // These weights are used to determine the probability of spawning each obstacle type. The sum isn't normalized, so the actual probability 
+    // is calculated by dividing each weight by the sum of all weights. If an obstacle type is not included in the availableObstacleTypes array, its weight is ignored.
+    // If an obstacle's weight isn't specified, it defaults to 0.
+    regularSpawnWeight: 0.8, // Weight for spawning regular obstacles. A higher value increases the likelihood of spawning this type.
+    creeperSpawnWeight: 0.2, // Weight for spawning creeper obstacles. A higher value increases the likelihood of spawning this type.
+  },
+  tier2: {
+    extraArenaPadding: 1,
+    cellsRequiredToAdvance: 20,
+
+    availableObstacleTypes: ['regular', 'chaser', 'creeper'],
+    obstacleSpawnIntervalOffset: 2,
+    obstacleSpawnDecreasePerCellOffset: 0,
+    obstacleLifetimeOffset: -3,
+    obstacleLifetimeIncreasePerCellOffset: 0,
+    regularSpawnWeight: 0.8,
+    chaserSpawnWeight: 0.1,
+    creeperSpawnWeight: 0.1,
+  },
+  tier3: {
+    extraArenaPadding: 2,
+    cellsRequiredToAdvance: 30,
+
+    availableObstacleTypes: ['regular', 'chaser', 'creeper', 'banger'],
+    obstacleSpawnIntervalOffset: 1,
+    obstacleSpawnDecreasePerCellOffset: 0.01,
+    obstacleLifetimeOffset: -2,
+    obstacleLifetimeIncreasePerCellOffset: 0.01,
+    regularSpawnWeight: 0.7,
+    chaserSpawnWeight: 0.1,
+    creeperSpawnWeight: 0.1,
+    bangerSpawnWeight: 0.1,
+  },
+  tier4: {
+    extraArenaPadding: 3,
+    cellsRequiredToAdvance: 40,
+    availableObstacleTypes: ['regular', 'chaser', 'creeper', 'banger'],
+    obstacleSpawnIntervalOffset: 0,
+    obstacleSpawnDecreasePerCellOffset: 0.02,
+    obstacleLifetimeOffset: -1,
+    obstacleLifetimeIncreasePerCellOffset: 0.02,
+    regularSpawnWeight: 0.6,
+    chaserSpawnWeight: 0.15,
+    creeperSpawnWeight: 0.15,
+    bangerSpawnWeight: 0.1,
+  },
+}
 export const COLORS = {
   background: '#101b25',
   fog: '#101b25',

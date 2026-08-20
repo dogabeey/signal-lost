@@ -45,6 +45,18 @@ button { font: inherit; }
 .eyebrow { color: #63f5cd; font-size: 11px; font-weight: 700; margin: 0 0 12px; }
 h1 { color: #fff4d2; font-size: clamp(40px, 8vw, 84px); font-weight: 400; line-height: 0.95; margin: 0; }
 .overlay > p:not(.eyebrow) { color: #c7d3cd; font-size: 16px; margin: 20px 0 28px; max-width: 320px; }
+.tier-selection { background: #38347a; border: 3px solid #141733; box-shadow: 0 0 0 2px #6d67bb inset; color: #fff; margin: 0 0 24px; padding: 8px 18px 14px; width: min(100%, 338px); }
+.tier-heading { align-items: center; color: #aba2ff; display: flex; font-family: 'Trebuchet MS', Arial, sans-serif; font-size: 30px; font-weight: 700; gap: 42px; line-height: 1; margin-bottom: 16px; }
+.tier-icon { align-items: center; border: 3px solid #fff; color: #fff; display: flex; font-size: 25px; height: 45px; justify-content: center; line-height: 1; width: 45px; }
+.tier-carousel { align-items: center; display: grid; grid-template-columns: 48px 1fr 48px; margin: 0 auto 14px; max-width: 215px; }
+.tier-options { color: #fff; font-family: 'Trebuchet MS', Arial, sans-serif; font-size: 25px; font-weight: 700; text-align: center; }
+.tier-nav { background: transparent; box-shadow: none; color: #857dca; font-family: Arial, sans-serif; font-size: 65px; font-weight: 400; line-height: 0.5; padding: 0; transform: none; }
+.tier-nav:hover { background: transparent; box-shadow: none; color: #c8c3ff; transform: none; }
+.tier-nav:disabled { color: #565190; cursor: not-allowed; opacity: 0.7; }
+.tier-nav:disabled:hover { background: transparent; box-shadow: none; color: #565190; transform: none; }
+.highest-cell { color: #fff; font-family: 'Trebuchet MS', Arial, sans-serif; font-size: 24px; font-weight: 700; margin: 0; text-align: center; }
+.highest-cell span { color: #fff; }
+.tier-requirement { color: #b8b1ff; font-family: 'Trebuchet MS', Arial, sans-serif; font-size: 12px; font-weight: 700; letter-spacing: 0.08em; margin: 7px 0 0; text-align: center; }
 button { background: #ff795f; border: 0; box-shadow: 4px 4px 0 #862f2a; color: #171c21; cursor: pointer; font-size: 13px; font-weight: 700; padding: 14px 22px; transition: transform 120ms ease, box-shadow 120ms ease; }
 button:hover { box-shadow: 2px 2px 0 #862f2a; transform: translate(2px, 2px); }
 button:focus-visible { outline: 2px solid #fff4d2; outline-offset: 4px; }
