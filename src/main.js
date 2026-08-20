@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { ANIMATION, CAMERA, COLORS, ENTITIES, GAME, LIGHTING, OBSTACLE_TYPES, SCENE } from './constants.js'
+import { ANIMATION, CAMERA, COLORS, ENTITIES, GAME, LIGHTING, OBSTACLE_TYPES, SCENE, SOUND } from './constants.js'
 import './style.css'
 
 document.querySelector('#app').innerHTML = `
@@ -29,6 +29,91 @@ const overlay = document.querySelector('#overlay')
 const overlayTitle = document.querySelector('#overlay-title')
 const overlayCopy = document.querySelector('#overlay-copy')
 const startButton = document.querySelector('#start-button')
+
+function createSoundSystem() {
+  let context
+  let masterGain
+
+  function initialize() {
+    if (!context) {
+      const AudioContext = window.AudioContext || window.webkitAudioContext
+      if (!AudioContext) return
+      context = new AudioContext()
+      masterGain = context.createGain()
+      masterGain.gain.value = SOUND.masterVolume
+      masterGain.connect(context.destination)
+    }
+    if (context.state === 'suspended') return context.resume()
+    return Promise.resolve()
+  }
+
+  function getSpatialMix(sourcePosition) {
+    const offset = sourcePosition.clone().sub(player.position)
+    offset.y = 0
+    const distance = offset.length()
+    const attenuation = THREE.MathUtils.lerp(
+      SOUND.spatialMinGain,
+      1,
+      (1 - THREE.MathUtils.clamp(distance / SOUND.spatialMaxDistance, 0, 1)) ** 2,
+    )
+    if (distance === 0) return { attenuation, pan: 0 }
+
+    const cameraRight = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion)
+    cameraRight.y = 0
+    cameraRight.normalize()
+    return { attenuation, pan: THREE.MathUtils.clamp(offset.normalize().dot(cameraRight), -1, 1) }
+  }
+
+  function playTone(frequency, duration, volume, sourcePosition, type = 'sine', endFrequency = frequency) {
+    if (!context || context.state !== 'running') return
+    const oscillator = context.createOscillator()
+    const gain = context.createGain()
+    const spatialGain = context.createGain()
+    const stereoPanner = context.createStereoPanner?.()
+    const now = context.currentTime
+    const { attenuation, pan } = getSpatialMix(sourcePosition)
+    oscillator.type = type
+    oscillator.frequency.setValueAtTime(frequency, now)
+    oscillator.frequency.linearRampToValueAtTime(endFrequency, now + duration)
+    gain.gain.setValueAtTime(0.0001, now)
+    gain.gain.exponentialRampToValueAtTime(volume, now + 0.008)
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + duration)
+    spatialGain.gain.setValueAtTime(attenuation, now)
+    oscillator.connect(gain)
+    gain.connect(spatialGain)
+    if (stereoPanner) {
+      stereoPanner.pan.setValueAtTime(pan, now)
+      spatialGain.connect(stereoPanner)
+      stereoPanner.connect(masterGain)
+    } else {
+      spatialGain.connect(masterGain)
+    }
+    oscillator.start(now)
+    oscillator.stop(now + duration)
+  }
+
+  return {
+    initialize,
+    playBangerPulse(progress, position) {
+      const frequency = THREE.MathUtils.lerp(SOUND.bangerPulseStartFrequency, SOUND.bangerPulseEndFrequency, progress)
+      playTone(frequency, SOUND.bangerPulseDuration, SOUND.bangerPulseVolume, position, 'square')
+    },
+    playFallingObstacle(position) {
+      playTone(SOUND.fallingObstacleStartFrequency, SOUND.fallingObstacleDuration, SOUND.fallingObstacleVolume, position, 'sawtooth', SOUND.fallingObstacleEndFrequency)
+    },
+    playCellCollect(position) {
+      playTone(SOUND.cellCollectStartFrequency, SOUND.cellCollectDuration, SOUND.cellCollectVolume, position, 'triangle', SOUND.cellCollectEndFrequency)
+    },
+    playObstacleSummon(position) {
+      playTone(SOUND.obstacleSummonStartFrequency, GAME.obstacleSpawnWarningDuration, SOUND.obstacleSummonVolume, position, 'sine', SOUND.obstacleSummonEndFrequency)
+    },
+    playButtonClick() {
+      playTone(SOUND.buttonClickStartFrequency, SOUND.buttonClickDuration, SOUND.buttonClickVolume, player.position, 'square', SOUND.buttonClickEndFrequency)
+    },
+  }
+}
+
+const soundSystem = createSoundSystem()
 
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true })
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, GAME.maxPixelRatio))
@@ -63,6 +148,18 @@ const grid = new THREE.GridHelper(GAME.arenaSize, GAME.arenaSize, COLORS.gridMaj
 grid.position.y = 0.01
 scene.add(grid)
 
+const arenaBoundary = new THREE.LineLoop(
+  new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(-GAME.arenaLimit, 0.04, -GAME.arenaLimit),
+    new THREE.Vector3(GAME.arenaLimit, 0.04, -GAME.arenaLimit),
+    new THREE.Vector3(GAME.arenaLimit, 0.04, GAME.arenaLimit),
+    new THREE.Vector3(-GAME.arenaLimit, 0.04, GAME.arenaLimit),
+  ]),
+  new THREE.LineDashedMaterial({ color: COLORS.arenaBoundary, dashSize: 0.45, gapSize: 0.2 }),
+)
+arenaBoundary.computeLineDistances()
+scene.add(arenaBoundary)
+
 const player = new THREE.Group()
 const playerCore = new THREE.Mesh(
   new THREE.IcosahedronGeometry(ENTITIES.playerCoreRadius, ENTITIES.playerCoreDetail),
@@ -83,14 +180,16 @@ const keys = new Set()
 const cells = []
 const obstacles = []
 const fallingObstacles = []
-const regularSpawnWarnings = []
+const explosions = []
+const bangerPulses = []
+const obstacleSpawnWarnings = []
 const timer = new THREE.Timer()
 let started = false
 let ended = false
 let score = 0
 let elapsed = 0
 let spawnTimer = 0
-let regularObstacleTimer = 0
+let obstacleSpawnTimer = 0
 let hazardTimer = 0
 
 const cellGeometry = new THREE.OctahedronGeometry(ENTITIES.cellRadius)
@@ -139,16 +238,31 @@ function addObstacle(type) {
   createObstacle(randomArenaPosition(GAME.obstacleMinDistance), type)
 }
 
-function scheduleRegularObstacle() {
+function scheduleObstacle() {
   const position = randomArenaPosition(GAME.obstacleMinDistance)
+  const types = Object.keys(OBSTACLE_TYPES)
+  const type = types[Math.floor(Math.random() * types.length)]
+  const obstacleType = OBSTACLE_TYPES[type]
   const ring = new THREE.Mesh(
-    new THREE.RingGeometry(ENTITIES.regularSpawnRingInnerRadius, ENTITIES.regularSpawnRingOuterRadius, ENTITIES.regularSpawnRingSegments),
-    new THREE.MeshBasicMaterial({ color: COLORS.regularSpawnRing, transparent: true, opacity: ANIMATION.regularSpawnRingBaseOpacity, side: THREE.DoubleSide, depthWrite: false }),
+    new THREE.RingGeometry(ENTITIES.spawnRingInnerRadius, ENTITIES.spawnRingOuterRadius, ENTITIES.spawnRingSegments),
+    new THREE.MeshBasicMaterial({ color: obstacleType.color, transparent: true, opacity: ANIMATION.spawnRingBaseOpacity, side: THREE.DoubleSide, depthWrite: false }),
   )
   ring.rotation.x = -Math.PI / 2
   ring.position.set(position.x, 0.03, position.z)
-  scene.add(ring)
-  regularSpawnWarnings.push({ ring, position, age: 0 })
+  const glow = new THREE.Mesh(
+    new THREE.CircleGeometry(ENTITIES.spawnCueGlowRadius, ENTITIES.spawnRingSegments),
+    new THREE.MeshBasicMaterial({ color: obstacleType.color, transparent: true, opacity: ANIMATION.spawnCueGlowBaseOpacity, depthWrite: false }),
+  )
+  glow.rotation.x = -Math.PI / 2
+  glow.position.set(position.x, 0.02, position.z)
+  const beam = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.42, 1.12, ENTITIES.spawnCueBeamHeight, ENTITIES.spawnRingSegments, 1, true),
+    new THREE.MeshBasicMaterial({ color: obstacleType.color, transparent: true, opacity: ANIMATION.spawnCueBeamBaseOpacity, side: THREE.DoubleSide, depthWrite: false }),
+  )
+  beam.position.set(position.x, ENTITIES.spawnCueBeamHeight / 2, position.z)
+  scene.add(ring, glow, beam)
+  obstacleSpawnWarnings.push({ ring, glow, beam, position, type, age: 0 })
+  soundSystem.playObstacleSummon(position)
 }
 
 function createObstacle(position, type) {
@@ -161,10 +275,10 @@ function createObstacle(position, type) {
   obstacle.userData.type = type
   obstacle.userData.age = 0
   obstacle.userData.speed = THREE.MathUtils.randFloat(0.8, 1.45)
-  if (type === 'chaser') {
+  if (type === 'chaser' || type === 'banger') {
     const rangeIndicator = new THREE.Mesh(
       new THREE.RingGeometry(obstacleType.range - ENTITIES.chaserRangeIndicatorWidth, obstacleType.range, ENTITIES.chaserRangeIndicatorSegments),
-      new THREE.MeshBasicMaterial({ color: COLORS.chaser, transparent: true, opacity: ANIMATION.chaserRangeIndicatorBaseOpacity, side: THREE.DoubleSide, depthWrite: false }),
+      new THREE.MeshBasicMaterial({ color: obstacleType.color, transparent: true, opacity: ANIMATION.chaserRangeIndicatorBaseOpacity, side: THREE.DoubleSide, depthWrite: false }),
     )
     rangeIndicator.rotation.x = -Math.PI / 2
     rangeIndicator.position.set(position.x, 0.025, position.z)
@@ -203,11 +317,63 @@ function createFallingObstacle(target) {
 
   scene.add(obstacle, shadow, targetRing)
   fallingObstacles.push({ obstacle, shadow, targetRing, target: target.clone(), age: 0, landed: false })
+  soundSystem.playFallingObstacle(target)
 }
 
 function clearObjects(objects) {
   for (const object of objects) scene.remove(object)
   objects.length = 0
+}
+
+function planarDistance(first, second) {
+  return Math.hypot(first.x - second.x, first.z - second.z)
+}
+
+function createExplosion(position, radius) {
+  const shockwave = new THREE.Mesh(
+    new THREE.RingGeometry(0.18, 0.42, 64),
+    new THREE.MeshBasicMaterial({ color: COLORS.banger, transparent: true, opacity: 1, side: THREE.DoubleSide, depthWrite: false }),
+  )
+  shockwave.rotation.x = -Math.PI / 2
+  shockwave.position.set(position.x, 0.05, position.z)
+  const blast = new THREE.Mesh(
+    new THREE.SphereGeometry(1, 24, 16),
+    new THREE.MeshBasicMaterial({ color: COLORS.banger, transparent: true, opacity: 0.65, wireframe: true, depthWrite: false }),
+  )
+  blast.position.set(position.x, 0.85, position.z)
+  const light = new THREE.PointLight(COLORS.banger, 10, radius * 2)
+  light.position.copy(blast.position)
+  scene.add(shockwave, blast, light)
+  explosions.push({ shockwave, blast, light, radius, age: 0 })
+}
+
+function createBangerPulse(position, radius, fuseProgress) {
+  const pulse = new THREE.Mesh(
+    new THREE.RingGeometry(0.22, 0.42, 48),
+    new THREE.MeshBasicMaterial({ color: COLORS.banger, transparent: true, opacity: 0.9, side: THREE.DoubleSide, depthWrite: false }),
+  )
+  pulse.rotation.x = -Math.PI / 2
+  pulse.position.set(position.x, 0.06, position.z)
+  scene.add(pulse)
+  bangerPulses.push({ pulse, radius, age: 0 })
+  soundSystem.playBangerPulse(fuseProgress, position)
+}
+
+function detonateBanger(banger) {
+  const position = banger.position.clone()
+  const radius = OBSTACLE_TYPES.banger.range
+  const playerInRange = planarDistance(player.position, position) <= radius
+
+  for (let index = obstacles.length - 1; index >= 0; index -= 1) {
+    const obstacle = obstacles[index]
+    if (planarDistance(obstacle.position, position) <= radius) {
+      scene.remove(obstacle, obstacle.userData.rangeIndicator)
+      obstacles.splice(index, 1)
+    }
+  }
+
+  createExplosion(position, radius)
+  if (playerInRange) endGame()
 }
 
 function resetGame() {
@@ -216,13 +382,17 @@ function resetGame() {
   obstacles.length = 0
   for (const fallingObstacle of fallingObstacles) scene.remove(fallingObstacle.obstacle, fallingObstacle.shadow, fallingObstacle.targetRing)
   fallingObstacles.length = 0
-  for (const warning of regularSpawnWarnings) scene.remove(warning.ring)
-  regularSpawnWarnings.length = 0
+  for (const explosion of explosions) scene.remove(explosion.shockwave, explosion.blast, explosion.light)
+  explosions.length = 0
+  for (const bangerPulse of bangerPulses) scene.remove(bangerPulse.pulse)
+  bangerPulses.length = 0
+  for (const warning of obstacleSpawnWarnings) scene.remove(warning.ring, warning.glow, warning.beam)
+  obstacleSpawnWarnings.length = 0
   player.position.set(0, GAME.playerStartHeight, 0)
   score = 0
   elapsed = 0
   spawnTimer = 0
-  regularObstacleTimer = 0
+  obstacleSpawnTimer = 0
   hazardTimer = 0
   scoreElement.textContent = '000'
   timeElement.textContent = '00:00'
@@ -247,6 +417,11 @@ function updateHud() {
 }
 
 function updateGame(delta, total) {
+  const regularObstacleLifetime = GAME.regularObstacleLifetime + score * GAME.regularObstacleLifetimeIncreasePerCell
+  const obstacleSpawnInterval = Math.max(
+    GAME.obstacleSpawnWarningDuration,
+    GAME.obstacleSpawnInterval - score * GAME.obstacleSpawnDecreasePerCell,
+  )
   const direction = new THREE.Vector3(
     (keys.has('KeyD') || keys.has('ArrowRight') ? 1 : 0) - (keys.has('KeyA') || keys.has('ArrowLeft') ? 1 : 0),
     0,
@@ -270,6 +445,7 @@ function updateGame(delta, total) {
     cell.rotation.y += delta * ANIMATION.cellSpinSpeed
     cell.position.y = ANIMATION.cellBobBaseHeight + Math.sin(total * ANIMATION.cellBobSpeed + cell.userData.phase) * ANIMATION.cellBobAmplitude
     if (cell.position.distanceTo(player.position) < GAME.cellPickupRadius) {
+      soundSystem.playCellCollect(cell.position)
       scene.remove(cell)
       cells.splice(index, 1)
       score += 1
@@ -277,12 +453,13 @@ function updateGame(delta, total) {
     }
   }
 
+  const bangersToDetonate = []
   for (let index = obstacles.length - 1; index >= 0; index -= 1) {
     const obstacle = obstacles[index]
     const obstacleType = OBSTACLE_TYPES[obstacle.userData.type]
     if (obstacle.userData.type === 'regular') {
       obstacle.userData.age += delta
-      if (obstacle.userData.age > GAME.regularObstacleLifetime) {
+      if (obstacle.userData.age > regularObstacleLifetime) {
         scene.remove(obstacle)
         obstacles.splice(index, 1)
         continue
@@ -305,7 +482,52 @@ function updateGame(delta, total) {
     }
     obstacle.rotation.y += delta * obstacle.userData.speed
     obstacle.position.y = ANIMATION.obstacleBobBaseHeight + Math.sin(total * ANIMATION.obstacleBobSpeed + obstacle.position.x) * ANIMATION.obstacleBobAmplitude
+    if (obstacle.userData.type === 'banger') {
+      obstacle.userData.age += delta
+      const fuseProgress = Math.min(obstacle.userData.age / ENTITIES.bangerFuseDuration, 1)
+      const fusePulse = (Math.sin(obstacle.userData.age * ANIMATION.bangerFusePulseSpeed) + 1) / 2
+      obstacle.material.emissiveIntensity = ANIMATION.bangerFuseEmissiveBaseIntensity + fusePulse * ANIMATION.bangerFuseEmissivePulseAmount
+      obstacle.userData.pulseTimer = (obstacle.userData.pulseTimer ?? 0) + delta
+      const pulseInterval = THREE.MathUtils.lerp(GAME.bangerPulseStartInterval, GAME.bangerPulseEndInterval, fuseProgress)
+      if (obstacle.userData.pulseTimer >= pulseInterval) {
+        createBangerPulse(obstacle.position, obstacleType.range, fuseProgress)
+        obstacle.userData.pulseTimer = 0
+      }
+      if (obstacle.userData.age >= ENTITIES.bangerFuseDuration) bangersToDetonate.push(obstacle)
+      continue
+    }
     if (obstacle.position.distanceTo(player.position) < GAME.playerRadius) endGame()
+  }
+
+  for (const banger of bangersToDetonate) {
+    if (obstacles.includes(banger)) detonateBanger(banger)
+  }
+
+  for (let index = explosions.length - 1; index >= 0; index -= 1) {
+    const explosion = explosions[index]
+    explosion.age += delta
+    const progress = Math.min(explosion.age / GAME.bangerExplosionVfxDuration, 1)
+    explosion.shockwave.scale.setScalar(THREE.MathUtils.lerp(0.3, explosion.radius / 0.42, progress))
+    explosion.shockwave.material.opacity = 1 - progress
+    explosion.blast.scale.setScalar(THREE.MathUtils.lerp(0.2, explosion.radius, progress))
+    explosion.blast.material.opacity = 0.65 * (1 - progress)
+    explosion.light.intensity = 10 * (1 - progress)
+    if (progress === 1) {
+      scene.remove(explosion.shockwave, explosion.blast, explosion.light)
+      explosions.splice(index, 1)
+    }
+  }
+
+  for (let index = bangerPulses.length - 1; index >= 0; index -= 1) {
+    const bangerPulse = bangerPulses[index]
+    bangerPulse.age += delta
+    const progress = Math.min(bangerPulse.age / GAME.bangerPulseVfxDuration, 1)
+    bangerPulse.pulse.scale.setScalar(THREE.MathUtils.lerp(0.2, bangerPulse.radius / 0.42, progress))
+    bangerPulse.pulse.material.opacity = 0.9 * (1 - progress)
+    if (progress === 1) {
+      scene.remove(bangerPulse.pulse)
+      bangerPulses.splice(index, 1)
+    }
   }
 
   for (let index = fallingObstacles.length - 1; index >= 0; index -= 1) {
@@ -337,32 +559,38 @@ function updateGame(delta, total) {
     }
   }
 
-  for (let index = regularSpawnWarnings.length - 1; index >= 0; index -= 1) {
-    const warning = regularSpawnWarnings[index]
+  for (let index = obstacleSpawnWarnings.length - 1; index >= 0; index -= 1) {
+    const warning = obstacleSpawnWarnings[index]
     warning.age += delta
-    const progress = warning.age / GAME.regularObstacleSpawnWarningDuration
-    const pulse = 1 + Math.sin(warning.age * ANIMATION.regularSpawnRingPulseSpeed) * ANIMATION.regularSpawnRingPulseAmount
-    warning.ring.scale.setScalar((ANIMATION.regularSpawnRingBaseScale + progress * ANIMATION.regularSpawnRingScaleGrowth) * pulse)
-    warning.ring.material.opacity = ANIMATION.regularSpawnRingBaseOpacity * (1 - progress)
+    const progress = warning.age / GAME.obstacleSpawnWarningDuration
+    const pulse = 1 + Math.sin(warning.age * ANIMATION.spawnRingPulseSpeed) * ANIMATION.spawnRingPulseAmount
+    warning.ring.scale.setScalar((ANIMATION.spawnRingBaseScale + progress * ANIMATION.spawnRingScaleGrowth) * pulse)
+    warning.ring.material.opacity = ANIMATION.spawnRingBaseOpacity * (1 - progress)
     warning.ring.rotation.z -= delta * 2
+    const glowPulse = 1 + Math.sin(warning.age * ANIMATION.spawnRingPulseSpeed * 0.55) * ANIMATION.spawnCueGlowPulseAmount
+    warning.glow.scale.setScalar(glowPulse * (0.85 + progress * 0.25))
+    warning.glow.material.opacity = ANIMATION.spawnCueGlowBaseOpacity * (1 - progress * 0.3)
+    warning.beam.scale.set(0.8 + progress * 0.2, 1, 0.8 + progress * 0.2)
+    warning.beam.material.opacity = ANIMATION.spawnCueBeamBaseOpacity * (1 - progress * 0.45)
+    warning.beam.rotation.y += delta * 1.6
 
     if (progress >= 1) {
-      createObstacle(warning.position, 'regular')
-      scene.remove(warning.ring)
-      regularSpawnWarnings.splice(index, 1)
+      createObstacle(warning.position, warning.type)
+      scene.remove(warning.ring, warning.glow, warning.beam)
+      obstacleSpawnWarnings.splice(index, 1)
     }
   }
 
   spawnTimer += delta
-  regularObstacleTimer += delta
+  obstacleSpawnTimer += delta
   hazardTimer += delta
   if (spawnTimer > GAME.cellSpawnInterval) {
     addCell()
     spawnTimer = 0
   }
-  if (regularObstacleTimer > GAME.regularObstacleSpawnInterval) {
-    scheduleRegularObstacle()
-    regularObstacleTimer = 0
+  if (obstacleSpawnTimer > obstacleSpawnInterval) {
+    scheduleObstacle()
+    obstacleSpawnTimer = 0
   }
   if (hazardTimer > Math.max(GAME.fallingBlockMinInterval, GAME.fallingBlockBaseInterval - score * GAME.fallingBlockIntervalPerCell)) {
     scheduleFallingObstacles()
@@ -384,7 +612,9 @@ function animate() {
   renderer.render(scene, camera)
 }
 
-startButton.addEventListener('click', () => {
+startButton.addEventListener('click', async () => {
+  await soundSystem.initialize()
+  soundSystem.playButtonClick()
   resetGame()
   started = true
   ended = false
