@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { ANIMATION, CAMERA, COLORS, DIFFICULTY, ENTITIES, GAME, LIGHTING, OBSTACLE_TYPES, SCENE, SOUND } from './constants.js'
+import { RESEARCH_CONFIG } from './research_config.js'
 import './style.css'
 
 document.querySelector('#app').innerHTML = `
@@ -19,20 +20,32 @@ document.querySelector('#app').innerHTML = `
     <aside class="instructions"><b>MOVE</b><span>WASD / ARROW KEYS</span></aside>
     <div class="cash-indicators" id="cash-indicators" aria-live="polite"></div>
     <section class="overlay" id="overlay" aria-live="polite">
-      <p class="eyebrow">SYSTEM OVERRIDE</p>
-      <h1 id="overlay-title">NEON DRIFT</h1>
-      <p id="overlay-copy">Collect energy cells. Avoid the rising blocks.</p>
-      <div class="tier-selection" aria-label="Difficulty tier selection">
-        <div class="tier-heading"><span class="tier-icon" aria-hidden="true">✦</span><span>Difficulty</span></div>
-        <div class="tier-carousel">
-          <button class="tier-nav" id="previous-tier" type="button" aria-label="Select previous tier">‹</button>
-          <span class="tier-options" id="tier-options" aria-live="polite"></span>
-          <button class="tier-nav" id="next-tier" type="button" aria-label="Select next tier">›</button>
+      <div class="menu-content" id="menu-content">
+        <p class="eyebrow">SYSTEM OVERRIDE</p>
+        <h1 id="overlay-title">NEON DRIFT</h1>
+        <p id="overlay-copy">Collect energy cells. Avoid the rising blocks.</p>
+        <div class="tier-selection" aria-label="Difficulty tier selection">
+          <div class="tier-heading"><span class="tier-icon" aria-hidden="true">✦</span><span>Difficulty</span></div>
+          <div class="tier-carousel">
+            <button class="tier-nav" id="previous-tier" type="button" aria-label="Select previous tier">‹</button>
+            <span class="tier-options" id="tier-options" aria-live="polite"></span>
+            <button class="tier-nav" id="next-tier" type="button" aria-label="Select next tier">›</button>
+          </div>
+          <p class="highest-cell">HIGHEST CELL: <span id="highest-cells">000</span></p>
+          <p class="tier-requirement" id="tier-requirement"></p>
         </div>
-        <p class="highest-cell">HIGHEST CELL: <span id="highest-cells">000</span></p>
-        <p class="tier-requirement" id="tier-requirement"></p>
+        <div class="menu-actions">
+          <button id="start-button" type="button">START RUN</button>
+          <button class="secondary-button" id="open-lab-button" type="button">RESEARCH LAB</button>
+        </div>
       </div>
-      <button id="start-button" type="button">START RUN</button>
+      <section class="lab-panel hidden" id="lab-panel" aria-label="Research Lab">
+        <div class="lab-header"><div><p class="eyebrow">PERMANENT UPGRADES</p><h2>RESEARCH LAB</h2></div><button class="secondary-button" id="close-lab-button" type="button">BACK</button></div>
+        <p class="lab-balance">CASH <span id="lab-cash">$0</span> · CHRONOSHARDS <span id="lab-chronoshards">✦ 0</span></p>
+        <p class="lab-message" id="lab-message" aria-live="polite"></p>
+        <h3>ACTIVE SLOTS</h3><div class="research-slots" id="research-slots"></div>
+        <h3>AVAILABLE RESEARCH</h3><div class="research-list" id="research-list"></div>
+      </section>
     </section>
   </main>
 `
@@ -44,6 +57,15 @@ const overlay = document.querySelector('#overlay')
 const overlayTitle = document.querySelector('#overlay-title')
 const overlayCopy = document.querySelector('#overlay-copy')
 const startButton = document.querySelector('#start-button')
+const menuContent = document.querySelector('#menu-content')
+const labPanel = document.querySelector('#lab-panel')
+const openLabButton = document.querySelector('#open-lab-button')
+const closeLabButton = document.querySelector('#close-lab-button')
+const labCashElement = document.querySelector('#lab-cash')
+const labChronoshardsElement = document.querySelector('#lab-chronoshards')
+const labMessageElement = document.querySelector('#lab-message')
+const researchSlotsElement = document.querySelector('#research-slots')
+const researchListElement = document.querySelector('#research-list')
 const cashElement = document.querySelector('#cash')
 const chronoshardsElement = document.querySelector('#chronoshards')
 const cashIndicators = document.querySelector('#cash-indicators')
@@ -58,6 +80,7 @@ const TIER_STORAGE_KEY = 'neon-drift-selected-tier'
 const TIER_HIGH_SCORES_STORAGE_KEY = 'neon-drift-tier-high-scores'
 const CASH_STORAGE_KEY = 'neon-drift-cash'
 const CHRONOSHARDS_STORAGE_KEY = 'neon-drift-chronoshards'
+const RESEARCH_LAB_STORAGE_KEY = 'neon-drift-research-lab'
 const tierKeys = Object.keys(DIFFICULTY)
 
 function readStoredNumber(key, fallback = 0) {
@@ -115,6 +138,175 @@ const tierHighScores = readStoredTierHighScores()
 let cash = readStoredNumber(CASH_STORAGE_KEY)
 let chronoshards = readStoredNumber(CHRONOSHARDS_STORAGE_KEY)
 
+function createDefaultResearchState() {
+  return { unlockedSlots: 1, levels: {}, slots: Array(RESEARCH_CONFIG.maxSlots).fill(null) }
+}
+
+function readResearchState() {
+  try {
+    const storedState = JSON.parse(window.localStorage.getItem(RESEARCH_LAB_STORAGE_KEY))
+    if (!storedState || typeof storedState !== 'object') return createDefaultResearchState()
+    return {
+      unlockedSlots: THREE.MathUtils.clamp(Number.parseInt(storedState.unlockedSlots, 10) || 1, 1, RESEARCH_CONFIG.maxSlots),
+      levels: storedState.levels && typeof storedState.levels === 'object' ? storedState.levels : {},
+      slots: Array.from({ length: RESEARCH_CONFIG.maxSlots }, (_, index) => storedState.slots?.[index] ?? null),
+    }
+  } catch {
+    return createDefaultResearchState()
+  }
+}
+
+const researchState = readResearchState()
+
+function saveResearchState() {
+  try {
+    window.localStorage.setItem(RESEARCH_LAB_STORAGE_KEY, JSON.stringify(researchState))
+  } catch {
+    // Research continues for the current session when storage is unavailable.
+  }
+}
+
+function getResearchById(researchId) {
+  return RESEARCH_CONFIG.researches.find((research) => research.id === researchId)
+}
+
+function getResearchLevel(researchId) {
+  return researchState.levels[researchId] ?? 0
+}
+
+function getResearchStatBonus(stat) {
+  return RESEARCH_CONFIG.researches
+    .filter((research) => research.effect.stat === stat)
+    .reduce((total, research) => total + getResearchLevel(research.id) * research.effect.perLevel, 0)
+}
+
+function getResearchCost(research, level) {
+  const amount = research.cost.base * research.cost.multiplier ** level
+  return research.cost.currency === 'cash' ? Math.round(amount * 100) / 100 : Math.ceil(amount)
+}
+
+function getResearchDuration(research, level) {
+  return Math.round(research.duration.baseMs * research.duration.multiplier ** level)
+}
+
+function formatResearchEffect(research, level) {
+  const effect = level * research.effect.perLevel
+  return research.effect.format === 'percent' ? `+${(effect * 100).toFixed(effect * 100 % 1 ? 1 : 0)}%` : String(effect)
+}
+
+function formatDuration(milliseconds) {
+  const totalSeconds = Math.max(0, Math.ceil(milliseconds / 1000))
+  const hours = Math.floor(totalSeconds / 3600)
+  const minutes = Math.floor((totalSeconds % 3600) / 60)
+  const seconds = totalSeconds % 60
+  if (hours > 0) return `${hours}h ${minutes}m`
+  if (minutes > 0) return `${minutes}m ${seconds}s`
+  return `${seconds}s`
+}
+
+function formatCurrency(currency, amount) {
+  return currency === 'cash'
+    ? `$${amount.toLocaleString(undefined, { maximumFractionDigits: 2 })}`
+    : `✦ ${amount.toLocaleString()}`
+}
+
+function getResearchLockReason(research) {
+  const requirements = research.requirements ?? {}
+  if (requirements.minTier && getUnlockedTierIndex(bankedCells) + 1 < requirements.minTier) return `Requires Tier ${requirements.minTier}`
+  if (requirements.minBankedCells && bankedCells < requirements.minBankedCells) return `Requires ${requirements.minBankedCells} banked cells`
+  for (const [researchId, level] of Object.entries(requirements.researchLevels ?? {})) {
+    if (getResearchLevel(researchId) < level) return `Requires ${getResearchById(researchId).name} Lv. ${level}`
+  }
+  return ''
+}
+
+function completeFinishedResearches() {
+  const now = Date.now()
+  let changed = false
+  for (let index = 0; index < researchState.unlockedSlots; index += 1) {
+    const slot = researchState.slots[index]
+    if (!slot || slot.completesAt > now) continue
+    const research = getResearchById(slot.researchId)
+    researchState.levels[slot.researchId] = Math.min(getResearchLevel(slot.researchId) + 1, research.maxLevel)
+    researchState.slots[index] = null
+    changed = true
+  }
+  if (changed) saveResearchState()
+  return changed
+}
+
+function setLabMessage(message = '') {
+  labMessageElement.textContent = message
+}
+
+function renderResearchLab() {
+  completeFinishedResearches()
+  labCashElement.textContent = `$${cash.toLocaleString(undefined, { maximumFractionDigits: 2 })}`
+  labChronoshardsElement.textContent = `✦ ${chronoshards.toLocaleString()}`
+  const now = Date.now()
+  researchSlotsElement.innerHTML = researchState.slots.map((slot, index) => {
+    const slotNumber = index + 1
+    if (slot) {
+      const research = getResearchById(slot.researchId)
+      const duration = getResearchDuration(research, slot.level)
+      const remaining = Math.max(0, slot.completesAt - now)
+      const progress = THREE.MathUtils.clamp(1 - remaining / duration, 0, 1) * 100
+      return `<article class="research-slot active"><span>SLOT ${slotNumber}</span><strong>${research.name} · Lv. ${slot.level + 1}</strong><div class="research-progress"><i style="width:${progress}%"></i></div><small>${formatDuration(remaining)} remaining</small></article>`
+    }
+    if (slotNumber <= researchState.unlockedSlots) return `<article class="research-slot"><span>SLOT ${slotNumber}</span><strong>AVAILABLE</strong><small>Select a research below.</small></article>`
+    const unlock = RESEARCH_CONFIG.slotUnlocks.find((entry) => entry.slot === slotNumber)
+    const tierUnlocked = !unlock.requirements?.minTier || getUnlockedTierIndex(bankedCells) + 1 >= unlock.requirements.minTier
+    const canAfford = unlock.cost.currency === 'cash' ? cash >= unlock.cost.amount : chronoshards >= unlock.cost.amount
+    const disabled = tierUnlocked && canAfford ? '' : 'disabled'
+    const requirement = tierUnlocked ? `Unlock for ${formatCurrency(unlock.cost.currency, unlock.cost.amount)}` : `Requires Tier ${unlock.requirements.minTier}`
+    return `<article class="research-slot locked"><span>SLOT ${slotNumber}</span><strong>LOCKED</strong><button data-unlock-slot="${slotNumber}" type="button" ${disabled}>${requirement}</button></article>`
+  }).join('')
+
+  researchListElement.innerHTML = RESEARCH_CONFIG.researches.map((research) => {
+    const level = getResearchLevel(research.id)
+    const lockReason = getResearchLockReason(research)
+    const active = researchState.slots.some((slot) => slot?.researchId === research.id)
+    const full = level >= research.maxLevel
+    const cost = getResearchCost(research, level)
+    const duration = getResearchDuration(research, level)
+    const canAfford = research.cost.currency === 'cash' ? cash >= cost : chronoshards >= cost
+    const disabled = lockReason || active || full || !canAfford || !researchState.slots.slice(0, researchState.unlockedSlots).some((slot) => !slot)
+    const status = full ? 'MAX LEVEL' : active ? 'IN PROGRESS' : lockReason || `Cost ${formatCurrency(research.cost.currency, cost)} · ${formatDuration(duration)}`
+    return `<article class="research-card"><div><span class="research-level">LV. ${level}/${research.maxLevel}</span><h4>${research.name}</h4><p>${research.description}</p><p class="research-effect">${formatResearchEffect(research, level)} → ${formatResearchEffect(research, Math.min(level + 1, research.maxLevel))}</p><small>${status}</small></div><button data-start-research="${research.id}" type="button" ${disabled ? 'disabled' : ''}>${full ? 'MAXED' : 'RESEARCH'}</button></article>`
+  }).join('')
+}
+
+function startResearch(researchId) {
+  completeFinishedResearches()
+  const research = getResearchById(researchId)
+  const level = getResearchLevel(researchId)
+  const lockReason = getResearchLockReason(research)
+  const emptySlot = researchState.slots.slice(0, researchState.unlockedSlots).findIndex((slot) => !slot)
+  const cost = getResearchCost(research, level)
+  const balance = research.cost.currency === 'cash' ? cash : chronoshards
+  if (lockReason || level >= research.maxLevel || emptySlot < 0 || researchState.slots.some((slot) => slot?.researchId === researchId) || balance < cost) return
+  if (research.cost.currency === 'cash') updateCash(-cost)
+  else updateChronoshards(-cost)
+  researchState.slots[emptySlot] = { researchId, level, completesAt: Date.now() + getResearchDuration(research, level) }
+  saveResearchState()
+  setLabMessage(`${research.name} research started in Slot ${emptySlot + 1}.`)
+  renderResearchLab()
+}
+
+function unlockResearchSlot(slotNumber) {
+  const unlock = RESEARCH_CONFIG.slotUnlocks.find((entry) => entry.slot === slotNumber)
+  if (!unlock || slotNumber !== researchState.unlockedSlots + 1) return
+  if (unlock.requirements?.minTier && getUnlockedTierIndex(bankedCells) + 1 < unlock.requirements.minTier) return
+  const balance = unlock.cost.currency === 'cash' ? cash : chronoshards
+  if (balance < unlock.cost.amount) return
+  if (unlock.cost.currency === 'cash') updateCash(-unlock.cost.amount)
+  else updateChronoshards(-unlock.cost.amount)
+  researchState.unlockedSlots = slotNumber
+  saveResearchState()
+  setLabMessage(`Research Slot ${slotNumber} unlocked.`)
+  renderResearchLab()
+}
+
 function getCurrentDifficulty() {
   return DIFFICULTY[tierKeys[selectedTierIndex]]
 }
@@ -129,12 +321,14 @@ function updateCash(amount = 0) {
   cash = Math.round((cash + amount) * 100) / 100
   writeStoredNumber(CASH_STORAGE_KEY, cash)
   cashElement.textContent = `$${cash.toLocaleString(undefined, { maximumFractionDigits: 2, minimumFractionDigits: cash % 1 === 0 ? 0 : 2 })}`
+  renderResearchLab()
 }
 
 function updateChronoshards(amount = 0) {
   chronoshards += amount
   writeStoredNumber(CHRONOSHARDS_STORAGE_KEY, chronoshards)
   chronoshardsElement.textContent = `✦ ${chronoshards}`
+  renderResearchLab()
 }
 
 function showCashIndicator(position, amount) {
@@ -463,7 +657,7 @@ function addCell() {
   cell.position.copy(randomArenaPosition(GAME.cellMinDistance))
   cell.position.y = GAME.playerStartHeight
   cell.userData.phase = Math.random() * Math.PI * 2
-  cell.userData.cashValue = GAME.cellCashValue * getCurrentDifficulty().cashValueMultiplier
+  cell.userData.cashValue = GAME.cellCashValue * getCurrentDifficulty().cashValueMultiplier * (1 + getResearchStatBonus('cashMultiplier'))
   scene.add(cell)
   cells.push(cell)
 }
@@ -694,7 +888,7 @@ function updateGame(delta, total) {
 
   if (direction.lengthSq() > 0) {
     direction.normalize()
-    player.position.addScaledVector(direction, GAME.playerSpeed * delta)
+    player.position.addScaledVector(direction, GAME.playerSpeed * (1 + getResearchStatBonus('playerSpeedMultiplier')) * delta)
     player.rotation.y = Math.atan2(direction.x, direction.z)
   }
 
@@ -880,7 +1074,7 @@ function updateGame(delta, total) {
     addCell()
     spawnTimer = 0
   }
-  if (chronoCellTimer > GAME.chronoCellSpawnInterval) {
+  if (chronoCellTimer > GAME.chronoCellSpawnInterval / (1 + getResearchStatBonus('chronoSpawnRate'))) {
     addChronoCell()
     chronoCellTimer = 0
   }
@@ -914,7 +1108,28 @@ startButton.addEventListener('click', async () => {
   resetGame()
   started = true
   ended = false
+  labPanel.classList.add('hidden')
+  menuContent.classList.remove('hidden')
   overlay.classList.add('hidden')
+})
+
+openLabButton.addEventListener('click', () => {
+  menuContent.classList.add('hidden')
+  labPanel.classList.remove('hidden')
+  setLabMessage()
+  renderResearchLab()
+})
+
+closeLabButton.addEventListener('click', () => {
+  labPanel.classList.add('hidden')
+  menuContent.classList.remove('hidden')
+})
+
+labPanel.addEventListener('click', (event) => {
+  const startResearchButton = event.target.closest('[data-start-research]')
+  const unlockSlotButton = event.target.closest('[data-unlock-slot]')
+  if (startResearchButton) startResearch(startResearchButton.dataset.startResearch)
+  if (unlockSlotButton) unlockResearchSlot(Number.parseInt(unlockSlotButton.dataset.unlockSlot, 10))
 })
 
 window.addEventListener('keydown', (event) => {
@@ -929,8 +1144,13 @@ window.addEventListener('resize', () => {
 })
 
 applyDifficulty()
+completeFinishedResearches()
 updateBankedCells()
 updateCash()
 updateChronoshards()
+renderResearchLab()
 resetGame()
 animate()
+setInterval(() => {
+  if (completeFinishedResearches() || !labPanel.classList.contains('hidden')) renderResearchLab()
+}, 1000)
