@@ -5,10 +5,10 @@ import './style.css'
 
 document.querySelector('#app').innerHTML = `
   <main class="game-shell">
-    <canvas id="game" aria-label="Neon Drift game canvas"></canvas>
+    <canvas id="game" aria-label="Astroid Belt game canvas"></canvas>
     <header class="hud">
       <div class="hud-left">
-        <div class="brand"><span class="brand-mark"></span>NEON DRIFT</div>
+        <div class="brand"><span class="brand-mark"></span>ASTROID BELT</div>
         <div class="cash-balance">CASH <span id="cash">$000</span></div>
         <div class="chronoshard-balance">CHRONOSHARDS <span id="chronoshards">✦ 0</span></div>
       </div>
@@ -22,8 +22,8 @@ document.querySelector('#app').innerHTML = `
     <section class="overlay" id="overlay" aria-live="polite">
       <div class="menu-content" id="menu-content">
         <p class="eyebrow">SYSTEM OVERRIDE</p>
-        <h1 id="overlay-title">NEON DRIFT</h1>
-        <p id="overlay-copy">Collect energy cells. Avoid the rising blocks.</p>
+        <h1 id="overlay-title">ASTROID BELT</h1>
+        <p id="overlay-copy">Collect energy cells. Avoid the obstacles.</p>
         <div class="tier-selection" aria-label="Difficulty tier selection">
           <div class="tier-heading"><span class="tier-icon" aria-hidden="true">✦</span><span>Difficulty</span></div>
           <div class="tier-carousel">
@@ -75,12 +75,12 @@ const tierOptions = document.querySelector('#tier-options')
 const previousTierButton = document.querySelector('#previous-tier')
 const nextTierButton = document.querySelector('#next-tier')
 
-const CELL_BANK_STORAGE_KEY = 'neon-drift-banked-cells'
-const TIER_STORAGE_KEY = 'neon-drift-selected-tier'
-const TIER_HIGH_SCORES_STORAGE_KEY = 'neon-drift-tier-high-scores'
-const CASH_STORAGE_KEY = 'neon-drift-cash'
-const CHRONOSHARDS_STORAGE_KEY = 'neon-drift-chronoshards'
-const RESEARCH_LAB_STORAGE_KEY = 'neon-drift-research-lab'
+const CELL_BANK_STORAGE_KEY = 'astroid-belt-banked-cells'
+const TIER_STORAGE_KEY = 'astroid-belt-selected-tier'
+const TIER_HIGH_SCORES_STORAGE_KEY = 'astroid-belt-tier-high-scores'
+const CASH_STORAGE_KEY = 'astroid-belt-cash'
+const CHRONOSHARDS_STORAGE_KEY = 'astroid-belt-chronoshards'
+const RESEARCH_LAB_STORAGE_KEY = 'astroid-belt-research-lab'
 const tierKeys = Object.keys(DIFFICULTY)
 
 function readStoredNumber(key, fallback = 0) {
