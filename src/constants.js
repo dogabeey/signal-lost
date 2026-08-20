@@ -6,10 +6,16 @@ export const GAME = {
   playerStartHeight: 0.75,
   playerRadius: 1.05,
   cellPickupRadius: 1.15,
+  cellCashValue: 1,
+  baseCellCashValue: 1,
   initialCellCount: 5,
   initialObstacleTypes: ['regular', 'chaser', 'creeper'],
   cellSpawnInterval: 6,
   cellMinDistance: 3,
+  chronoCellSpawnInterval: 24,
+  chronoCellLifetime: 7,
+  chronoCellMinDistance: 4,
+  chronoCellChronoshardValue: 1,
   obstacleMinDistance: 4,
   obstacleSpawnInterval: 8,
   obstacleSpawnDecreasePerCell: 0.04,
@@ -35,6 +41,8 @@ export const DIFFICULTY = {
     extraArenaPadding: 0, // Extra padding added to the arena size and playable area for this difficulty tier. A positive value increases the arena size, while a negative value decreases it.
     cellsRequiredToAdvance: 10, // Number of cells the player must collect to advance to the next difficulty tier.
 
+    cashValueMultiplier: 1, // Multiplier applied to the base cell cash value defined in the GAME constant. A positive value increases the cash value, while a negative value decreases it.
+
     availableObstacleTypes: ['regular', 'creeper'], // Available obstacle types for this difficulty tier. If an obstacle type is not included here, it will not spawn in this tier.
     obstacleSpawnIntervalOffset: 3, // This offset is added to the base obstacle spawn interval defined in the GAME constant. A positive value increases the interval (slower spawning), while a negative value decreases it (faster spawning).
     obstacleSpawnDecreasePerCellOffset: -0.01, // This offset is added to the base obstacle spawn decrease per cell defined in the GAME constant. A positive value increases the decrease (faster spawning as cells are collected), while a negative value decreases it (slower spawning as cells are collected).
@@ -47,8 +55,10 @@ export const DIFFICULTY = {
     creeperSpawnWeight: 0.2, // Weight for spawning creeper obstacles. A higher value increases the likelihood of spawning this type.
   },
   tier2: {
-    extraArenaPadding: 1,
+    extraArenaPadding: 0,
     cellsRequiredToAdvance: 20,
+
+    cashValueMultiplier: 1.2,
 
     availableObstacleTypes: ['regular', 'chaser', 'creeper'],
     obstacleSpawnIntervalOffset: 2,
@@ -60,8 +70,10 @@ export const DIFFICULTY = {
     creeperSpawnWeight: 0.1,
   },
   tier3: {
-    extraArenaPadding: 2,
+    extraArenaPadding: 0,
     cellsRequiredToAdvance: 30,
+
+    cashValueMultiplier: 1.5,
 
     availableObstacleTypes: ['regular', 'chaser', 'creeper', 'banger'],
     obstacleSpawnIntervalOffset: 1,
@@ -74,8 +86,11 @@ export const DIFFICULTY = {
     bangerSpawnWeight: 0.1,
   },
   tier4: {
-    extraArenaPadding: 3,
+    extraArenaPadding: 0,
     cellsRequiredToAdvance: 40,
+
+    cashValueMultiplier: 2,
+
     availableObstacleTypes: ['regular', 'chaser', 'creeper', 'banger'],
     obstacleSpawnIntervalOffset: 0,
     obstacleSpawnDecreasePerCellOffset: 0.02,
@@ -99,6 +114,8 @@ export const COLORS = {
   playerRing: '#ffe7a0',
   cell: '#63f5cd',
   cellEmissive: '#00b487',
+  chronoCell: '#b59aff',
+  chronoCellEmissive: '#5933c7',
   obstacle: '#41687c',
   obstacleEmissive: '#07141d',
   chaser: '#c36b55',
@@ -128,6 +145,8 @@ export const ENTITIES = {
   playerRingRadialSegments: 10,
   playerRingTubularSegments: 32,
   cellRadius: 0.42,
+  chronoCellRadius: 0.52,
+  chronoCellEmissiveIntensity: 2.4,
   obstacleRadius: 0.86,
   obstacleDetail: 2,
   obstacleSpikeAmplitude: 0.34,
@@ -159,6 +178,9 @@ export const ANIMATION = {
   cellBobBaseHeight: 0.8,
   cellBobAmplitude: 0.16,
   cellBobSpeed: 2.4,
+  chronoCellSpinSpeed: 3.6,
+  chronoCellBobSpeed: 3.2,
+  chronoCellBobAmplitude: 0.24,
   obstacleBobBaseHeight: 0.72,
   obstacleBobAmplitude: 0.12,
   obstacleBobSpeed: 1.8,

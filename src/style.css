@@ -33,6 +33,21 @@ button { font: inherit; }
 
 .brand { align-items: center; color: #f5f0d7; display: flex; font-size: 15px; font-weight: 700; gap: 10px; }
 .brand-mark { background: #ff795f; box-shadow: 0 0 18px #ff795f; clip-path: polygon(50% 0, 100% 100%, 0 100%); display: block; height: 18px; width: 18px; }
+.hud-left { display: grid; gap: 9px; }
+.cash-balance { color: #9ab6b8; font-family: 'Trebuchet MS', Arial, sans-serif; font-size: 13px; font-weight: 700; letter-spacing: 0.1em; }
+.cash-balance span { color: #63f5cd; font-size: 22px; margin-left: 7px; }
+.chronoshard-balance { color: #9ab6b8; font-family: 'Trebuchet MS', Arial, sans-serif; font-size: 10px; font-weight: 700; letter-spacing: 0.1em; }
+.chronoshard-balance span { color: #b59aff; font-size: 15px; margin-left: 6px; }
+.cash-indicators { inset: 0; pointer-events: none; position: absolute; z-index: 2; }
+.cash-indicator, .chronoshard-indicator { animation: cash-gain 800ms ease-out forwards; font-family: 'Trebuchet MS', Arial, sans-serif; font-size: 24px; font-weight: 700; left: 50%; position: absolute; top: 50%; transform: translate(-50%, -50%); }
+.cash-indicator { color: #63f5cd; text-shadow: 0 0 12px #00b487; }
+.chronoshard-indicator { color: #b59aff; text-shadow: 0 0 12px #5933c7; }
+
+@keyframes cash-gain {
+  from { opacity: 1; transform: translate(-50%, -50%) scale(0.85); }
+  25% { transform: translate(-50%, -72%) scale(1.15); }
+  to { opacity: 0; transform: translate(-50%, -180%) scale(1); }
+}
 .stats { display: flex; gap: 28px; margin: 0; text-align: right; }
 .stats div { min-width: 56px; }
 .stats dt { color: #9ab6b8; font-size: 10px; font-weight: 700; margin-bottom: 4px; }

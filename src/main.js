@@ -6,13 +6,18 @@ document.querySelector('#app').innerHTML = `
   <main class="game-shell">
     <canvas id="game" aria-label="Neon Drift game canvas"></canvas>
     <header class="hud">
-      <div class="brand"><span class="brand-mark"></span>NEON DRIFT</div>
+      <div class="hud-left">
+        <div class="brand"><span class="brand-mark"></span>NEON DRIFT</div>
+        <div class="cash-balance">CASH <span id="cash">$000</span></div>
+        <div class="chronoshard-balance">CHRONOSHARDS <span id="chronoshards">✦ 0</span></div>
+      </div>
       <dl class="stats">
         <div><dt>CELLS</dt><dd id="score">000</dd></div>
         <div><dt>TIME</dt><dd id="time">00:00</dd></div>
       </dl>
     </header>
     <aside class="instructions"><b>MOVE</b><span>WASD / ARROW KEYS</span></aside>
+    <div class="cash-indicators" id="cash-indicators" aria-live="polite"></div>
     <section class="overlay" id="overlay" aria-live="polite">
       <p class="eyebrow">SYSTEM OVERRIDE</p>
       <h1 id="overlay-title">NEON DRIFT</h1>
@@ -39,6 +44,9 @@ const overlay = document.querySelector('#overlay')
 const overlayTitle = document.querySelector('#overlay-title')
 const overlayCopy = document.querySelector('#overlay-copy')
 const startButton = document.querySelector('#start-button')
+const cashElement = document.querySelector('#cash')
+const chronoshardsElement = document.querySelector('#chronoshards')
+const cashIndicators = document.querySelector('#cash-indicators')
 const highestCellsElement = document.querySelector('#highest-cells')
 const tierRequirementElement = document.querySelector('#tier-requirement')
 const tierOptions = document.querySelector('#tier-options')
@@ -48,11 +56,13 @@ const nextTierButton = document.querySelector('#next-tier')
 const CELL_BANK_STORAGE_KEY = 'neon-drift-banked-cells'
 const TIER_STORAGE_KEY = 'neon-drift-selected-tier'
 const TIER_HIGH_SCORES_STORAGE_KEY = 'neon-drift-tier-high-scores'
+const CASH_STORAGE_KEY = 'neon-drift-cash'
+const CHRONOSHARDS_STORAGE_KEY = 'neon-drift-chronoshards'
 const tierKeys = Object.keys(DIFFICULTY)
 
 function readStoredNumber(key, fallback = 0) {
   try {
-    const value = Number.parseInt(window.localStorage.getItem(key), 10)
+    const value = Number(window.localStorage.getItem(key))
     return Number.isFinite(value) && value >= 0 ? value : fallback
   } catch {
     return fallback
@@ -102,6 +112,8 @@ function getUnlockedTierIndex(cells) {
 let bankedCells = readStoredNumber(CELL_BANK_STORAGE_KEY)
 let selectedTierIndex = Math.min(readStoredNumber(TIER_STORAGE_KEY), getUnlockedTierIndex(bankedCells))
 const tierHighScores = readStoredTierHighScores()
+let cash = readStoredNumber(CASH_STORAGE_KEY)
+let chronoshards = readStoredNumber(CHRONOSHARDS_STORAGE_KEY)
 
 function getCurrentDifficulty() {
   return DIFFICULTY[tierKeys[selectedTierIndex]]
@@ -111,6 +123,33 @@ function updateBankedCells(amount = 0) {
   bankedCells += amount
   writeStoredNumber(CELL_BANK_STORAGE_KEY, bankedCells)
   renderTierOptions()
+}
+
+function updateCash(amount = 0) {
+  cash = Math.round((cash + amount) * 100) / 100
+  writeStoredNumber(CASH_STORAGE_KEY, cash)
+  cashElement.textContent = `$${cash.toLocaleString(undefined, { maximumFractionDigits: 2, minimumFractionDigits: cash % 1 === 0 ? 0 : 2 })}`
+}
+
+function updateChronoshards(amount = 0) {
+  chronoshards += amount
+  writeStoredNumber(CHRONOSHARDS_STORAGE_KEY, chronoshards)
+  chronoshardsElement.textContent = `✦ ${chronoshards}`
+}
+
+function showCashIndicator(position, amount) {
+  showCurrencyIndicator(position, `+$${amount}`, 'cash-indicator')
+}
+
+function showCurrencyIndicator(position, text, className) {
+  const projectedPosition = position.clone().project(camera)
+  const indicator = document.createElement('span')
+  indicator.className = className
+  indicator.textContent = text
+  indicator.style.left = `${(projectedPosition.x * 0.5 + 0.5) * window.innerWidth}px`
+  indicator.style.top = `${(-projectedPosition.y * 0.5 + 0.5) * window.innerHeight}px`
+  indicator.addEventListener('animationend', () => indicator.remove())
+  cashIndicators.append(indicator)
 }
 
 function recordTierHighScore() {
@@ -127,7 +166,7 @@ function renderTierOptions() {
   tierOptions.textContent = `Tier ${selectedTierIndex + 1}`
   const tierKey = tierKeys[selectedTierIndex]
   highestCellsElement.textContent = String(tierHighScores[tierKey] ?? 0).padStart(3, '0')
-  tierRequirementElement.textContent = `CELLS REQUIRED: ${DIFFICULTY[tierKey].cellsRequiredToAdvance}`
+  tierRequirementElement.textContent = `CELLS REQUIRED TO NEXT TIER: ${DIFFICULTY[tierKey].cellsRequiredToAdvance}`
   previousTierButton.disabled = selectedTierIndex === 0
   nextTierButton.disabled = selectedTierIndex >= unlockedTierIndex
 }
@@ -368,6 +407,7 @@ scene.add(player)
 
 const keys = new Set()
 const cells = []
+const chronoCells = []
 const obstacles = []
 const fallingObstacles = []
 const explosions = []
@@ -379,10 +419,12 @@ let ended = false
 let score = 0
 let elapsed = 0
 let spawnTimer = 0
+let chronoCellTimer = 0
 let obstacleSpawnTimer = 0
 let hazardTimer = 0
 
 const cellGeometry = new THREE.OctahedronGeometry(ENTITIES.cellRadius)
+const chronoCellGeometry = new THREE.IcosahedronGeometry(ENTITIES.chronoCellRadius, 1)
 const obstacleGeometry = createSpikyBallGeometry()
 
 function createSpikyBallGeometry() {
@@ -421,8 +463,21 @@ function addCell() {
   cell.position.copy(randomArenaPosition(GAME.cellMinDistance))
   cell.position.y = GAME.playerStartHeight
   cell.userData.phase = Math.random() * Math.PI * 2
+  cell.userData.cashValue = GAME.cellCashValue * getCurrentDifficulty().cashValueMultiplier
   scene.add(cell)
   cells.push(cell)
+}
+
+function addChronoCell() {
+  if (chronoCells.length > 0) return
+  const material = new THREE.MeshStandardMaterial({ color: COLORS.chronoCell, emissive: COLORS.chronoCellEmissive, emissiveIntensity: ENTITIES.chronoCellEmissiveIntensity, metalness: 0.4, roughness: 0.12, transparent: true })
+  const chronoCell = new THREE.Mesh(chronoCellGeometry, material)
+  chronoCell.position.copy(randomArenaPosition(GAME.chronoCellMinDistance))
+  chronoCell.position.y = GAME.playerStartHeight
+  chronoCell.userData.phase = Math.random() * Math.PI * 2
+  chronoCell.userData.age = 0
+  scene.add(chronoCell)
+  chronoCells.push(chronoCell)
 }
 
 function addObstacle(type) {
@@ -579,6 +634,7 @@ function detonateBanger(banger) {
 
 function resetGame() {
   clearObjects(cells)
+  clearObjects(chronoCells)
   for (const obstacle of obstacles) scene.remove(obstacle, obstacle.userData.rangeIndicator)
   obstacles.length = 0
   for (const fallingObstacle of fallingObstacles) scene.remove(fallingObstacle.obstacle, fallingObstacle.shadow, fallingObstacle.targetRing)
@@ -593,6 +649,7 @@ function resetGame() {
   score = 0
   elapsed = 0
   spawnTimer = 0
+  chronoCellTimer = 0
   obstacleSpawnTimer = 0
   hazardTimer = 0
   scoreElement.textContent = '000'
@@ -658,7 +715,32 @@ function updateGame(delta, total) {
       cells.splice(index, 1)
       score += 1
       updateBankedCells(1)
+      updateCash(cell.userData.cashValue)
+      showCashIndicator(cell.position, cell.userData.cashValue)
       addCell()
+    }
+  }
+
+  for (let index = chronoCells.length - 1; index >= 0; index -= 1) {
+    const chronoCell = chronoCells[index]
+    chronoCell.userData.age += delta
+    const lifeProgress = chronoCell.userData.age / GAME.chronoCellLifetime
+    chronoCell.rotation.x += delta * ANIMATION.chronoCellSpinSpeed
+    chronoCell.rotation.y += delta * ANIMATION.chronoCellSpinSpeed * 0.7
+    chronoCell.position.y = ANIMATION.cellBobBaseHeight + Math.sin(total * ANIMATION.chronoCellBobSpeed + chronoCell.userData.phase) * ANIMATION.chronoCellBobAmplitude
+    chronoCell.material.emissiveIntensity = ENTITIES.chronoCellEmissiveIntensity + Math.sin(total * 8) * 0.8
+    chronoCell.material.opacity = lifeProgress > 0.7 ? 1 - (lifeProgress - 0.7) / 0.3 : 1
+    if (chronoCell.position.distanceTo(player.position) < GAME.cellPickupRadius) {
+      soundSystem.playCellCollect(chronoCell.position)
+      updateChronoshards(GAME.chronoCellChronoshardValue)
+      showCurrencyIndicator(chronoCell.position, `+✦${GAME.chronoCellChronoshardValue}`, 'chronoshard-indicator')
+      scene.remove(chronoCell)
+      chronoCells.splice(index, 1)
+      continue
+    }
+    if (lifeProgress >= 1) {
+      scene.remove(chronoCell)
+      chronoCells.splice(index, 1)
     }
   }
 
@@ -791,11 +873,16 @@ function updateGame(delta, total) {
   }
 
   spawnTimer += delta
+  chronoCellTimer += delta
   obstacleSpawnTimer += delta
   hazardTimer += delta
   if (spawnTimer > GAME.cellSpawnInterval) {
     addCell()
     spawnTimer = 0
+  }
+  if (chronoCellTimer > GAME.chronoCellSpawnInterval) {
+    addChronoCell()
+    chronoCellTimer = 0
   }
   if (obstacleSpawnTimer > obstacleSpawnInterval) {
     scheduleObstacle()
@@ -843,5 +930,7 @@ window.addEventListener('resize', () => {
 
 applyDifficulty()
 updateBankedCells()
+updateCash()
+updateChronoshards()
 resetGame()
 animate()
