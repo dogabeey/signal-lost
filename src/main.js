@@ -176,12 +176,15 @@ function getResearchLevel(researchId) {
 
 function getResearchStatBonus(stat) {
   return RESEARCH_CONFIG.researches
-    .filter((research) => research.effect.stat === stat)
+    .filter((research) => research.effect?.stat === stat)
     .reduce((total, research) => total + getResearchLevel(research.id) * research.effect.perLevel, 0)
 }
 
 function getResearchCost(research, level) {
-  const amount = research.cost.base * research.cost.multiplier ** level
+  const jerk = research.cost.jerk ?? 1
+  const amount = research.cost.base
+    * research.cost.multiplier ** level
+    * jerk ** (level * (level - 1) / 2)
   return research.cost.currency === 'cash' ? Math.round(amount * 100) / 100 : Math.ceil(amount)
 }
 
@@ -190,6 +193,7 @@ function getResearchDuration(research, level) {
 }
 
 function formatResearchEffect(research, level) {
+  if (!research.effect) return level > 0 ? 'UNLOCKED' : 'LOCKED'
   const effect = level * research.effect.perLevel
   return research.effect.format === 'percent' ? `+${(effect * 100).toFixed(effect * 100 % 1 ? 1 : 0)}%` : String(effect)
 }
@@ -214,6 +218,7 @@ function getResearchLockReason(research) {
   const requirements = research.requirements ?? {}
   if (requirements.minTier && getUnlockedTierIndex(bankedCells) + 1 < requirements.minTier) return `Requires Tier ${requirements.minTier}`
   if (requirements.minBankedCells && bankedCells < requirements.minBankedCells) return `Requires ${requirements.minBankedCells} banked cells`
+  if (requirements.researchId && getResearchLevel(requirements.researchId) < 1) return `Requires ${getResearchById(requirements.researchId).name}`
   for (const [researchId, level] of Object.entries(requirements.researchLevels ?? {})) {
     if (getResearchLevel(researchId) < level) return `Requires ${getResearchById(researchId).name} Lv. ${level}`
   }
@@ -262,7 +267,12 @@ function renderResearchLab() {
     return `<article class="research-slot locked"><span>SLOT ${slotNumber}</span><strong>LOCKED</strong><button data-unlock-slot="${slotNumber}" type="button" ${disabled}>${requirement}</button></article>`
   }).join('')
 
-  researchListElement.innerHTML = RESEARCH_CONFIG.researches.map((research) => {
+  const researchesByCategory = new Map()
+  for (const research of RESEARCH_CONFIG.researches) {
+    const category = research.category ?? 'General'
+    researchesByCategory.set(category, [...(researchesByCategory.get(category) ?? []), research])
+  }
+  researchListElement.innerHTML = [...researchesByCategory.entries()].map(([category, researches]) => `<section class="research-category"><h4>${category}</h4><div class="research-grid">${researches.map((research) => {
     const level = getResearchLevel(research.id)
     const lockReason = getResearchLockReason(research)
     const active = researchState.slots.some((slot) => slot?.researchId === research.id)
@@ -273,7 +283,7 @@ function renderResearchLab() {
     const disabled = lockReason || active || full || !canAfford || !researchState.slots.slice(0, researchState.unlockedSlots).some((slot) => !slot)
     const status = full ? 'MAX LEVEL' : active ? 'IN PROGRESS' : lockReason || `Cost ${formatCurrency(research.cost.currency, cost)} · ${formatDuration(duration)}`
     return `<article class="research-card"><div><span class="research-level">LV. ${level}/${research.maxLevel}</span><h4>${research.name}</h4><p>${research.description}</p><p class="research-effect">${formatResearchEffect(research, level)} → ${formatResearchEffect(research, Math.min(level + 1, research.maxLevel))}</p><small>${status}</small></div><button data-start-research="${research.id}" type="button" ${disabled ? 'disabled' : ''}>${full ? 'MAXED' : 'RESEARCH'}</button></article>`
-  }).join('')
+  }).join('')}</div></section>`).join('')
 }
 
 function startResearch(researchId) {
@@ -596,6 +606,14 @@ const playerRing = new THREE.Mesh(
 )
 playerRing.rotation.x = Math.PI / 2
 player.add(playerRing)
+const slowAuraRing = new THREE.Mesh(
+  new THREE.RingGeometry(1 - ENTITIES.slowAuraRingWidth, 1, ENTITIES.slowAuraRingSegments),
+  new THREE.MeshBasicMaterial({ color: COLORS.slowAura, transparent: true, opacity: 0.35, side: THREE.DoubleSide, depthWrite: false }),
+)
+slowAuraRing.rotation.x = -Math.PI / 2
+slowAuraRing.position.y = -GAME.playerStartHeight + 0.04
+slowAuraRing.visible = false
+player.add(slowAuraRing)
 player.position.y = GAME.playerStartHeight
 scene.add(player)
 
@@ -898,6 +916,15 @@ function updateGame(delta, total) {
   player.rotation.y += delta * ANIMATION.playerTurnSpeed
   playerCore.rotation.x += delta * ANIMATION.playerCoreSpinSpeed
   playerRing.rotation.z += delta * ANIMATION.playerRingSpinSpeed
+  const slowAuraUnlocked = getResearchLevel('unlock-slow-aura') > 0
+  const slowAuraRange = GAME.slowAuraBaseRange * (1 + getResearchStatBonus('slowAuraRange'))
+  const slowAuraEffect = THREE.MathUtils.clamp(GAME.slowAuraBaseEffect + getResearchStatBonus('slowAuraEffect'), 0, 0.9)
+  slowAuraRing.visible = slowAuraUnlocked
+  if (slowAuraUnlocked) {
+    slowAuraRing.scale.setScalar(slowAuraRange)
+    slowAuraRing.material.opacity = 0.22 + Math.sin(total * 3.5) * 0.08
+    slowAuraRing.rotation.z += delta * 0.35
+  }
 
   for (let index = cells.length - 1; index >= 0; index -= 1) {
     const cell = cells[index]
@@ -918,7 +945,8 @@ function updateGame(delta, total) {
   for (let index = chronoCells.length - 1; index >= 0; index -= 1) {
     const chronoCell = chronoCells[index]
     chronoCell.userData.age += delta
-    const lifeProgress = chronoCell.userData.age / GAME.chronoCellLifetime
+    const chronoLifetime = GAME.chronoCellLifetime * (1 + getResearchStatBonus('chronoLifetimeMultiplier'))
+    const lifeProgress = chronoCell.userData.age / chronoLifetime
     chronoCell.rotation.x += delta * ANIMATION.chronoCellSpinSpeed
     chronoCell.rotation.y += delta * ANIMATION.chronoCellSpinSpeed * 0.7
     chronoCell.position.y = ANIMATION.cellBobBaseHeight + Math.sin(total * ANIMATION.chronoCellBobSpeed + chronoCell.userData.phase) * ANIMATION.chronoCellBobAmplitude
@@ -952,8 +980,9 @@ function updateGame(delta, total) {
     }
     const playerOffset = player.position.clone().sub(obstacle.position)
     playerOffset.y = 0
+    const obstacleSpeedMultiplier = slowAuraUnlocked && playerOffset.length() <= slowAuraRange ? 1 - slowAuraEffect : 1
     if (playerOffset.length() <= obstacleType.range && obstacleType.speed > 0) {
-      obstacle.position.addScaledVector(playerOffset.normalize(), obstacleType.speed * delta)
+      obstacle.position.addScaledVector(playerOffset.normalize(), obstacleType.speed * obstacleSpeedMultiplier * delta)
     }
     if (obstacle.userData.rangeIndicator) {
       const rangeIndicator = obstacle.userData.rangeIndicator
@@ -965,14 +994,14 @@ function updateGame(delta, total) {
         ? ANIMATION.chaserRangeIndicatorActiveOpacity
         : ANIMATION.chaserRangeIndicatorBaseOpacity
     }
-    obstacle.rotation.y += delta * obstacle.userData.speed
+    obstacle.rotation.y += delta * obstacle.userData.speed * obstacleSpeedMultiplier
     obstacle.position.y = ANIMATION.obstacleBobBaseHeight + Math.sin(total * ANIMATION.obstacleBobSpeed + obstacle.position.x) * ANIMATION.obstacleBobAmplitude
     if (obstacle.userData.type === 'banger') {
-      obstacle.userData.age += delta
+      obstacle.userData.age += delta * obstacleSpeedMultiplier
       const fuseProgress = Math.min(obstacle.userData.age / ENTITIES.bangerFuseDuration, 1)
       const fusePulse = (Math.sin(obstacle.userData.age * ANIMATION.bangerFusePulseSpeed) + 1) / 2
       obstacle.material.emissiveIntensity = ANIMATION.bangerFuseEmissiveBaseIntensity + fusePulse * ANIMATION.bangerFuseEmissivePulseAmount
-      obstacle.userData.pulseTimer = (obstacle.userData.pulseTimer ?? 0) + delta
+      obstacle.userData.pulseTimer = (obstacle.userData.pulseTimer ?? 0) + delta * obstacleSpeedMultiplier
       const pulseInterval = THREE.MathUtils.lerp(GAME.bangerPulseStartInterval, GAME.bangerPulseEndInterval, fuseProgress)
       if (obstacle.userData.pulseTimer >= pulseInterval) {
         createBangerPulse(obstacle.position, obstacleType.range, fuseProgress)
@@ -1070,7 +1099,7 @@ function updateGame(delta, total) {
   chronoCellTimer += delta
   obstacleSpawnTimer += delta
   hazardTimer += delta
-  if (spawnTimer > GAME.cellSpawnInterval) {
+  if (spawnTimer > GAME.cellSpawnInterval / (1 + getResearchStatBonus('cellSpawnRate'))) {
     addCell()
     spawnTimer = 0
   }

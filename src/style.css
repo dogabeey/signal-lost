@@ -96,6 +96,9 @@ h1 { color: #fff4d2; font-size: clamp(40px, 8vw, 84px); font-weight: 400; line-h
 .research-progress { background: #101b25; height: 8px; overflow: hidden; }
 .research-progress i { background: #63f5cd; display: block; height: 100%; transition: width 300ms linear; }
 .research-list { display: grid; gap: 10px; }
+.research-category { border-top: 1px solid #484f89; padding-top: 12px; }
+.research-category > h4 { color: #b8b1ff; font-family: 'Trebuchet MS', Arial, sans-serif; font-size: 13px; letter-spacing: 0.1em; margin: 0 0 9px; }
+.research-grid { display: grid; gap: 10px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .research-card { align-items: center; background: #202755; border: 1px solid #484f89; display: flex; gap: 20px; justify-content: space-between; padding: 14px; }
 .research-card > div { min-width: 0; }
 .research-card h4 { color: #fff4d2; font-family: 'Trebuchet MS', Arial, sans-serif; font-size: 17px; margin: 4px 0; }
@@ -115,4 +118,5 @@ button:focus-visible { outline: 2px solid #fff4d2; outline-offset: 4px; }
   .research-slots { grid-template-columns: 1fr; }
   .research-card { align-items: stretch; flex-direction: column; gap: 11px; }
   .research-card button { width: 100%; }
+  .research-grid { grid-template-columns: 1fr; }
 }

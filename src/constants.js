@@ -11,6 +11,8 @@ export const GAME = {
   initialCellCount: 5,
   initialObstacleTypes: ['regular', 'chaser', 'creeper'],
   cellSpawnInterval: 6,
+  slowAuraBaseRange: 4,
+  slowAuraBaseEffect: 0.25,
   cellMinDistance: 3,
   chronoCellSpawnInterval: 24,
   chronoCellLifetime: 7,
@@ -116,6 +118,7 @@ export const COLORS = {
   cellEmissive: '#00b487',
   chronoCell: '#b59aff',
   chronoCellEmissive: '#5933c7',
+  slowAura: '#63f5cd',
   obstacle: '#41687c',
   obstacleEmissive: '#07141d',
   chaser: '#c36b55',
@@ -168,6 +171,8 @@ export const ENTITIES = {
   spawnRingSegments: 32,
   spawnCueGlowRadius: 1.45,
   spawnCueBeamHeight: 3.2,
+  slowAuraRingWidth: 0.1,
+  slowAuraRingSegments: 64,
 }
 
 export const ANIMATION = {
