@@ -841,24 +841,47 @@ keyLight.shadow.mapSize.set(1024, 1024)
 scene.add(keyLight)
 
 const floor = new THREE.Mesh(
-  new THREE.PlaneGeometry(GAME.arenaSize, GAME.arenaSize),
+  new THREE.CircleGeometry(GAME.arenaSize / 2, 96),
   new THREE.MeshStandardMaterial({ color: COLORS.floor, metalness: SCENE.floorMetalness, roughness: SCENE.floorRoughness }),
 )
 floor.rotation.x = -Math.PI / 2
 floor.receiveShadow = true
 scene.add(floor)
 
-const grid = new THREE.GridHelper(GAME.arenaSize, GAME.arenaSize, COLORS.gridMajor, COLORS.gridMinor)
+function createArenaGridGeometry(limit) {
+  const points = []
+  const segments = 80
+  const ringSpacing = 2
+  for (let radius = ringSpacing; radius < limit; radius += ringSpacing) {
+    for (let index = 0; index < segments; index += 1) {
+      const startAngle = index / segments * Math.PI * 2
+      const endAngle = (index + 1) / segments * Math.PI * 2
+      points.push(
+        new THREE.Vector3(Math.cos(startAngle) * radius, 0.01, Math.sin(startAngle) * radius),
+        new THREE.Vector3(Math.cos(endAngle) * radius, 0.01, Math.sin(endAngle) * radius),
+      )
+    }
+  }
+  for (let index = 0; index < 12; index += 1) {
+    const angle = index / 12 * Math.PI * 2
+    points.push(new THREE.Vector3(), new THREE.Vector3(Math.cos(angle) * limit, 0.01, Math.sin(angle) * limit))
+  }
+  return new THREE.BufferGeometry().setFromPoints(points)
+}
+
+const grid = new THREE.LineSegments(
+  createArenaGridGeometry(GAME.arenaLimit),
+  new THREE.LineBasicMaterial({ color: COLORS.gridMinor, transparent: true, opacity: 0.8 }),
+)
 grid.position.y = 0.01
 scene.add(grid)
 
 function createArenaBoundaryGeometry(limit) {
-  return new THREE.BufferGeometry().setFromPoints([
-    new THREE.Vector3(-limit, 0.04, -limit),
-    new THREE.Vector3(limit, 0.04, -limit),
-    new THREE.Vector3(limit, 0.04, limit),
-    new THREE.Vector3(-limit, 0.04, limit),
-  ])
+  const segments = 96
+  return new THREE.BufferGeometry().setFromPoints(Array.from({ length: segments }, (_, index) => {
+    const angle = index / segments * Math.PI * 2
+    return new THREE.Vector3(Math.cos(angle) * limit, 0.04, Math.sin(angle) * limit)
+  }))
 }
 
 const arenaBoundary = new THREE.LineLoop(
@@ -872,12 +895,24 @@ function getArenaLimit() {
   return GAME.arenaLimit + getCurrentDifficulty().extraArenaPadding
 }
 
+function keepInsideArena(position, padding = 0) {
+  const limit = Math.max(0, getArenaLimit() - padding)
+  const distance = Math.hypot(position.x, position.z)
+  if (distance > limit) {
+    const scale = limit / distance
+    position.x *= scale
+    position.z *= scale
+  }
+  return position
+}
+
 function applyDifficulty() {
   const difficulty = getCurrentDifficulty()
-  const arenaSize = GAME.arenaSize + difficulty.extraArenaPadding * 2
   const arenaLimit = getArenaLimit()
-  floor.scale.setScalar(arenaSize / GAME.arenaSize)
-  grid.scale.setScalar(arenaSize / GAME.arenaSize)
+  floor.geometry.dispose()
+  floor.geometry = new THREE.CircleGeometry(GAME.arenaSize / 2 + difficulty.extraArenaPadding, 96)
+  grid.geometry.dispose()
+  grid.geometry = createArenaGridGeometry(arenaLimit)
   arenaBoundary.geometry.dispose()
   arenaBoundary.geometry = createArenaBoundaryGeometry(arenaLimit)
   arenaBoundary.computeLineDistances()
@@ -989,7 +1024,9 @@ function randomArenaPosition(minDistance = 0) {
   const arenaLimit = getArenaLimit()
   let position
   do {
-    position = new THREE.Vector3(THREE.MathUtils.randFloat(-arenaLimit, arenaLimit), 0, THREE.MathUtils.randFloat(-arenaLimit, arenaLimit))
+    const angle = Math.random() * Math.PI * 2
+    const radius = Math.sqrt(Math.random()) * arenaLimit
+    position = new THREE.Vector3(Math.cos(angle) * radius, 0, Math.sin(angle) * radius)
   } while (position.distanceTo(player.position) < minDistance)
   return position
 }
@@ -1189,12 +1226,11 @@ function createObstacle(position, type, savedObstacle) {
 function randomPositionNearPlayer() {
   const angle = Math.random() * Math.PI * 2
   const distance = THREE.MathUtils.randFloat(ENTITIES.porterTeleportMinDistance, ENTITIES.porterTeleportMaxDistance)
-  const limit = getArenaLimit()
-  return new THREE.Vector3(
-    THREE.MathUtils.clamp(player.position.x + Math.cos(angle) * distance, -limit, limit),
+  return keepInsideArena(new THREE.Vector3(
+    player.position.x + Math.cos(angle) * distance,
     GAME.obstacleGroundHeight,
-    THREE.MathUtils.clamp(player.position.z + Math.sin(angle) * distance, -limit, limit),
-  )
+    player.position.z + Math.sin(angle) * distance,
+  ))
 }
 
 function showPorterTeleportTarget(porter) {
@@ -1256,7 +1292,6 @@ function createShooterProjectile(shooter) {
 }
 
 function resolveObstacleCollisions() {
-  const arenaLimit = getArenaLimit()
   for (let pass = 0; pass < GAME.obstacleColliderIterations; pass += 1) {
     for (let firstIndex = 0; firstIndex < obstacles.length - 1; firstIndex += 1) {
       const first = obstacles[firstIndex]
@@ -1272,10 +1307,12 @@ function resolveObstacleCollisions() {
         const normalX = distance > 0.001 ? offsetX / distance : (firstIndex + secondIndex) % 2 ? 1 : -1
         const normalZ = distance > 0.001 ? offsetZ / distance : 0
         const pushDistance = (minimumDistance - distance) / 2
-        first.position.x = THREE.MathUtils.clamp(first.position.x - normalX * pushDistance, -arenaLimit, arenaLimit)
-        first.position.z = THREE.MathUtils.clamp(first.position.z - normalZ * pushDistance, -arenaLimit, arenaLimit)
-        second.position.x = THREE.MathUtils.clamp(second.position.x + normalX * pushDistance, -arenaLimit, arenaLimit)
-        second.position.z = THREE.MathUtils.clamp(second.position.z + normalZ * pushDistance, -arenaLimit, arenaLimit)
+        first.position.x -= normalX * pushDistance
+        first.position.z -= normalZ * pushDistance
+        second.position.x += normalX * pushDistance
+        second.position.z += normalZ * pushDistance
+        keepInsideArena(first.position)
+        keepInsideArena(second.position)
       }
     }
   }
@@ -1295,8 +1332,9 @@ function scheduleFallingObstacles() {
     }
   }
   const target = player.position.clone()
-  target.x = THREE.MathUtils.clamp(target.x + THREE.MathUtils.randFloatSpread(GAME.fallingRockImpactOffset * 2), -getArenaLimit(), getArenaLimit())
-  target.z = THREE.MathUtils.clamp(target.z + THREE.MathUtils.randFloatSpread(GAME.fallingRockImpactOffset * 2), -getArenaLimit(), getArenaLimit())
+  target.x += THREE.MathUtils.randFloatSpread(GAME.fallingRockImpactOffset * 2)
+  target.z += THREE.MathUtils.randFloatSpread(GAME.fallingRockImpactOffset * 2)
+  keepInsideArena(target)
   createFallingObstacle(target, undefined, type)
 }
 
@@ -1751,9 +1789,7 @@ function updateGame(delta, total) {
     player.rotation.y = Math.atan2(direction.x, direction.z)
   }
 
-  const arenaLimit = getArenaLimit()
-  player.position.x = THREE.MathUtils.clamp(player.position.x, -arenaLimit, arenaLimit)
-  player.position.z = THREE.MathUtils.clamp(player.position.z, -arenaLimit, arenaLimit)
+  keepInsideArena(player.position)
   player.rotation.y += delta * ANIMATION.playerTurnSpeed
   playerCore.rotation.x += delta * ANIMATION.playerCoreSpinSpeed
   playerRing.rotation.z += delta * ANIMATION.playerRingSpinSpeed
@@ -1981,13 +2017,12 @@ function updateGame(delta, total) {
     if (obstacles.includes(sporeEnemy)) detonateSpore(sporeEnemy)
   }
 
-  const sporeArenaLimit = getArenaLimit()
   for (let index = spores.length - 1; index >= 0; index -= 1) {
     const entry = spores[index]
     entry.spore.position.addScaledVector(entry.direction, ENTITIES.sporeSpeed * Math.max(0.5, 1 - getResearchStatBonus('sporeSpeedDebuff')) * delta)
     entry.spore.rotation.x += delta * 7
     entry.spore.rotation.z += delta * 5
-    if (Math.abs(entry.spore.position.x) > sporeArenaLimit || Math.abs(entry.spore.position.z) > sporeArenaLimit) {
+    if (Math.hypot(entry.spore.position.x, entry.spore.position.z) > getArenaLimit()) {
       scene.remove(entry.spore)
       spores.splice(index, 1)
     }
@@ -2070,9 +2105,7 @@ function updateGame(delta, total) {
     }
     const step = Math.min(delta / push.remaining, 1)
     push.obstacle.position.addScaledVector(push.direction, push.distance * step)
-    const arenaLimit = getArenaLimit()
-    push.obstacle.position.x = THREE.MathUtils.clamp(push.obstacle.position.x, -arenaLimit, arenaLimit)
-    push.obstacle.position.z = THREE.MathUtils.clamp(push.obstacle.position.z, -arenaLimit, arenaLimit)
+    keepInsideArena(push.obstacle.position)
     push.distance *= 1 - step
     push.remaining -= delta
     if (push.remaining <= 0) shockwavePushes.splice(index, 1)
