@@ -147,6 +147,23 @@ export const RESEARCH_CONFIG = {
       cost: { currency: 'cash', base: 125_000, multiplier: 1.45, jerk: 1.02 },
       duration: { baseMs: 180_000, multiplier: 1.25 },
       requirements: { minTier: 4 },
-    }
+    },
+    ...[
+      ['regular-lifetime-debuff', 'Regular Decay', 'Reduces Regular enemy lifetime.', 'regularLifetimeDebuff', 5],
+      ['chaser-range-debuff', 'Chaser Range Dampener', 'Reduces Chaser detection range.', 'chaserRangeDebuff', 5],
+      ['creeper-speed-debuff', 'Creeper Slowdown', 'Reduces Creeper movement speed.', 'creeperSpeedDebuff', 5],
+      ['banger-range-debuff', 'Banger Range Dampener', 'Reduces Banger blast range.', 'bangerRangeDebuff', 6],
+      ['banger-enemy-destruction', 'Banger Disruption', 'Gives each enemy in a Banger blast a separate destruction chance.', 'bangerEnemyDestroyChance', 6],
+      ['shooter-range-debuff', 'Shooter Range Dampener', 'Reduces Shooter firing range.', 'shooterRangeDebuff', 6],
+      ['shooter-projectile-debuff', 'Projectile Drag', 'Reduces Shooter projectile speed.', 'shooterProjectileSpeedDebuff', 6],
+      ['porter-interval-debuff', 'Porter Delay Field', 'Increases the interval between Porter teleports.', 'porterIntervalBonus', 7],
+      ['magnet-strength-debuff', 'Magnet Insulation', 'Reduces Magnet pull strength.', 'magnetStrengthDebuff', 7],
+      ['spore-speed-debuff', 'Spore Drag', 'Reduces Spore movement speed.', 'sporeSpeedDebuff', 7],
+    ].map(([id, name, description, stat, minTier]) => ({
+      id, category: 'Enemy Debuff', name, description, maxLevel: 20,
+      effect: { stat, perLevel: stat === 'porterIntervalBonus' ? 0.05 : 0.025, format: 'percent' },
+      cost: { currency: 'cash', base: 250_000, multiplier: 1.38, jerk: 1.012 },
+      duration: { baseMs: 240_000, multiplier: 1.22 }, requirements: { minTier },
+    })),
   ],
 }

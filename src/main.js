@@ -232,6 +232,11 @@ function getResearchStatBonus(stat) {
     .reduce((total, research) => total + getResearchLevel(research.id) * research.effect.perLevel, 0)
 }
 
+function getEffectiveEnemyRange(type, baseRange) {
+  const debuffStat = { chaser: 'chaserRangeDebuff', banger: 'bangerRangeDebuff', shooter: 'shooterRangeDebuff' }[type]
+  return debuffStat ? baseRange * Math.max(0.5, 1 - getResearchStatBonus(debuffStat)) : baseRange
+}
+
 function getResearchCost(research, level) {
   const jerk = research.cost.jerk ?? 1
   const amount = research.cost.base
@@ -1280,12 +1285,13 @@ function updatePlayerDeathEffects(delta) {
 
 function detonateBanger(banger) {
   const position = banger.position.clone()
-  const radius = OBSTACLE_TYPES.banger.range
+  const radius = getEffectiveEnemyRange('banger', OBSTACLE_TYPES.banger.range)
+  const destructionChance = getResearchStatBonus('bangerEnemyDestroyChance')
   const playerInRange = planarDistance(player.position, position) <= radius
 
   for (let index = obstacles.length - 1; index >= 0; index -= 1) {
     const obstacle = obstacles[index]
-    if (planarDistance(obstacle.position, position) <= radius) {
+    if (obstacle === banger || (planarDistance(obstacle.position, position) <= radius && Math.random() < destructionChance)) {
       scene.remove(obstacle, obstacle.userData.rangeIndicator)
       obstacles.splice(index, 1)
     }
@@ -1461,8 +1467,9 @@ function updateHud() {
 
 function updateGame(delta, total) {
   const difficulty = getCurrentDifficulty()
-  const regularObstacleLifetime = GAME.regularObstacleLifetime + difficulty.obstacleLifetimeOffset
+  const regularObstacleLifetime = (GAME.regularObstacleLifetime + difficulty.obstacleLifetimeOffset
     + score * (GAME.regularObstacleLifetimeIncreasePerCell + difficulty.obstacleLifetimeIncreasePerCellOffset)
+  ) * Math.max(0.5, 1 - getResearchStatBonus('regularLifetimeDebuff'))
   const obstacleSpawnInterval = Math.max(
     GAME.obstacleSpawnWarningDuration,
     GAME.obstacleSpawnInterval + difficulty.obstacleSpawnIntervalOffset
@@ -1564,6 +1571,7 @@ function updateGame(delta, total) {
   for (let index = obstacles.length - 1; index >= 0; index -= 1) {
     const obstacle = obstacles[index]
     const obstacleType = OBSTACLE_TYPES[obstacle.userData.type]
+    const effectiveRange = getEffectiveEnemyRange(obstacle.userData.type, obstacleType.range)
     if (obstacle.userData.type === 'regular') {
       obstacle.userData.age += delta
       if (obstacle.userData.age > regularObstacleLifetime) {
@@ -1575,12 +1583,13 @@ function updateGame(delta, total) {
     const playerOffset = player.position.clone().sub(obstacle.position)
     playerOffset.y = 0
     const obstacleSpeedMultiplier = slowAuraUnlocked && playerOffset.length() <= slowAuraRange ? 1 - slowAuraEffect : 1
-    if (playerOffset.length() <= obstacleType.range && obstacleType.speed > 0) {
-      obstacle.position.addScaledVector(playerOffset.normalize(), obstacleType.speed * obstacleSpeedMultiplier * delta)
+    if (playerOffset.length() <= effectiveRange && obstacleType.speed > 0) {
+      const speedMultiplier = obstacle.userData.type === 'creeper' ? Math.max(0.5, 1 - getResearchStatBonus('creeperSpeedDebuff')) : 1
+      obstacle.position.addScaledVector(playerOffset.normalize(), obstacleType.speed * speedMultiplier * obstacleSpeedMultiplier * delta)
     }
     if (obstacle.userData.rangeIndicator) {
       const rangeIndicator = obstacle.userData.rangeIndicator
-      const isPlayerInRange = playerOffset.length() <= obstacleType.range
+      const isPlayerInRange = playerOffset.length() <= effectiveRange
       const pulse = 1 + Math.sin(total * ANIMATION.chaserRangeIndicatorPulseSpeed) * ANIMATION.chaserRangeIndicatorPulseAmount
       rangeIndicator.position.set(obstacle.position.x, 0.025, obstacle.position.z)
       rangeIndicator.scale.setScalar(isPlayerInRange ? pulse : 1)
@@ -1598,7 +1607,7 @@ function updateGame(delta, total) {
       obstacle.userData.pulseTimer = (obstacle.userData.pulseTimer ?? 0) + delta * obstacleSpeedMultiplier
       const pulseInterval = THREE.MathUtils.lerp(GAME.bangerPulseStartInterval, GAME.bangerPulseEndInterval, fuseProgress)
       if (obstacle.userData.pulseTimer >= pulseInterval) {
-        createBangerPulse(obstacle.position, obstacleType.range, fuseProgress)
+        createBangerPulse(obstacle.position, effectiveRange, fuseProgress)
         obstacle.userData.pulseTimer = 0
       }
       if (obstacle.userData.age >= ENTITIES.bangerFuseDuration) bangersToDetonate.push(obstacle)
@@ -1606,19 +1615,20 @@ function updateGame(delta, total) {
     }
     if (obstacle.userData.type === 'shooter') {
       obstacle.userData.shotCooldown = Math.max(0, obstacle.userData.shotCooldown - delta)
-      if (playerOffset.length() <= obstacleType.range && obstacle.userData.shotCooldown === 0) {
+      if (playerOffset.length() <= effectiveRange && obstacle.userData.shotCooldown === 0) {
         createShooterProjectile(obstacle)
         obstacle.userData.shotCooldown = ENTITIES.shooterProjectileCooldown
       }
     }
-    if (obstacle.userData.type === 'magnet' && playerOffset.length() <= obstacleType.range) {
+    if (obstacle.userData.type === 'magnet' && playerOffset.length() <= effectiveRange) {
       const pullDirection = obstacle.position.clone().sub(player.position)
       pullDirection.y = 0
-      if (pullDirection.lengthSq() > 0) player.position.addScaledVector(pullDirection.normalize(), ENTITIES.magnetPullSpeed * delta)
+      if (pullDirection.lengthSq() > 0) player.position.addScaledVector(pullDirection.normalize(), ENTITIES.magnetPullSpeed * Math.max(0.5, 1 - getResearchStatBonus('magnetStrengthDebuff')) * delta)
     }
     if (obstacle.userData.type === 'porter') {
       obstacle.userData.teleportTimer += delta
-      const warningStart = ENTITIES.porterTeleportInterval - ENTITIES.porterWarningDuration
+      const porterInterval = ENTITIES.porterTeleportInterval * (1 + getResearchStatBonus('porterIntervalBonus'))
+      const warningStart = porterInterval - ENTITIES.porterWarningDuration
       if (obstacle.userData.teleportTimer >= warningStart && !obstacle.userData.teleportTarget) {
         obstacle.userData.teleportTarget = randomPositionNearPlayer()
         showPorterTeleportTarget(obstacle)
@@ -1630,7 +1640,7 @@ function updateGame(delta, total) {
         obstacle.userData.teleportEffect.ring.material.opacity = 0.45 + flash * 0.5
         obstacle.userData.teleportEffect.beam.material.opacity = 0.14 + flash * 0.3
       }
-      if (obstacle.userData.teleportTimer >= ENTITIES.porterTeleportInterval) {
+      if (obstacle.userData.teleportTimer >= porterInterval) {
         obstacle.position.copy(obstacle.userData.teleportTarget)
         clearPorterTeleportTarget(obstacle)
         obstacle.userData.teleportTarget = null
@@ -1658,7 +1668,7 @@ function updateGame(delta, total) {
   const sporeArenaLimit = getArenaLimit()
   for (let index = spores.length - 1; index >= 0; index -= 1) {
     const entry = spores[index]
-    entry.spore.position.addScaledVector(entry.direction, ENTITIES.sporeSpeed * delta)
+    entry.spore.position.addScaledVector(entry.direction, ENTITIES.sporeSpeed * Math.max(0.5, 1 - getResearchStatBonus('sporeSpeedDebuff')) * delta)
     entry.spore.rotation.x += delta * 7
     entry.spore.rotation.z += delta * 5
     if (Math.abs(entry.spore.position.x) > sporeArenaLimit || Math.abs(entry.spore.position.z) > sporeArenaLimit) {
@@ -1670,7 +1680,7 @@ function updateGame(delta, total) {
   for (let index = shooterProjectiles.length - 1; index >= 0; index -= 1) {
     const shooterProjectile = shooterProjectiles[index]
     shooterProjectile.age += delta
-    shooterProjectile.projectile.position.addScaledVector(shooterProjectile.direction, ENTITIES.shooterProjectileSpeed * delta)
+    shooterProjectile.projectile.position.addScaledVector(shooterProjectile.direction, ENTITIES.shooterProjectileSpeed * Math.max(0.5, 1 - getResearchStatBonus('shooterProjectileSpeedDebuff')) * delta)
     shooterProjectile.projectile.rotation.x += delta * 9
     shooterProjectile.projectile.rotation.y += delta * 12
     if (shooterProjectile.projectile.position.distanceTo(player.position) < GAME.playerRadius + ENTITIES.shooterProjectileRadius) {
