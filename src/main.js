@@ -5,6 +5,7 @@ import { CHEAT_CONFIG } from './cheat_config.js'
 import { BUILD_INFO } from './build_info.js'
 import { BUILDING_CONFIG } from './building_config.js'
 import { TIPS } from './tips.js'
+import { MILESTONES } from './miletstones.js'
 import './style.css'
 
 document.querySelector('#app').innerHTML = `
@@ -31,6 +32,7 @@ document.querySelector('#app').innerHTML = `
       <div class="virtual-joystick-knob"></div>
     </div>
     <div class="cash-indicators" id="cash-indicators" aria-live="polite"></div>
+    <div class="milestone-claim-toast hidden" id="milestone-claim-toast" role="status" aria-live="polite"></div>
     <section class="pause-menu hidden" id="pause-menu" aria-label="Pause menu">
       <p class="eyebrow">ROUND PAUSED</p>
       <h2>PAUSE</h2>
@@ -60,6 +62,7 @@ document.querySelector('#app').innerHTML = `
           </div>
           <p class="highest-cell">HIGHEST CELL: <span id="highest-cells">000</span></p>
           <p class="tier-requirement" id="tier-requirement"></p>
+          <button class="milestone-button" id="open-milestones-button" type="button">VIEW MILESTONES <span class="milestone-claim-count" id="milestone-claim-count" hidden>0</span></button>
         </div>
         <div class="menu-actions">
           <button class="menu-start-button" id="start-button" type="button">START RUN</button>
@@ -67,6 +70,11 @@ document.querySelector('#app').innerHTML = `
           <button class="menu-system-button" id="open-building-button" type="button">BUILDING SYSTEM</button>
         </div>
       </div>
+      <section class="milestones-panel hidden" id="milestones-panel" aria-label="Milestones">
+        <div class="milestones-header"><div><p class="eyebrow">BEST SINGLE RUN</p><h2>MILESTONES</h2><p>MAX CELLS <strong id="milestone-max-cells">000</strong></p></div><button class="secondary-button" id="close-milestones-button" type="button">BACK</button></div>
+        <div class="milestone-tier-nav"><button id="previous-milestone-tier" type="button" aria-label="View previous milestone tier">‹</button><strong id="milestone-tier-label">TIER 1</strong><button id="next-milestone-tier" type="button" aria-label="View next milestone tier">›</button></div>
+        <div class="milestone-track" id="milestone-track"></div>
+      </section>
       <section class="lab-panel hidden" id="lab-panel" aria-label="Research Lab">
         <div class="lab-header"><div><p class="eyebrow">PERMANENT UPGRADES</p><h2>RESEARCH LAB</h2></div><button class="secondary-button" id="close-lab-button" type="button">BACK</button></div>
         <p class="lab-balance">CASH <span id="lab-cash">$0</span> · CHRONOSHARDS <span id="lab-chronoshards">✦ 0</span></p>
@@ -93,6 +101,16 @@ const overlayCopy = document.querySelector('#overlay-copy')
 const gameOverTip = document.querySelector('#game-over-tip')
 const startButton = document.querySelector('#start-button')
 const menuContent = document.querySelector('#menu-content')
+const openMilestonesButton = document.querySelector('#open-milestones-button')
+const milestonesPanel = document.querySelector('#milestones-panel')
+const closeMilestonesButton = document.querySelector('#close-milestones-button')
+const milestoneMaxCells = document.querySelector('#milestone-max-cells')
+const milestoneTrack = document.querySelector('#milestone-track')
+const milestoneClaimCount = document.querySelector('#milestone-claim-count')
+const milestoneClaimToast = document.querySelector('#milestone-claim-toast')
+const previousMilestoneTierButton = document.querySelector('#previous-milestone-tier')
+const nextMilestoneTierButton = document.querySelector('#next-milestone-tier')
+const milestoneTierLabel = document.querySelector('#milestone-tier-label')
 const labPanel = document.querySelector('#lab-panel')
 const openLabButton = document.querySelector('#open-lab-button')
 const openBuildingButton = document.querySelector('#open-building-button')
@@ -151,6 +169,7 @@ const RESEARCH_LAB_STORAGE_KEY = 'asteroid-belt-research-lab'
 const SAVED_ROUND_STORAGE_KEY = 'asteroid-belt-saved-round'
 const BUILDINGS_STORAGE_KEY = 'asteroid-belt-buildings'
 const FEATURE_UNLOCKS_STORAGE_KEY = 'asteroid-belt-feature-unlocks'
+const MILESTONES_STORAGE_KEY = 'asteroid-belt-milestones'
 const LEGACY_STORAGE_KEYS = [
   ['astroid-belt-banked-cells', CELL_BANK_STORAGE_KEY], ['astroid-belt-selected-tier', TIER_STORAGE_KEY], ['astroid-belt-tier-high-scores', TIER_HIGH_SCORES_STORAGE_KEY],
   ['astroid-belt-cash', CASH_STORAGE_KEY], ['astroid-belt-chronoshards', CHRONOSHARDS_STORAGE_KEY], ['astroid-belt-research-lab', RESEARCH_LAB_STORAGE_KEY],
@@ -217,19 +236,55 @@ function writeStoredTierHighScores() {
   }
 }
 
-function getUnlockedTierIndex() {
-  let unlockedTierIndex = 0
-  for (let index = 0; index < tierKeys.length - 1; index += 1) {
-    const tierKey = tierKeys[index]
-    if ((tierHighScores[tierKey] ?? 0) < DIFFICULTY[tierKey].cellsRequiredToAdvance) break
-    unlockedTierIndex = index + 1
+function readMilestoneState() {
+  try {
+    const storedState = JSON.parse(window.localStorage.getItem(MILESTONES_STORAGE_KEY))
+    if (!storedState || typeof storedState !== 'object') return { version: 0, claimed: [] }
+    return {
+      version: Number(storedState.version) || 0,
+      claimed: Array.isArray(storedState.claimed) ? storedState.claimed.filter((id) => MILESTONES.some((milestone) => milestone.id === id)) : [],
+    }
+  } catch {
+    return { version: 0, claimed: [] }
   }
-  return unlockedTierIndex
+}
+
+function saveMilestoneState() {
+  try {
+    window.localStorage.setItem(MILESTONES_STORAGE_KEY, JSON.stringify(milestoneState))
+  } catch {
+    // Milestones remain available for the current session when storage is unavailable.
+  }
+}
+
+function getUnlockedTierIndex() {
+  return MILESTONES
+    .filter((milestone) => milestoneState.claimed.includes(milestone.id))
+    .flatMap((milestone) => milestone.rewards.filter((reward) => reward.type === 'tier').map((reward) => reward.tier - 1))
+    .reduce((highestTier, tierIndex) => Math.max(highestTier, tierIndex), 0)
+}
+
+function isResearchTierUnlocked(tier) {
+  return getUnlockedTierIndex() + 1 >= tier
+}
+
+function isResearchMilestoneUnlocked(researchId) {
+  return MILESTONES.some((milestone) => milestoneState.claimed.includes(milestone.id)
+    && milestone.rewards.some((reward) => reward.type === 'research' && reward.researchIds.includes(researchId)))
 }
 
 let bankedCells = readStoredNumber(CELL_BANK_STORAGE_KEY)
 const tierHighScores = readStoredTierHighScores()
+const milestoneState = readMilestoneState()
+if (milestoneState.version !== 3) {
+  milestoneState.claimed = MILESTONES
+    .filter((milestone) => (tierHighScores[tierKeys[milestone.tier - 1]] ?? 0) >= milestone.cells)
+    .map((milestone) => milestone.id)
+  milestoneState.version = 3
+  saveMilestoneState()
+}
 let selectedTierIndex = Math.min(readStoredNumber(TIER_STORAGE_KEY), getUnlockedTierIndex())
+let milestoneTierIndex = selectedTierIndex
 let cash = readStoredNumber(CASH_STORAGE_KEY)
 let chronoshards = readStoredNumber(CHRONOSHARDS_STORAGE_KEY)
 let savedRound = readSavedRound()
@@ -327,7 +382,7 @@ function formatCurrency(currency, amount) {
 
 function getResearchLockReason(research) {
   const requirements = research.requirements ?? {}
-  if (requirements.minTier && getUnlockedTierIndex() + 1 < requirements.minTier) return `Requires Tier ${requirements.minTier}`
+  if (requirements.minTier && !isResearchMilestoneUnlocked(research.id)) return 'Unlock this research in Milestones'
   if (requirements.minBankedCells && bankedCells < requirements.minBankedCells) return `Requires ${requirements.minBankedCells} banked cells`
   if (requirements.researchId && getResearchLevel(requirements.researchId) < 1) return `Requires ${getResearchById(requirements.researchId).name}`
   for (const [researchId, level] of Object.entries(requirements.researchLevels ?? {})) {
@@ -378,10 +433,10 @@ function renderResearchLab() {
     }
     if (slotNumber <= researchState.unlockedSlots) return `<article class="research-slot"><span>SLOT ${slotNumber}</span><strong>AVAILABLE</strong><small>Select a research below.</small></article>`
     const unlock = RESEARCH_CONFIG.slotUnlocks.find((entry) => entry.slot === slotNumber)
-    const tierUnlocked = !unlock.requirements?.minTier || getUnlockedTierIndex() + 1 >= unlock.requirements.minTier
+    const tierUnlocked = !unlock.requirements?.minTier || isResearchTierUnlocked(unlock.requirements.minTier)
     const canAfford = unlock.cost.currency === 'cash' ? cash >= unlock.cost.amount : chronoshards >= unlock.cost.amount
     const disabled = tierUnlocked && canAfford ? '' : 'disabled'
-    const requirement = tierUnlocked ? `Unlock for ${formatCurrency(unlock.cost.currency, unlock.cost.amount)}` : `Requires Tier ${unlock.requirements.minTier}`
+    const requirement = tierUnlocked ? `Unlock for ${formatCurrency(unlock.cost.currency, unlock.cost.amount)}` : `Unlock Tier ${unlock.requirements.minTier} research in Milestones`
     return `<article class="research-slot locked"><span>SLOT ${slotNumber}</span><strong>LOCKED</strong><button data-unlock-slot="${slotNumber}" type="button" ${disabled}>${requirement}</button></article>`
   }).join('') : ''
 
@@ -443,7 +498,7 @@ function startResearch(researchId) {
 function unlockResearchSlot(slotNumber) {
   const unlock = RESEARCH_CONFIG.slotUnlocks.find((entry) => entry.slot === slotNumber)
   if (!unlock || slotNumber !== researchState.unlockedSlots + 1) return
-  if (unlock.requirements?.minTier && getUnlockedTierIndex() + 1 < unlock.requirements.minTier) return
+  if (unlock.requirements?.minTier && !isResearchTierUnlocked(unlock.requirements.minTier)) return
   const balance = unlock.cost.currency === 'cash' ? cash : chronoshards
   if (balance < unlock.cost.amount) return
   if (unlock.cost.currency === 'cash') updateCash(-unlock.cost.amount)
@@ -478,12 +533,30 @@ function clearCurrencySave() {
 function clearGameProgressSave() {
   bankedCells = 0
   selectedTierIndex = 0
+  milestoneState.claimed = []
   for (const tierKey of tierKeys) tierHighScores[tierKey] = 0
   writeStoredNumber(CELL_BANK_STORAGE_KEY, bankedCells)
   writeStoredNumber(TIER_STORAGE_KEY, selectedTierIndex)
   writeStoredTierHighScores()
+  saveMilestoneState()
   applyDifficulty()
   renderTierOptions()
+  renderMilestones()
+  resetGame()
+}
+
+function clearMilestonesSave() {
+  milestoneState.claimed = []
+  milestoneState.version = 3
+  for (const tierKey of tierKeys) tierHighScores[tierKey] = 0
+  selectedTierIndex = 0
+  writeStoredNumber(TIER_STORAGE_KEY, selectedTierIndex)
+  writeStoredTierHighScores()
+  saveMilestoneState()
+  applyDifficulty()
+  renderTierOptions()
+  renderMilestones()
+  renderResearchLab()
   resetGame()
 }
 
@@ -549,10 +622,11 @@ function runCheatCommand(rawCommand) {
     return
   }
   if (command === CHEAT_CONFIG.commands.unlockTiers) {
-    for (const tierKey of tierKeys) tierHighScores[tierKey] = DIFFICULTY[tierKey].cellsRequiredToAdvance
-    writeStoredTierHighScores()
+    milestoneState.claimed = MILESTONES.map((milestone) => milestone.id)
+    saveMilestoneState()
     renderTierOptions()
     renderResearchLab()
+    renderMilestones()
     setCheatOutput('All difficulty tiers unlocked.')
     return
   }
@@ -563,6 +637,7 @@ function runCheatCommand(rawCommand) {
     }
     if (argument === 'currency' || argument === 'all') clearCurrencySave()
     if (argument === 'game_progress' || argument === 'all') clearGameProgressSave()
+    if (argument === 'milestones' || argument === 'all') clearMilestonesSave()
     if (argument === 'research' || argument === 'all') clearResearchSave()
     if (argument === 'buildings' || argument === 'all') clearBuildingsSave()
     if (argument === 'all') clearFeatureUnlocks()
@@ -613,21 +688,29 @@ function showCurrencyIndicator(position, text, className) {
 
 function recordTierHighScore() {
   const tierKey = tierKeys[selectedTierIndex]
-  if (score <= (tierHighScores[tierKey] ?? 0)) return
-  tierHighScores[tierKey] = score
-  writeStoredTierHighScores()
+  if (score > (tierHighScores[tierKey] ?? 0)) {
+    tierHighScores[tierKey] = score
+    writeStoredTierHighScores()
+  }
+  saveMilestoneState()
   renderTierOptions()
+  renderResearchLab()
+  renderMilestones()
 }
 
 function renderTierOptions() {
   const unlockedTierIndex = getUnlockedTierIndex()
   if (selectedTierIndex > unlockedTierIndex) selectedTierIndex = unlockedTierIndex
   tierOptions.textContent = `Tier ${selectedTierIndex + 1}`
-  const tierKey = tierKeys[selectedTierIndex]
-  highestCellsElement.textContent = String(tierHighScores[tierKey] ?? 0).padStart(3, '0')
-  tierRequirementElement.textContent = `CELLS REQUIRED TO NEXT TIER: ${DIFFICULTY[tierKey].cellsRequiredToAdvance}`
+  highestCellsElement.textContent = String(tierHighScores[tierKeys[selectedTierIndex]] ?? 0).padStart(3, '0')
+  const nextMilestone = MILESTONES.find((milestone) => milestone.tier === selectedTierIndex + 1 && !milestoneState.claimed.includes(milestone.id))
+  const tierBestCells = tierHighScores[tierKeys[selectedTierIndex]] ?? 0
+  tierRequirementElement.textContent = nextMilestone ? tierBestCells >= nextMilestone.cells ? 'MILESTONE READY TO CLAIM' : `NEXT MILESTONE: ${nextMilestone.cells} CELLS` : 'ALL MILESTONES COMPLETE'
   previousTierButton.disabled = selectedTierIndex === 0
   nextTierButton.disabled = selectedTierIndex >= unlockedTierIndex
+  const claimableCount = MILESTONES.filter((milestone) => !milestoneState.claimed.includes(milestone.id) && (tierHighScores[tierKeys[milestone.tier - 1]] ?? 0) >= milestone.cells).length
+  milestoneClaimCount.textContent = String(claimableCount)
+  milestoneClaimCount.hidden = claimableCount === 0
   renderFeatureUnlockButtons()
 }
 
@@ -641,6 +724,88 @@ function selectTier(tierIndex) {
 
 previousTierButton.addEventListener('click', () => selectTier(selectedTierIndex - 1))
 nextTierButton.addEventListener('click', () => selectTier(selectedTierIndex + 1))
+openMilestonesButton.addEventListener('click', () => {
+  menuContent.classList.add('hidden')
+  milestoneTierIndex = selectedTierIndex
+  milestonesPanel.classList.remove('hidden')
+  renderMilestones()
+})
+closeMilestonesButton.addEventListener('click', () => {
+  milestonesPanel.classList.add('hidden')
+  menuContent.classList.remove('hidden')
+})
+previousMilestoneTierButton.addEventListener('click', () => {
+  milestoneTierIndex = Math.max(0, milestoneTierIndex - 1)
+  renderMilestones()
+})
+nextMilestoneTierButton.addEventListener('click', () => {
+  milestoneTierIndex = Math.min(getUnlockedTierIndex(), milestoneTierIndex + 1)
+  renderMilestones()
+})
+milestoneTrack.addEventListener('click', (event) => {
+  const claimButton = event.target.closest('[data-claim-milestone]')
+  if (claimButton) claimMilestone(claimButton.dataset.claimMilestone)
+})
+
+function formatMilestoneReward(reward) {
+  if (reward.type === 'cash') return `+$${reward.amount.toLocaleString()} cash`
+  if (reward.type === 'chronoshards') return `+✦ ${reward.amount} Chronoshards`
+  if (reward.type === 'tier') return `Unlock Tier ${reward.tier}`
+  if (reward.type === 'research') return `Unlock: ${reward.researchIds.map((id) => getResearchById(id)?.name ?? id).join(', ')}`
+  return 'Reward'
+}
+
+let milestoneToastTimer
+
+function claimMilestone(milestoneId) {
+  const milestone = MILESTONES.find((entry) => entry.id === milestoneId)
+  const bestCells = milestone ? tierHighScores[tierKeys[milestone.tier - 1]] ?? 0 : 0
+  if (!milestone || milestoneState.claimed.includes(milestone.id) || bestCells < milestone.cells) return
+  milestoneState.claimed.push(milestone.id)
+  for (const reward of milestone.rewards) {
+    if (reward.type === 'cash') updateCash(reward.amount)
+    if (reward.type === 'chronoshards') updateChronoshards(reward.amount)
+  }
+  saveMilestoneState()
+  milestoneClaimToast.textContent = `REWARD CLAIMED · ${milestone.rewards.map(formatMilestoneReward).join(' · ')}`
+  milestoneClaimToast.classList.remove('hidden')
+  clearTimeout(milestoneToastTimer)
+  milestoneToastTimer = setTimeout(() => milestoneClaimToast.classList.add('hidden'), 3600)
+  renderTierOptions()
+  renderResearchLab()
+  renderMilestones()
+}
+
+function renderMilestones() {
+  const tier = milestoneTierIndex + 1
+  const bestCells = tierHighScores[tierKeys[milestoneTierIndex]] ?? 0
+  milestoneMaxCells.textContent = String(bestCells).padStart(3, '0')
+  milestoneTierLabel.textContent = `TIER ${tier}`
+  previousMilestoneTierButton.disabled = milestoneTierIndex === 0
+  nextMilestoneTierButton.disabled = milestoneTierIndex >= getUnlockedTierIndex()
+  milestoneTrack.innerHTML = MILESTONES.filter((milestone) => milestone.tier === tier).map((milestone) => {
+    const claimed = milestoneState.claimed.includes(milestone.id)
+    const reached = bestCells >= milestone.cells
+    const progress = Math.min(100, bestCells / milestone.cells * 100)
+    return `<article class="milestone-card ${claimed ? 'claimed' : reached ? 'reached' : ''}"><div class="milestone-node">${claimed ? '✓' : milestone.cells}</div><div><strong>${claimed ? 'REWARD SECURED' : `${milestone.cells} CELLS`}</strong><p>${milestone.rewards.map(formatMilestoneReward).join(' · ')}</p><div class="milestone-progress"><i style="width:${progress}%"></i></div><small>${claimed ? 'Claimed automatically' : `${bestCells}/${milestone.cells} best cells in Tier ${tier}`}</small></div></article>`
+  }).join('')
+  const tierMilestones = MILESTONES.filter((milestone) => milestone.tier === tier)
+  for (const [index, milestone] of tierMilestones.entries()) {
+    const claimed = milestoneState.claimed.includes(milestone.id)
+    const reached = bestCells >= milestone.cells
+    const card = milestoneTrack.children[index]
+    if (!card) continue
+    if (claimed) card.querySelector('small').textContent = 'Claimed'
+    if (reached && !claimed) {
+      const button = document.createElement('button')
+      button.className = 'claim-milestone-button'
+      button.dataset.claimMilestone = milestone.id
+      button.type = 'button'
+      button.textContent = 'CLAIM REWARD'
+      card.lastElementChild.append(button)
+    }
+  }
+}
 
 function createSoundSystem() {
   let context
@@ -2241,7 +2406,8 @@ function updateGame(delta, total) {
   chronoCellTimer += delta
   obstacleSpawnTimer += delta
   hazardTimer += delta
-  if (spawnTimer > GAME.cellSpawnInterval / (1 + getResearchStatBonus('cellSpawnRate'))) {
+  const cellSpawnRateBonus = getResearchStatBonus('cellSpawnRate') + score * getResearchStatBonus('cellSpawnRatePerCell')
+  if (spawnTimer > GAME.cellSpawnInterval / (1 + cellSpawnRateBonus)) {
     addCell()
     spawnTimer = 0
   }
@@ -2283,7 +2449,7 @@ function animate() {
   const total = timer.getElapsed()
   if (started && !paused) updateGame(delta, total)
   updatePlayerDeathEffects(delta)
-  camera.position.set(player.position.x, CAMERA.height, player.position.z + CAMERA.distance)
+  camera.position.set(player.position.x, CAMERA.height, player.position.z + getCameraDistance())
   camera.lookAt(player.position.x, 0, player.position.z)
   starfield.position.copy(camera.position)
   if (buildingPreview) {
@@ -2318,6 +2484,11 @@ openLabButton.addEventListener('click', () => {
 })
 
 closeLabButton.addEventListener('click', () => {
+  labPanel.classList.add('hidden')
+  menuContent.classList.remove('hidden')
+})
+overlay.addEventListener('click', (event) => {
+  if (labPanel.classList.contains('hidden') || labPanel.contains(event.target)) return
   labPanel.classList.add('hidden')
   menuContent.classList.remove('hidden')
 })
@@ -2400,6 +2571,11 @@ function isMobileInputMode() {
   return window.matchMedia('(max-width: 580px), (hover: none) and (pointer: coarse)').matches
 }
 
+function getCameraDistance() {
+  const isPortraitMobile = window.matchMedia('(hover: none) and (pointer: coarse) and (orientation: portrait)').matches
+  return CAMERA.distance * (isPortraitMobile ? CAMERA.portraitDistanceMultiplier : 1)
+}
+
 function updateJoystick(event) {
   if (!joystickOrigin) return
   const offsetX = event.clientX - joystickOrigin.x
@@ -2466,6 +2642,7 @@ completeFinishedResearches()
 updateBankedCells()
 updateCash()
 updateChronoshards()
+renderMilestones()
 renderResearchLab()
 updateStartButton()
 resetGame()

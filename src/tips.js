@@ -1,4 +1,5 @@
 export const TIPS = [
+  'You will eventually be overwhelmed. Try unlocking new researches to push further.',
   'Keep moving: standing still makes incoming hazards much harder to read.',
   'The final seconds of an enemy lifetime are marked by a blink.',
   'Research upgrades persist between runs, so a short run can still move you forward.',

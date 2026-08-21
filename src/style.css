@@ -39,7 +39,7 @@ button { font: inherit; }
 .game-shell:has(.overlay.hidden) .hud-tier { opacity: 1; }
 .shield-indicators { align-items: center; display: flex; gap: 4px; left: 205px; pointer-events: none; position: absolute; top: 34px; }
 .shield-indicators i { background: linear-gradient(180deg, #d7fff3, #63f5cd); border: 1px solid #c6fff0; box-shadow: 0 0 7px rgba(99, 245, 205, 0.65); clip-path: polygon(20% 0, 80% 0, 100% 24%, 82% 100%, 50% 82%, 18% 100%, 0 24%); display: block; height: 23px; width: 14px; }
-.pause-button { align-items: center; background: rgba(31, 57, 74, 0.82); border: 1px solid #3c8190; box-shadow: none; color: #63f5cd; display: flex; font-family: Arial, sans-serif; font-size: 17px; height: 34px; justify-content: center; line-height: 1; padding: 0 8px 3px; width: 34px; }
+.pause-button { align-items: center; background: rgba(31, 57, 74, 0.82); border: 1px solid #3c8190; box-shadow: none; color: #63f5cd; display: flex; font-family: Arial, sans-serif; font-size: 17px; height: 34px; justify-content: center; line-height: 1; padding: 0 8px 3px; pointer-events: auto; width: 34px; }
 .pause-button:hover { background: #63f5cd; box-shadow: 0 0 12px rgba(99, 245, 205, 0.35); color: #10232b; transform: none; }
 .cash-balance { color: #9ab6b8; font-family: 'Trebuchet MS', Arial, sans-serif; font-size: 13px; font-weight: 700; letter-spacing: 0.1em; }
 .cash-balance span { color: #63f5cd; font-size: 22px; margin-left: 7px; }
@@ -84,7 +84,7 @@ button { font: inherit; }
 .pause-actions { display: grid; gap: 11px; }
 .pause-actions button { width: 100%; }
 .menu-content { align-items: center; display: flex; flex-direction: column; width: 100%; }
-.menu-content.hidden, .lab-panel.hidden { display: none; }
+.menu-content.hidden, .lab-panel.hidden, .milestones-panel.hidden { display: none; }
 .eyebrow { color: #63f5cd; font-size: 11px; font-weight: 700; margin: 0 0 12px; }
 h1 { color: #fff4d2; font-size: clamp(40px, 8vw, 84px); font-weight: 400; line-height: 0.95; margin: 0; }
 .overlay > p:not(.eyebrow) { color: #c7d3cd; font-size: 16px; margin: 20px 0 28px; max-width: 320px; }
@@ -102,6 +102,11 @@ h1 { color: #fff4d2; font-size: clamp(40px, 8vw, 84px); font-weight: 400; line-h
 .highest-cell { border-top: 1px solid rgba(99, 245, 205, 0.23); color: #9ab6b8; font-family: 'Trebuchet MS', Arial, sans-serif; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; margin: 0; padding-top: 10px; text-align: center; }
 .highest-cell span { color: #63f5cd; font-size: 17px; letter-spacing: 0.04em; margin-left: 4px; }
 .tier-requirement { color: #ffcf76; font-family: 'Trebuchet MS', Arial, sans-serif; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; margin: 7px 0 0; text-align: center; }
+.milestone-button { background: rgba(99, 245, 205, 0.12); border: 1px solid #63f5cd; box-shadow: none; color: #63f5cd; display: block; font-size: 10px; letter-spacing: 0.1em; margin: 13px auto 0; padding: 10px; width: 100%; }
+.milestone-button:hover { background: #63f5cd; box-shadow: none; color: #10232b; transform: none; }
+.milestone-claim-count { background: #63f5cd; box-shadow: 0 0 13px rgba(99, 245, 205, 0.9); color: #10232b; display: inline-grid; font: 700 11px 'Trebuchet MS', Arial, sans-serif; height: 19px; margin-left: 7px; min-width: 19px; place-items: center; }
+.milestone-claim-toast { background: rgba(17, 47, 53, 0.97); border: 1px solid #63f5cd; box-shadow: 0 0 24px rgba(99, 245, 205, 0.38); color: #d8fff3; font: 700 12px/1.45 'Trebuchet MS', Arial, sans-serif; left: 50%; max-width: min(440px, calc(100% - 36px)); padding: 15px 18px; position: absolute; text-align: center; top: 50%; transform: translate(-50%, -50%); z-index: 30; }
+.milestone-claim-toast.hidden { display: none; }
 .menu-actions { display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; }
 .menu-start-button { background: #67d46e; box-shadow: 4px 4px 0 #28723d; }
 .menu-start-button:hover { box-shadow: 2px 2px 0 #28723d; }
@@ -113,6 +118,33 @@ h1 { color: #fff4d2; font-size: clamp(40px, 8vw, 84px); font-weight: 400; line-h
 .menu-system-button.is-unlocked:hover { box-shadow: 2px 2px 0 #23715f; }
 .secondary-button { background: #63f5cd; box-shadow: 4px 4px 0 #23715f; }
 .secondary-button:hover { box-shadow: 2px 2px 0 #23715f; }
+.milestones-panel { background: rgba(20, 25, 56, 0.99); color: #e7f0ec; inset: 0; min-height: 100svh; overflow: auto; padding: clamp(22px, 5vw, 56px); position: absolute; width: 100%; }
+.milestones-header { align-items: flex-start; border-bottom: 1px solid rgba(99, 245, 205, 0.3); display: flex; justify-content: space-between; gap: 12px; padding-bottom: 14px; }
+.milestones-header .eyebrow { color: #63f5cd; margin-bottom: 6px; }
+.milestones-header h2 { color: #fff4d2; font: 700 clamp(25px, 4vw, 38px) 'Trebuchet MS', Arial, sans-serif; letter-spacing: 0.06em; margin: 0; }
+.milestones-header p:not(.eyebrow) { color: #aeb0d2; font: 700 11px 'Trebuchet MS', Arial, sans-serif; letter-spacing: 0.1em; margin: 9px 0 0; }
+.milestones-header strong { color: #63f5cd; font-size: 19px; margin-left: 5px; }
+.milestones-header button { font-size: 10px; padding: 10px 12px; }
+.milestone-tier-nav { align-items: center; background: #202755; border: 1px solid #484f89; display: grid; grid-template-columns: 42px 1fr 42px; margin: 18px auto; max-width: 430px; padding: 7px; }
+.milestone-tier-nav strong { color: #fff4d2; font: 700 17px 'Trebuchet MS', Arial, sans-serif; letter-spacing: 0.08em; text-align: center; }
+.milestone-tier-nav button { align-items: center; background: rgba(48, 102, 112, 0.34); border: 1px solid #3c8190; box-shadow: none; color: #63f5cd; display: flex; font: 28px/0.7 Arial, sans-serif; height: 31px; justify-content: center; padding: 0 0 4px; width: 31px; }
+.milestone-tier-nav button:hover { background: #63f5cd; box-shadow: none; color: #10232b; transform: none; }
+.milestone-tier-nav button:disabled { border-color: #484f89; color: #5b658d; cursor: not-allowed; opacity: 0.6; }
+.milestone-track { display: grid; gap: 12px; margin: 20px auto 2px; max-width: 680px; position: relative; }
+.milestone-track::before { background: linear-gradient(#3c8190, #63f5cd); bottom: 24px; content: ''; left: 25px; position: absolute; top: 24px; width: 2px; }
+.milestone-card { align-items: center; display: grid; gap: 13px; grid-template-columns: 52px 1fr; min-height: 75px; position: relative; }
+.milestone-node { align-items: center; background: #202755; border: 2px solid #484f89; box-shadow: 0 0 12px rgba(99, 245, 205, 0.16); color: #c7d3cd; display: flex; font: 700 12px 'Trebuchet MS', Arial, sans-serif; height: 52px; justify-content: center; position: relative; width: 52px; z-index: 1; }
+.milestone-card > div:last-child { background: rgba(23, 49, 61, 0.7); border: 1px solid #315766; padding: 9px 10px; }
+.milestone-card strong { color: #fff4d2; font: 700 12px 'Trebuchet MS', Arial, sans-serif; letter-spacing: 0.08em; }
+.milestone-card p { color: #a7c0bf; font: 11px/1.35 'Trebuchet MS', Arial, sans-serif; margin: 4px 0 7px; }
+.milestone-card small { color: #71818d; font: 700 9px 'Trebuchet MS', Arial, sans-serif; letter-spacing: 0.06em; }
+.milestone-progress { background: #101b25; height: 4px; margin: 0 0 5px; overflow: hidden; }
+.milestone-progress i { background: #63f5cd; display: block; height: 100%; }
+.claim-milestone-button { background: #67d46e; box-shadow: 3px 3px 0 #28723d; display: block; font-size: 10px; letter-spacing: 0.07em; margin-top: 9px; padding: 9px 12px; width: 100%; }
+.claim-milestone-button:hover { box-shadow: 1px 1px 0 #28723d; }
+.milestone-card.reached .milestone-node, .milestone-card.claimed .milestone-node { border-color: #63f5cd; color: #63f5cd; }
+.milestone-card.claimed .milestone-node { background: #183d42; box-shadow: 0 0 16px rgba(99, 245, 205, 0.55); font-size: 28px; }
+.milestone-card.claimed strong { color: #63f5cd; }
 .lab-panel { background: rgba(20, 25, 56, 0.97); border: 2px solid #6d67bb; box-shadow: 0 0 0 4px rgba(14, 17, 43, 0.85); color: #e7f0ec; max-height: min(84svh, 760px); max-width: 860px; overflow: auto; padding: 24px; text-align: left; width: min(100%, 860px); }
 .lab-panel [hidden] { display: none !important; }
 .building-panel, .building-upgrade { background: rgba(20, 25, 56, 0.97); border: 2px solid #6d67bb; box-shadow: 0 0 0 4px rgba(14, 17, 43, 0.85); max-height: 84svh; max-width: 720px; overflow: auto; padding: 24px; width: min(100%, 720px); }.building-upgrade { left: 50%; position: absolute; top: 50%; transform: translate(-50%, -50%); z-index: 14; }.building-upgrade h3 { color: #63f5cd; margin-top: 0; }.building-upgrade button { display: block; margin: 8px 0; width: 100%; }
@@ -185,6 +217,13 @@ button:focus-visible { outline: 2px solid #fff4d2; outline-offset: 4px; }
   .virtual-joystick-knob { background: radial-gradient(circle at 36% 30%, rgba(255, 255, 255, 0.32), rgba(191, 200, 196, 0.26) 52%, rgba(106, 117, 115, 0.38)); border: 2px solid rgba(255, 255, 255, 0.45); border-radius: 50%; box-shadow: inset 0 1px 5px rgba(255, 255, 255, 0.35), 0 2px 8px rgba(0, 0, 0, 0.28); height: 52px; left: 31px; position: absolute; top: 31px; width: 52px; will-change: transform; }
   .tier-selection { transform: scale(1.04); transform-origin: center; }
   .menu-actions button, .pause-actions button { font-size: 15px; padding: 17px 24px; }
+  .milestones-panel { min-height: 100svh; padding: 22px 18px; }
+  .milestones-header h2 { font-size: 28px; }
+  .milestones-header strong { font-size: 17px; }
+  .milestone-track { gap: 10px; }
+  .milestone-card { gap: 10px; grid-template-columns: 45px 1fr; min-height: 67px; }
+  .milestone-node { height: 45px; width: 45px; }
+  .milestone-track::before { left: 21px; }
   .lab-panel { max-height: 88svh; padding: 17px; }
   .research-slots { grid-template-columns: 1fr; }
   .research-card { align-items: stretch; flex-direction: column; gap: 11px; }

@@ -317,7 +317,7 @@ export const COLORS = {
   targetRing: '#ff795f',
 }
 
-export const CAMERA = { fov: 52, near: 0.1, far: 100, height: 12, distance: 15, followStrength: 0.06 }
+export const CAMERA = { fov: 52, near: 0.1, far: 100, height: 12, distance: 15, portraitDistanceMultiplier: 1.18, followStrength: 0.06 }
 export const SCENE = {
   fogNear: 16,
   fogFar: 37,

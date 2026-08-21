@@ -78,6 +78,17 @@ export const RESEARCH_CONFIG = {
       requirements: { minTier: 2 },
     },
     {
+      id: 'cell-increment-per-cell',
+      category: 'Economy',
+      name: 'Cell Increment Per Cell',
+      description: 'Each collected Cell increases the standard Cell spawn rate.',
+      maxLevel: 50,
+      effect: { stat: 'cellSpawnRatePerCell', perLevel: 0.01, format: 'percent' },
+      cost: { currency: 'cash', base: 150, multiplier: 1.32, jerk: 1.01 },
+      duration: { baseMs: 90_000, multiplier: 1.2 },
+      requirements: { minTier: 3 },
+    },
+    {
       id: 'cash-cell-multiplier',
       category: 'Economy',
       name: 'Cash/Cell Multiplier',
