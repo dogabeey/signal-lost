@@ -1,7 +1,7 @@
 export const GAME = {
   maxPixelRatio: 2,
   difficultyPressureMultiplier: 0.88,
-  obstacleSpawnCount: 1, // Enemy spawn count per spawn event.
+  obstacleSpawnCount: 2, // Enemy spawn count per spawn event.
   arenaSize: 26,
   arenaLimit: 12,
   playerSpeed: 5,
