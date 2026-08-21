@@ -1532,6 +1532,13 @@ function updateGame(delta, total) {
       if (obstacle.userData.age >= ENTITIES.bangerFuseDuration) bangersToDetonate.push(obstacle)
       continue
     }
+    if (obstacle.userData.type === 'shooter') {
+      obstacle.userData.shotCooldown = Math.max(0, obstacle.userData.shotCooldown - delta)
+      if (playerOffset.length() <= obstacleType.range && obstacle.userData.shotCooldown === 0) {
+        createShooterProjectile(obstacle)
+        obstacle.userData.shotCooldown = ENTITIES.shooterProjectileCooldown
+      }
+    }
     if (obstacle.position.distanceTo(player.position) < GAME.playerRadius) endGame()
   }
 
@@ -1539,6 +1546,24 @@ function updateGame(delta, total) {
 
   for (const banger of bangersToDetonate) {
     if (obstacles.includes(banger)) detonateBanger(banger)
+  }
+
+  for (let index = shooterProjectiles.length - 1; index >= 0; index -= 1) {
+    const shooterProjectile = shooterProjectiles[index]
+    shooterProjectile.age += delta
+    shooterProjectile.projectile.position.addScaledVector(shooterProjectile.direction, ENTITIES.shooterProjectileSpeed * delta)
+    shooterProjectile.projectile.rotation.x += delta * 9
+    shooterProjectile.projectile.rotation.y += delta * 12
+    if (shooterProjectile.projectile.position.distanceTo(player.position) < GAME.playerRadius + ENTITIES.shooterProjectileRadius) {
+      scene.remove(shooterProjectile.projectile)
+      shooterProjectiles.splice(index, 1)
+      endGame()
+      continue
+    }
+    if (shooterProjectile.age >= ENTITIES.shooterProjectileLifetime) {
+      scene.remove(shooterProjectile.projectile)
+      shooterProjectiles.splice(index, 1)
+    }
   }
 
   for (let index = explosions.length - 1; index >= 0; index -= 1) {
