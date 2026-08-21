@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build && powershell -NoProfile -Command \"Remove-Item -LiteralPath 'dist.zip' -Force -ErrorAction SilentlyContinue; tar.exe -a -c -f dist.zip -C dist .\"",
+    "deploy": "butler push dist.zip dogabeey/asteroid-belt:universal",
+    "release": "npm run build && npm run deploy",
     "preview": "vite preview"
   },
   "devDependencies": {
