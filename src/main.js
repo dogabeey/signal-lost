@@ -5,7 +5,7 @@ import { CHEAT_CONFIG } from './cheat_config.js'
 import { BUILD_INFO } from './build_info.js'
 import { BUILDING_CONFIG } from './building_config.js'
 import { TIPS } from './tips.js'
-import { MILESTONES } from './miletstones.js'
+import { MILESTONES } from './milestones.js'
 import './style.css'
 
 document.querySelector('#app').innerHTML = `
