@@ -691,6 +691,11 @@ function createSoundSystem() {
       const fallback = SOUND.fallback.cellCollect
       playSound('cellCollect', SOUND.cellCollectVolume, position, () => playTone(fallback.startFrequency, fallback.endFrequency, fallback.duration, SOUND.cellCollectVolume, position, fallback.type))
     },
+    playBoosterPickup(position, type) {
+      const notes = { speed: [480, 900], thorn: [220, 620], freezer: [720, 260] }
+      const [start, end] = notes[type]
+      playTone(start, end, 0.22, 0.3, position, type === 'freezer' ? 'sine' : 'triangle')
+    },
     playObstacleSummon(position) {
       const fallback = SOUND.fallback.obstacleSummon
       playSound('obstacleSummon', SOUND.obstacleSummonVolume, position, () => playTone(fallback.startFrequency, fallback.endFrequency, fallback.duration, SOUND.obstacleSummonVolume, position, fallback.type))
@@ -813,6 +818,7 @@ const explosions = []
 const bangerPulses = []
 const shooterProjectiles = []
 const spores = []
+const boosters = []
 const shockwaves = []
 const shockwavePushes = []
 const playerDeathEffects = []
@@ -830,6 +836,10 @@ let hazardTimer = 0
 let shockwaveTimer = 0
 let shieldCharges = 0
 let shieldInvulnerability = 0
+let boosterTimer = 0
+let speedBoosterTime = 0
+let thornShieldTime = 0
+let freezerTime = 0
 
 const cellGeometry = new THREE.OctahedronGeometry(ENTITIES.cellRadius)
 const chronoCellGeometry = new THREE.IcosahedronGeometry(ENTITIES.chronoCellRadius, 1)
@@ -838,6 +848,7 @@ const obstacleCoreGeometry = new THREE.IcosahedronGeometry(ENTITIES.obstacleCore
 const obstacleSpikeGeometry = new THREE.ConeGeometry(ENTITIES.obstacleSpikeRadius, ENTITIES.obstacleSpikeHeight, ENTITIES.obstacleSpikeSegments)
 const shooterProjectileGeometry = new THREE.IcosahedronGeometry(ENTITIES.shooterProjectileRadius, 1)
 const sporeGeometry = new THREE.SphereGeometry(ENTITIES.sporeRadius, 10, 8)
+const boosterGeometry = new THREE.OctahedronGeometry(0.42)
 const spikeDirections = [
   [0, 1, 0], [0, -1, 0], [1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1],
   [1, 1, 1], [-1, 1, 1], [1, 1, -1], [-1, 1, -1],
@@ -895,6 +906,23 @@ function addChronoCell(savedCell) {
   chronoCell.userData.age = savedCell?.age ?? 0
   scene.add(chronoCell)
   chronoCells.push(chronoCell)
+}
+
+function addBooster(type) {
+  const colors = { speed: '#ffcf76', thorn: '#ff795f', freezer: '#7bdcff' }
+  const booster = new THREE.Mesh(boosterGeometry, new THREE.MeshStandardMaterial({ color: colors[type], emissive: colors[type], emissiveIntensity: 1.7, metalness: 0.25, roughness: 0.2 }))
+  booster.position.copy(randomArenaPosition(GAME.cellMinDistance))
+  booster.position.y = GAME.playerStartHeight
+  booster.userData.type = type
+  scene.add(booster)
+  boosters.push(booster)
+}
+
+function activateBooster(type, position) {
+  if (type === 'speed') speedBoosterTime = GAME.speedBoosterBaseDuration + getResearchStatBonus('speedBoosterDuration')
+  if (type === 'thorn') thornShieldTime = GAME.thornShieldBaseDuration + getResearchStatBonus('thornShieldDuration')
+  if (type === 'freezer') freezerTime = GAME.freezerBaseDuration + getResearchStatBonus('freezerDuration')
+  soundSystem.playBoosterPickup(position, type)
 }
 
 function addObstacle(type) {
@@ -1323,6 +1351,7 @@ function detonateBanger(banger) {
 function resetGame(populateArena = true) {
   clearObjects(cells)
   clearObjects(chronoCells)
+  clearObjects(boosters)
   for (const obstacle of obstacles) {
     scene.remove(obstacle, obstacle.userData.rangeIndicator, obstacle.userData.magnetPulse)
     clearPorterTeleportTarget(obstacle)
@@ -1360,6 +1389,10 @@ function resetGame(populateArena = true) {
   shockwaveTimer = 0
   shieldCharges = getResearchLevel('shield')
   shieldInvulnerability = 0
+  boosterTimer = 0
+  speedBoosterTime = 0
+  thornShieldTime = 0
+  freezerTime = 0
   shieldBubble.visible = shieldCharges > 0
   scoreElement.textContent = '000'
   timeElement.textContent = '00:00'
@@ -1531,7 +1564,7 @@ function updateGame(delta, total) {
 
   if (direction.lengthSq() > 0) {
     direction.normalize()
-    player.position.addScaledVector(direction, GAME.playerSpeed * (1 + getResearchStatBonus('playerSpeedMultiplier')) * delta)
+    player.position.addScaledVector(direction, GAME.playerSpeed * (1 + getResearchStatBonus('playerSpeedMultiplier')) * (speedBoosterTime > 0 ? 2 : 1) * delta)
     player.rotation.y = Math.atan2(direction.x, direction.z)
   }
 
@@ -1552,10 +1585,15 @@ function updateGame(delta, total) {
     slowAuraRing.rotation.z += delta * 0.35
   }
   if (shieldInvulnerability > 0) shieldInvulnerability = Math.max(0, shieldInvulnerability - delta)
-  if (shieldCharges > 0 || shieldInvulnerability > 0) {
+  speedBoosterTime = Math.max(0, speedBoosterTime - delta)
+  thornShieldTime = Math.max(0, thornShieldTime - delta)
+  freezerTime = Math.max(0, freezerTime - delta)
+  playerCore.material.emissiveIntensity = thornShieldTime > 0 ? 3.2 : 1.4
+  if (shieldCharges > 0 || shieldInvulnerability > 0 || thornShieldTime > 0) {
     shieldBubble.visible = true
     shieldBubble.scale.setScalar(1 + Math.sin(total * 12) * 0.08 + (shieldInvulnerability > 0 ? 0.2 : 0))
-    shieldBubble.material.opacity = shieldInvulnerability > 0 ? 0.65 : 0.18
+    shieldBubble.material.color.set(thornShieldTime > 0 ? '#ff795f' : COLORS.slowAura)
+    shieldBubble.material.opacity = thornShieldTime > 0 || shieldInvulnerability > 0 ? 0.65 : 0.18
   } else shieldBubble.visible = false
 
   if (getResearchLevel('unlock-shockwave') > 0) {
@@ -1585,6 +1623,17 @@ function updateGame(delta, total) {
       updateBankedCells(1)
       updateCash(cell.userData.cashValue)
       showCashIndicator(cell.position, cell.userData.cashValue)
+    }
+  }
+
+  for (let index = boosters.length - 1; index >= 0; index -= 1) {
+    const booster = boosters[index]
+    booster.rotation.y += delta * 3
+    booster.position.y = GAME.playerStartHeight + Math.sin(total * 4 + index) * 0.16
+    if (booster.position.distanceTo(player.position) < GAME.cellPickupRadius) {
+      activateBooster(booster.userData.type, booster.position)
+      scene.remove(booster)
+      boosters.splice(index, 1)
     }
   }
 
@@ -1628,6 +1677,13 @@ function updateGame(delta, total) {
     }
     const playerOffset = player.position.clone().sub(obstacle.position)
     playerOffset.y = 0
+    if (thornShieldTime > 0 && playerOffset.length() < GAME.playerRadius) {
+      scene.remove(obstacle, obstacle.userData.rangeIndicator, obstacle.userData.magnetPulse)
+      clearPorterTeleportTarget(obstacle)
+      obstacles.splice(index, 1)
+      continue
+    }
+    if (freezerTime > 0) continue
     const obstacleSpeedMultiplier = slowAuraUnlocked && playerOffset.length() <= slowAuraRange ? 1 - slowAuraEffect : 1
     const pushbackSpeed = getResearchStatBonus('pushbackSpeed')
     if (pushbackSpeed > 0 && obstacleType.speed === 0 && playerOffset.length() <= GAME.pushbackBaseRange * effectRangeMultiplier) {
@@ -1921,12 +1977,22 @@ function updateGame(delta, total) {
   }
 
   spawnTimer += delta
+  boosterTimer += delta
   chronoCellTimer += delta
   obstacleSpawnTimer += delta
   hazardTimer += delta
   if (spawnTimer > GAME.cellSpawnInterval / (1 + getResearchStatBonus('cellSpawnRate'))) {
     addCell()
     spawnTimer = 0
+  }
+  if (boosterTimer > GAME.boosterSpawnInterval) {
+    const availableBoosters = [
+      getResearchLevel('unlock-speed-booster') > 0 && 'speed',
+      getResearchLevel('thorn-shield') > 0 && 'thorn',
+      getResearchLevel('freezer') > 0 && 'freezer',
+    ].filter(Boolean)
+    if (availableBoosters.length) addBooster(availableBoosters[Math.floor(Math.random() * availableBoosters.length)])
+    boosterTimer = 0
   }
   if (chronoCellTimer > GAME.chronoCellSpawnInterval / (1 + getResearchStatBonus('chronoSpawnRate'))) {
     addChronoCell()

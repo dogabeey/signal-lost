@@ -171,6 +171,17 @@ export const RESEARCH_CONFIG = {
       duration: { baseMs: 180_000, multiplier: 1.25 },
       requirements: { minTier: 4 },
     },
+    ...[
+      ['unlock-speed-booster', 'Unlock Speed Boosters', 'Unlocks Speed Booster pickups that double movement speed.', 1, null, 2],
+      ['speed-booster-duration', 'Speed Booster Duration', 'Increases Speed Booster duration.', 20, 'speedBoosterDuration', 2],
+      ['thorn-shield', 'Thorn Shield', 'Unlocks Thorn Shield pickups that grant immunity and destroy enemies on contact.', 1, null, 4],
+      ['thorn-shield-duration', 'Thorn Shield Duration', 'Increases Thorn Shield duration.', 20, 'thornShieldDuration', 4],
+      ['freezer', 'Freezer', 'Unlocks Freezer pickups that freeze all enemies.', 1, null, 5],
+      ['freezer-duration', 'Freezer Duration', 'Increases Freezer duration.', 20, 'freezerDuration', 5],
+    ].map(([id, name, description, maxLevel, stat, minTier]) => ({ id, category: 'Boosters', name, description, maxLevel, 
+      ...(stat ? { effect: { stat, perLevel: 0.25, format: 'flat' } } : {}), 
+      cost: { currency: 'cash', base: maxLevel === 1 ? 7_000 : 5_000, multiplier: 1.2, jerk: 1.01 }, 
+      duration: { baseMs: 120_000, multiplier: 1.18 }, requirements: { minTier } })),
     {
       id: 'pushback',
       category: 'Player Enhancements',
