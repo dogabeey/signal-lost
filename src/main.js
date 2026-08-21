@@ -1506,13 +1506,14 @@ function updateHud() {
 
 function updateGame(delta, total) {
   const difficulty = getCurrentDifficulty()
+  const tierPressure = THREE.MathUtils.lerp(0.16, 0.03, selectedTierIndex / Math.max(tierKeys.length - 1, 1))
   const regularObstacleLifetime = (GAME.regularObstacleLifetime + difficulty.obstacleLifetimeOffset
     + score * (GAME.regularObstacleLifetimeIncreasePerCell + difficulty.obstacleLifetimeIncreasePerCellOffset)
   ) * Math.max(0.5, 1 - getResearchStatBonus('regularLifetimeDebuff'))
   const obstacleSpawnInterval = Math.max(
     GAME.obstacleSpawnWarningDuration,
-    GAME.obstacleSpawnInterval + difficulty.obstacleSpawnIntervalOffset
-      - score * (GAME.obstacleSpawnDecreasePerCell + difficulty.obstacleSpawnDecreasePerCellOffset),
+    (GAME.obstacleSpawnInterval + difficulty.obstacleSpawnIntervalOffset
+      - score * (GAME.obstacleSpawnDecreasePerCell + difficulty.obstacleSpawnDecreasePerCellOffset)) * (1 - tierPressure),
   )
   const obstacleSpawnCount = Math.max(
     1,
@@ -1937,8 +1938,8 @@ function updateGame(delta, total) {
   }
   const fallingRockSpawnInterval = Math.max(
     GAME.fallingBlockMinInterval,
-    GAME.fallingBlockBaseInterval + difficulty.fallingRockSpawnIntervalOffset
-      - score * (GAME.fallingBlockIntervalPerCell + difficulty.fallingRockSpawnDecreasePerCellOffset),
+    (GAME.fallingBlockBaseInterval + difficulty.fallingRockSpawnIntervalOffset
+      - score * (GAME.fallingBlockIntervalPerCell + difficulty.fallingRockSpawnDecreasePerCellOffset)) * (1 - tierPressure),
   )
   if (hazardTimer > fallingRockSpawnInterval) {
     scheduleFallingObstacles()
