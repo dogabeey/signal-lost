@@ -81,18 +81,19 @@ button { font: inherit; }
 .eyebrow { color: #63f5cd; font-size: 11px; font-weight: 700; margin: 0 0 12px; }
 h1 { color: #fff4d2; font-size: clamp(40px, 8vw, 84px); font-weight: 400; line-height: 0.95; margin: 0; }
 .overlay > p:not(.eyebrow) { color: #c7d3cd; font-size: 16px; margin: 20px 0 28px; max-width: 320px; }
-.tier-selection { background: #38347a; border: 3px solid #141733; box-shadow: 0 0 0 2px #6d67bb inset; color: #fff; margin: 0 0 24px; padding: 8px 18px 14px; width: min(100%, 338px); }
-.tier-heading { align-items: center; color: #aba2ff; display: flex; font-family: 'Trebuchet MS', Arial, sans-serif; font-size: 30px; font-weight: 700; gap: 42px; line-height: 1; margin-bottom: 16px; }
-.tier-icon { align-items: center; border: 3px solid #fff; color: #fff; display: flex; font-size: 25px; height: 45px; justify-content: center; line-height: 1; width: 45px; }
-.tier-carousel { align-items: center; display: grid; grid-template-columns: 48px 1fr 48px; margin: 0 auto 14px; max-width: 215px; }
-.tier-options { color: #fff; font-family: 'Trebuchet MS', Arial, sans-serif; font-size: 25px; font-weight: 700; text-align: center; }
-.tier-nav { background: transparent; box-shadow: none; color: #857dca; font-family: Arial, sans-serif; font-size: 65px; font-weight: 400; line-height: 0.5; padding: 0; transform: none; }
-.tier-nav:hover { background: transparent; box-shadow: none; color: #c8c3ff; transform: none; }
-.tier-nav:disabled { color: #565190; cursor: not-allowed; opacity: 0.7; }
-.tier-nav:disabled:hover { background: transparent; box-shadow: none; color: #565190; transform: none; }
-.highest-cell { color: #fff; font-family: 'Trebuchet MS', Arial, sans-serif; font-size: 24px; font-weight: 700; margin: 0; text-align: center; }
-.highest-cell span { color: #fff; }
-.tier-requirement { color: #b8b1ff; font-family: 'Trebuchet MS', Arial, sans-serif; font-size: 12px; font-weight: 700; letter-spacing: 0.08em; margin: 7px 0 0; text-align: center; }
+.tier-selection { background: linear-gradient(135deg, rgba(23, 49, 61, 0.98), rgba(12, 27, 38, 0.98)); border: 1px solid #3c8190; box-shadow: inset 0 0 0 3px rgba(11, 25, 35, 0.82), 0 0 22px rgba(41, 181, 168, 0.14); color: #e7f0ec; margin: 0 0 24px; padding: 13px 16px 15px; position: relative; width: min(100%, 338px); }
+.tier-selection::before { background: #ff795f; content: ''; height: 3px; left: 14px; position: absolute; top: 0; width: 64px; }
+.tier-heading { align-items: center; color: #63f5cd; display: flex; font-family: 'Trebuchet MS', Arial, sans-serif; font-size: 14px; font-weight: 700; gap: 10px; letter-spacing: 0.14em; line-height: 1; margin-bottom: 15px; text-transform: uppercase; }
+.tier-icon { align-items: center; background: rgba(99, 245, 205, 0.1); border: 1px solid #63f5cd; color: #ffcf76; display: flex; font-size: 18px; height: 29px; justify-content: center; line-height: 1; width: 29px; }
+.tier-carousel { align-items: center; display: grid; grid-template-columns: 42px 1fr 42px; margin: 0 auto 13px; max-width: 248px; }
+.tier-options { color: #fff4d2; font-family: 'Trebuchet MS', Arial, sans-serif; font-size: 27px; font-weight: 700; letter-spacing: 0.04em; text-align: center; text-shadow: 0 0 14px rgba(255, 207, 118, 0.3); }
+.tier-nav { align-items: center; background: rgba(48, 102, 112, 0.34); border: 1px solid #3c8190; box-shadow: none; color: #63f5cd; display: flex; font-family: Arial, sans-serif; font-size: 40px; font-weight: 400; height: 34px; justify-content: center; line-height: 0.6; padding: 0 0 4px; transform: none; width: 34px; }
+.tier-nav:hover { background: #63f5cd; box-shadow: 0 0 14px rgba(99, 245, 205, 0.42); color: #10232b; transform: none; }
+.tier-nav:disabled { border-color: #315766; color: #52727b; cursor: not-allowed; opacity: 0.65; }
+.tier-nav:disabled:hover { background: rgba(48, 102, 112, 0.34); box-shadow: none; color: #52727b; }
+.highest-cell { border-top: 1px solid rgba(99, 245, 205, 0.23); color: #9ab6b8; font-family: 'Trebuchet MS', Arial, sans-serif; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; margin: 0; padding-top: 10px; text-align: center; }
+.highest-cell span { color: #63f5cd; font-size: 17px; letter-spacing: 0.04em; margin-left: 4px; }
+.tier-requirement { color: #ffcf76; font-family: 'Trebuchet MS', Arial, sans-serif; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; margin: 7px 0 0; text-align: center; }
 .menu-actions { display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; }
 .secondary-button { background: #63f5cd; box-shadow: 4px 4px 0 #23715f; }
 .secondary-button:hover { box-shadow: 2px 2px 0 #23715f; }
