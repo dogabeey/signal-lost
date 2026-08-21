@@ -778,6 +778,7 @@ const fireHazards = []
 const splinterPieces = []
 const explosions = []
 const bangerPulses = []
+const shooterProjectiles = []
 const shockwaves = []
 const playerDeathEffects = []
 const obstacleSpawnWarnings = []
@@ -800,6 +801,7 @@ const chronoCellGeometry = new THREE.IcosahedronGeometry(ENTITIES.chronoCellRadi
 const fallingRockGeometry = new THREE.IcosahedronGeometry(ENTITIES.obstacleRadius, ENTITIES.fallingRockDetail)
 const obstacleCoreGeometry = new THREE.IcosahedronGeometry(ENTITIES.obstacleCoreRadius, 1)
 const obstacleSpikeGeometry = new THREE.ConeGeometry(ENTITIES.obstacleSpikeRadius, ENTITIES.obstacleSpikeHeight, ENTITIES.obstacleSpikeSegments)
+const shooterProjectileGeometry = new THREE.IcosahedronGeometry(ENTITIES.shooterProjectileRadius, 1)
 const spikeDirections = [
   [0, 1, 0], [0, -1, 0], [1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1],
   [1, 1, 1], [-1, 1, 1], [1, 1, -1], [-1, 1, -1],
@@ -910,7 +912,9 @@ function createObstacle(position, type, savedObstacle) {
   obstacle.userData.age = savedObstacle?.age ?? 0
   obstacle.userData.speed = savedObstacle?.speed ?? THREE.MathUtils.randFloat(0.8, 1.45)
   obstacle.userData.pulseTimer = savedObstacle?.pulseTimer ?? 0
-  if (type === 'chaser' || type === 'banger') {
+  obstacle.userData.shotCooldown = savedObstacle?.shotCooldown ?? 0
+  obstacle.userData.colliderRadius = GAME.obstacleColliderRadius
+  if (type === 'chaser' || type === 'banger' || type === 'shooter') {
     const rangeIndicator = new THREE.Mesh(
       new THREE.RingGeometry(obstacleType.range - ENTITIES.chaserRangeIndicatorWidth, obstacleType.range, ENTITIES.chaserRangeIndicatorSegments),
       new THREE.MeshBasicMaterial({ color: obstacleType.color, transparent: true, opacity: ANIMATION.chaserRangeIndicatorBaseOpacity, side: THREE.DoubleSide, depthWrite: false }),
@@ -922,6 +926,47 @@ function createObstacle(position, type, savedObstacle) {
   }
   scene.add(obstacle)
   obstacles.push(obstacle)
+}
+
+function createShooterProjectile(shooter) {
+  const projectile = new THREE.Mesh(
+    shooterProjectileGeometry,
+    new THREE.MeshStandardMaterial({ color: COLORS.shooter, emissive: COLORS.shooterEmissive, emissiveIntensity: 2.6, metalness: 0.25, roughness: 0.2 }),
+  )
+  projectile.position.set(shooter.position.x, GAME.playerStartHeight, shooter.position.z)
+  const direction = player.position.clone().sub(projectile.position)
+  direction.y = 0
+  if (direction.lengthSq() === 0) direction.set(0, 0, 1)
+  else direction.normalize()
+  projectile.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, 0)
+  scene.add(projectile)
+  shooterProjectiles.push({ projectile, direction, age: 0 })
+}
+
+function resolveObstacleCollisions() {
+  const arenaLimit = getArenaLimit()
+  for (let pass = 0; pass < GAME.obstacleColliderIterations; pass += 1) {
+    for (let firstIndex = 0; firstIndex < obstacles.length - 1; firstIndex += 1) {
+      const first = obstacles[firstIndex]
+      for (let secondIndex = firstIndex + 1; secondIndex < obstacles.length; secondIndex += 1) {
+        const second = obstacles[secondIndex]
+        const minimumDistance = first.userData.colliderRadius + second.userData.colliderRadius
+        const offsetX = second.position.x - first.position.x
+        const offsetZ = second.position.z - first.position.z
+        const distanceSquared = offsetX * offsetX + offsetZ * offsetZ
+        if (distanceSquared >= minimumDistance * minimumDistance) continue
+
+        const distance = Math.sqrt(distanceSquared)
+        const normalX = distance > 0.001 ? offsetX / distance : (firstIndex + secondIndex) % 2 ? 1 : -1
+        const normalZ = distance > 0.001 ? offsetZ / distance : 0
+        const pushDistance = (minimumDistance - distance) / 2
+        first.position.x = THREE.MathUtils.clamp(first.position.x - normalX * pushDistance, -arenaLimit, arenaLimit)
+        first.position.z = THREE.MathUtils.clamp(first.position.z - normalZ * pushDistance, -arenaLimit, arenaLimit)
+        second.position.x = THREE.MathUtils.clamp(second.position.x + normalX * pushDistance, -arenaLimit, arenaLimit)
+        second.position.z = THREE.MathUtils.clamp(second.position.z + normalZ * pushDistance, -arenaLimit, arenaLimit)
+      }
+    }
+  }
 }
 
 function scheduleFallingObstacles() {
@@ -1199,6 +1244,8 @@ function resetGame(populateArena = true) {
   explosions.length = 0
   for (const bangerPulse of bangerPulses) scene.remove(bangerPulse.pulse)
   bangerPulses.length = 0
+  for (const shooterProjectile of shooterProjectiles) scene.remove(shooterProjectile.projectile)
+  shooterProjectiles.length = 0
   for (const shockwave of shockwaves) scene.remove(shockwave.shockwave)
   shockwaves.length = 0
   for (const deathEffect of playerDeathEffects) scene.remove(deathEffect.flash, deathEffect.blast, deathEffect.shockwave, deathEffect.innerShockwave, deathEffect.light, ...deathEffect.fragments)
@@ -1245,7 +1292,8 @@ function saveCurrentRound() {
     shieldCharges,
     cells: cells.map((cell) => ({ position: serializePosition(cell.position), phase: cell.userData.phase, cashValue: cell.userData.cashValue })),
     chronoCells: chronoCells.map((cell) => ({ position: serializePosition(cell.position), phase: cell.userData.phase, age: cell.userData.age })),
-    obstacles: obstacles.map((obstacle) => ({ position: serializePosition(obstacle.position), type: obstacle.userData.type, age: obstacle.userData.age, speed: obstacle.userData.speed, pulseTimer: obstacle.userData.pulseTimer })),
+    obstacles: obstacles.map((obstacle) => ({ position: serializePosition(obstacle.position), type: obstacle.userData.type, age: obstacle.userData.age, speed: obstacle.userData.speed, pulseTimer: obstacle.userData.pulseTimer, shotCooldown: obstacle.userData.shotCooldown })),
+    shooterProjectiles: shooterProjectiles.map((projectile) => ({ position: serializePosition(projectile.projectile.position), direction: serializePosition(projectile.direction), age: projectile.age })),
     fallingObstacles: fallingObstacles.map((fallingObstacle) => ({ target: serializePosition(fallingObstacle.target), type: fallingObstacle.type, age: fallingObstacle.age, landed: fallingObstacle.landed, impactTriggered: fallingObstacle.impactTriggered })),
     warnings: obstacleSpawnWarnings.map((warning) => ({ position: serializePosition(warning.position), type: warning.type, age: warning.age })),
   }
@@ -1277,6 +1325,15 @@ function restoreSavedRound() {
   for (const cell of savedRound.cells ?? []) addCell(cell)
   for (const chronoCell of savedRound.chronoCells ?? []) addChronoCell(chronoCell)
   for (const obstacle of savedRound.obstacles ?? []) createObstacle(new THREE.Vector3(obstacle.position.x, obstacle.position.y, obstacle.position.z), obstacle.type, obstacle)
+  for (const savedProjectile of savedRound.shooterProjectiles ?? []) {
+    const projectile = new THREE.Mesh(
+      shooterProjectileGeometry,
+      new THREE.MeshStandardMaterial({ color: COLORS.shooter, emissive: COLORS.shooterEmissive, emissiveIntensity: 2.6, metalness: 0.25, roughness: 0.2 }),
+    )
+    projectile.position.set(savedProjectile.position.x, savedProjectile.position.y, savedProjectile.position.z)
+    scene.add(projectile)
+    shooterProjectiles.push({ projectile, direction: new THREE.Vector3(savedProjectile.direction.x, savedProjectile.direction.y, savedProjectile.direction.z), age: savedProjectile.age ?? 0 })
+  }
   for (const fallingObstacle of savedRound.fallingObstacles ?? []) createFallingObstacle(new THREE.Vector3(fallingObstacle.target.x, fallingObstacle.target.y, fallingObstacle.target.z), fallingObstacle)
   for (const warning of savedRound.warnings ?? []) scheduleObstacle({ ...warning, position: new THREE.Vector3(warning.position.x, warning.position.y, warning.position.z) })
   updateHud()
@@ -1339,6 +1396,14 @@ function updateGame(delta, total) {
     GAME.obstacleSpawnWarningDuration,
     GAME.obstacleSpawnInterval + difficulty.obstacleSpawnIntervalOffset
       - score * (GAME.obstacleSpawnDecreasePerCell + difficulty.obstacleSpawnDecreasePerCellOffset),
+  )
+  const obstacleSpawnCount = Math.max(
+    0,
+    Math.floor(
+      GAME.obstacleSpawnCount
+      + difficulty.obstacleSpawnCountOffset
+      + score * difficulty.obstacleSpawnCountIncreasePerCell,
+    ),
   )
   const direction = new THREE.Vector3(
     (keys.has('KeyD') || keys.has('ArrowRight') ? 1 : 0) - (keys.has('KeyA') || keys.has('ArrowLeft') ? 1 : 0) + joystickInput.x,
@@ -1469,6 +1534,8 @@ function updateGame(delta, total) {
     }
     if (obstacle.position.distanceTo(player.position) < GAME.playerRadius) endGame()
   }
+
+  resolveObstacleCollisions()
 
   for (const banger of bangersToDetonate) {
     if (obstacles.includes(banger)) detonateBanger(banger)
@@ -1625,7 +1692,7 @@ function updateGame(delta, total) {
     chronoCellTimer = 0
   }
   if (obstacleSpawnTimer > obstacleSpawnInterval) {
-    scheduleObstacle()
+    for (let index = 0; index < obstacleSpawnCount; index += 1) scheduleObstacle()
     obstacleSpawnTimer = 0
   }
   const fallingRockSpawnInterval = Math.max(
