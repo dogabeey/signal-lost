@@ -8,10 +8,10 @@ import './style.css'
 
 document.querySelector('#app').innerHTML = `
   <main class="game-shell">
-    <canvas id="game" aria-label="Astroid Belt game canvas"></canvas>
+    <canvas id="game" aria-label="Asteroid Belt game canvas"></canvas>
     <header class="hud">
       <div class="hud-left">
-        <div class="brand"><span class="brand-mark"></span>ASTROID BELT</div>
+        <div class="brand"><span class="brand-mark"></span>ASTEROID BELT</div>
         <div class="cash-balance">CASH <span id="cash">$000</span></div>
         <div class="chronoshard-balance">CHRONOSHARDS <span id="chronoshards">✦ 0</span></div>
       </div>
@@ -47,7 +47,7 @@ document.querySelector('#app').innerHTML = `
     <section class="overlay" id="overlay" aria-live="polite">
       <div class="menu-content" id="menu-content">
         <p class="eyebrow">A Lionsfall Game</p>
-        <h1 id="overlay-title">ASTROID BELT</h1>
+        <h1 id="overlay-title">ASTEROID BELT</h1>
         <p id="overlay-copy">Collect energy cells. Avoid the enemies.</p>
         <div class="tier-selection" aria-label="Difficulty tier selection">
           <div class="tier-heading"><span class="tier-icon" aria-hidden="true">✦</span><span>Difficulty</span></div>
@@ -60,9 +60,9 @@ document.querySelector('#app').innerHTML = `
           <p class="tier-requirement" id="tier-requirement"></p>
         </div>
         <div class="menu-actions">
-          <button id="start-button" type="button">START RUN</button>
-          <button class="secondary-button" id="open-lab-button" type="button">RESEARCH LAB</button>
-          <button class="secondary-button" id="open-building-button" type="button">BUILDING SYSTEM</button>
+          <button class="menu-start-button" id="start-button" type="button">START RUN</button>
+          <button class="menu-system-button" id="open-lab-button" type="button">RESEARCH LAB</button>
+          <button class="menu-system-button" id="open-building-button" type="button">BUILDING SYSTEM</button>
         </div>
       </div>
       <section class="lab-panel hidden" id="lab-panel" aria-label="Research Lab">
@@ -130,14 +130,23 @@ const previousTierButton = document.querySelector('#previous-tier')
 const nextTierButton = document.querySelector('#next-tier')
 const virtualJoystick = document.querySelector('#virtual-joystick')
 
-const CELL_BANK_STORAGE_KEY = 'astroid-belt-banked-cells'
-const TIER_STORAGE_KEY = 'astroid-belt-selected-tier'
-const TIER_HIGH_SCORES_STORAGE_KEY = 'astroid-belt-tier-high-scores'
-const CASH_STORAGE_KEY = 'astroid-belt-cash'
-const CHRONOSHARDS_STORAGE_KEY = 'astroid-belt-chronoshards'
-const RESEARCH_LAB_STORAGE_KEY = 'astroid-belt-research-lab'
-const SAVED_ROUND_STORAGE_KEY = 'astroid-belt-saved-round'
-const BUILDINGS_STORAGE_KEY = 'astroid-belt-buildings'
+const CELL_BANK_STORAGE_KEY = 'asteroid-belt-banked-cells'
+const TIER_STORAGE_KEY = 'asteroid-belt-selected-tier'
+const TIER_HIGH_SCORES_STORAGE_KEY = 'asteroid-belt-tier-high-scores'
+const CASH_STORAGE_KEY = 'asteroid-belt-cash'
+const CHRONOSHARDS_STORAGE_KEY = 'asteroid-belt-chronoshards'
+const RESEARCH_LAB_STORAGE_KEY = 'asteroid-belt-research-lab'
+const SAVED_ROUND_STORAGE_KEY = 'asteroid-belt-saved-round'
+const BUILDINGS_STORAGE_KEY = 'asteroid-belt-buildings'
+const FEATURE_UNLOCKS_STORAGE_KEY = 'asteroid-belt-feature-unlocks'
+const LEGACY_STORAGE_KEYS = [
+  ['astroid-belt-banked-cells', CELL_BANK_STORAGE_KEY], ['astroid-belt-selected-tier', TIER_STORAGE_KEY], ['astroid-belt-tier-high-scores', TIER_HIGH_SCORES_STORAGE_KEY],
+  ['astroid-belt-cash', CASH_STORAGE_KEY], ['astroid-belt-chronoshards', CHRONOSHARDS_STORAGE_KEY], ['astroid-belt-research-lab', RESEARCH_LAB_STORAGE_KEY],
+  ['astroid-belt-saved-round', SAVED_ROUND_STORAGE_KEY], ['astroid-belt-buildings', BUILDINGS_STORAGE_KEY], ['astroid-belt-feature-unlocks', FEATURE_UNLOCKS_STORAGE_KEY],
+]
+for (const [legacyKey, currentKey] of LEGACY_STORAGE_KEYS) {
+  try { if (localStorage.getItem(currentKey) === null && localStorage.getItem(legacyKey) !== null) localStorage.setItem(currentKey, localStorage.getItem(legacyKey)) } catch {}
+}
 const tierKeys = Object.keys(DIFFICULTY)
 
 function readStoredNumber(key, fallback = 0) {
@@ -212,6 +221,7 @@ let selectedTierIndex = Math.min(readStoredNumber(TIER_STORAGE_KEY), getUnlocked
 let cash = readStoredNumber(CASH_STORAGE_KEY)
 let chronoshards = readStoredNumber(CHRONOSHARDS_STORAGE_KEY)
 let savedRound = readSavedRound()
+let featureUnlocks = (() => { try { const saved = JSON.parse(localStorage.getItem(FEATURE_UNLOCKS_STORAGE_KEY)); return { researchLab: Boolean(saved?.researchLab), buildingSystem: Boolean(saved?.buildingSystem) } } catch { return { researchLab: false, buildingSystem: false } } })()
 let buildingState = (() => { try { const saved = JSON.parse(localStorage.getItem(BUILDINGS_STORAGE_KEY)); return saved?.unlocked ? saved : { unlocked: [], placed: [] } } catch { return { unlocked: [], placed: [] } } })()
 const buildingMeshes = new Map()
 const buildingRuntime = new Map()
@@ -474,6 +484,29 @@ function clearResearchSave() {
   renderResearchLab()
 }
 
+function saveFeatureUnlocks() { try { localStorage.setItem(FEATURE_UNLOCKS_STORAGE_KEY, JSON.stringify(featureUnlocks)) } catch {} }
+function clearFeatureUnlocks() { featureUnlocks = { researchLab: false, buildingSystem: false }; saveFeatureUnlocks(); renderFeatureUnlockButtons() }
+function renderFeatureUnlockButtons() {
+  for (const [feature, button] of [['researchLab', openLabButton], ['buildingSystem', openBuildingButton]]) {
+    const unlock = RESEARCH_CONFIG.featureUnlocks[feature]
+    const unlocked = featureUnlocks[feature]
+    const tierReady = getUnlockedTierIndex() + 1 >= unlock.minTier
+    const name = feature === 'researchLab' ? 'RESEARCH LAB' : 'BUILDING SYSTEM'
+    button.className = `menu-system-button ${unlocked ? 'is-unlocked' : tierReady ? 'is-unlockable' : 'is-locked'}`
+    button.disabled = !unlocked && !tierReady
+    button.textContent = unlocked ? name : tierReady ? `UNLOCK ${name} · ✦ ${unlock.chronoshardCost}` : `${name} · TIER ${unlock.minTier}`
+  }
+}
+function unlockFeature(feature) {
+  const unlock = RESEARCH_CONFIG.featureUnlocks[feature]
+  if (featureUnlocks[feature] || getUnlockedTierIndex() + 1 < unlock.minTier || chronoshards < unlock.chronoshardCost) return false
+  updateChronoshards(-unlock.chronoshardCost)
+  featureUnlocks[feature] = true
+  saveFeatureUnlocks()
+  renderFeatureUnlockButtons()
+  return true
+}
+
 function clearBuildingsSave() {
   buildingState = { unlocked: [], placed: [] }
   selectedBuildingType = null
@@ -520,6 +553,7 @@ function runCheatCommand(rawCommand) {
     if (argument === 'game_progress' || argument === 'all') clearGameProgressSave()
     if (argument === 'research' || argument === 'all') clearResearchSave()
     if (argument === 'buildings' || argument === 'all') clearBuildingsSave()
+    if (argument === 'all') clearFeatureUnlocks()
     setCheatOutput(`Cleared ${argument.replace('_', ' ')} save data.`)
     return
   }
@@ -582,6 +616,7 @@ function renderTierOptions() {
   tierRequirementElement.textContent = `CELLS REQUIRED TO NEXT TIER: ${DIFFICULTY[tierKey].cellsRequiredToAdvance}`
   previousTierButton.disabled = selectedTierIndex === 0
   nextTierButton.disabled = selectedTierIndex >= unlockedTierIndex
+  renderFeatureUnlockButtons()
 }
 
 function selectTier(tierIndex) {
@@ -1079,6 +1114,7 @@ function createObstacle(position, type, savedObstacle) {
   obstacle.position.y = GAME.obstacleGroundHeight
   obstacle.userData.type = type
   obstacle.userData.age = savedObstacle?.age ?? 0
+  obstacle.userData.lifetimeAge = savedObstacle?.lifetimeAge ?? 0
   obstacle.userData.speed = savedObstacle?.speed ?? THREE.MathUtils.randFloat(0.8, 1.45)
   obstacle.userData.pulseTimer = savedObstacle?.pulseTimer ?? 0
   obstacle.userData.shotCooldown = savedObstacle?.shotCooldown ?? 0
@@ -1529,7 +1565,7 @@ function saveCurrentRound() {
     shieldCharges,
     cells: cells.map((cell) => ({ position: serializePosition(cell.position), phase: cell.userData.phase, cashValue: cell.userData.cashValue })),
     chronoCells: chronoCells.map((cell) => ({ position: serializePosition(cell.position), phase: cell.userData.phase, age: cell.userData.age })),
-    obstacles: obstacles.map((obstacle) => ({ position: serializePosition(obstacle.position), type: obstacle.userData.type, age: obstacle.userData.age, speed: obstacle.userData.speed, pulseTimer: obstacle.userData.pulseTimer, shotCooldown: obstacle.userData.shotCooldown })),
+    obstacles: obstacles.map((obstacle) => ({ position: serializePosition(obstacle.position), type: obstacle.userData.type, age: obstacle.userData.age, lifetimeAge: obstacle.userData.lifetimeAge, speed: obstacle.userData.speed, pulseTimer: obstacle.userData.pulseTimer, shotCooldown: obstacle.userData.shotCooldown })),
     shooterProjectiles: shooterProjectiles.map((projectile) => ({ position: serializePosition(projectile.projectile.position), direction: serializePosition(projectile.direction), age: projectile.age })),
     fallingObstacles: fallingObstacles.map((fallingObstacle) => ({ target: serializePosition(fallingObstacle.target), type: fallingObstacle.type, age: fallingObstacle.age, landed: fallingObstacle.landed, impactTriggered: fallingObstacle.impactTriggered })),
     warnings: obstacleSpawnWarnings.map((warning) => ({ position: serializePosition(warning.position), type: warning.type, age: warning.age })),
@@ -1586,7 +1622,7 @@ function returnToMainMenu() {
   paused = false
   started = false
   pauseMenu.classList.add('hidden')
-  overlayTitle.textContent = 'ASTROID BELT'
+  overlayTitle.textContent = 'ASTEROID BELT'
   overlayCopy.textContent = 'Round saved. Continue when you are ready.'
   menuContent.classList.remove('hidden')
   labPanel.classList.add('hidden')
@@ -1775,13 +1811,12 @@ function updateGame(delta, total) {
     const obstacle = obstacles[index]
     const obstacleType = OBSTACLE_TYPES[obstacle.userData.type]
     const effectiveRange = getEffectiveEnemyRange(obstacle.userData.type, obstacleType.range)
-    if (obstacle.userData.type === 'regular') {
-      obstacle.userData.age += delta
-      if (obstacle.userData.age > regularObstacleLifetime) {
-        scene.remove(obstacle)
-        obstacles.splice(index, 1)
-        continue
-      }
+    obstacle.userData.lifetimeAge += delta
+    if (obstacle.userData.lifetimeAge > regularObstacleLifetime) {
+      scene.remove(obstacle, obstacle.userData.rangeIndicator, obstacle.userData.magnetPulse)
+      clearPorterTeleportTarget(obstacle)
+      obstacles.splice(index, 1)
+      continue
     }
     const playerOffset = player.position.clone().sub(obstacle.position)
     playerOffset.y = 0
@@ -1803,7 +1838,11 @@ function updateGame(delta, total) {
     }
     if (!inGapFog && playerOffset.length() <= effectiveRange && obstacleType.speed > 0) {
       const speedMultiplier = obstacle.userData.type === 'creeper' ? Math.max(0.5, 1 - getResearchStatBonus('creeperSpeedDebuff')) : 1
-      obstacle.position.addScaledVector(playerOffset.normalize(), obstacleType.speed * speedMultiplier * obstacleSpeedMultiplier * delta)
+      const creeperLifetimeProgress = obstacle.userData.type === 'creeper' ? Math.min(obstacle.userData.lifetimeAge / regularObstacleLifetime, 1) : 0
+      const movementSpeed = obstacle.userData.type === 'creeper'
+        ? THREE.MathUtils.lerp(obstacleType.speed, GAME.playerSpeed, creeperLifetimeProgress)
+        : obstacleType.speed
+      obstacle.position.addScaledVector(playerOffset.normalize(), movementSpeed * speedMultiplier * obstacleSpeedMultiplier * delta)
     }
     if (obstacle.userData.rangeIndicator) {
       const rangeIndicator = obstacle.userData.rangeIndicator
@@ -2159,6 +2198,7 @@ startButton.addEventListener('click', async () => {
 })
 
 openLabButton.addEventListener('click', () => {
+  if (!featureUnlocks.researchLab && !unlockFeature('researchLab')) return
   menuContent.classList.add('hidden')
   labPanel.classList.remove('hidden')
   setLabMessage()
@@ -2169,7 +2209,7 @@ closeLabButton.addEventListener('click', () => {
   labPanel.classList.add('hidden')
   menuContent.classList.remove('hidden')
 })
-openBuildingButton.addEventListener('click', () => { menuContent.classList.add('hidden'); buildingPanel.classList.remove('hidden'); renderBuildings() })
+openBuildingButton.addEventListener('click', () => { if (!featureUnlocks.buildingSystem && !unlockFeature('buildingSystem')) return; menuContent.classList.add('hidden'); buildingPanel.classList.remove('hidden'); renderBuildings() })
 closeBuildingButton.addEventListener('click', () => { buildingPanel.classList.add('hidden'); menuContent.classList.remove('hidden') })
 enterBuildModeButton.addEventListener('click', enterBuildMode)
 exitBuildModeButton.addEventListener('click', exitBuildMode)

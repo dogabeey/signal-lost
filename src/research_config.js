@@ -10,6 +10,10 @@
 
 export const RESEARCH_CONFIG = {
   durationsEnabled: false,
+  featureUnlocks: {
+    researchLab: { minTier: 2, chronoshardCost: 25 },
+    buildingSystem: { minTier: 4, chronoshardCost: 75 },
+  },
   maxSlots: 3,
   slotUnlocks: [
     { slot: 2, cost: { currency: 'chronoshards', amount: 100 }, requirements: { minTier: 2 } },
