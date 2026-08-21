@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { ANIMATION, CAMERA, COLORS, DIFFICULTY, ENTITIES, FALLING_ROCK_TYPES, GAME, LIGHTING, OBSTACLE_TYPES, SCENE, SOUND } from './constants.js'
 import { RESEARCH_CONFIG } from './research_config.js'
 import { CHEAT_CONFIG } from './cheat_config.js'
+import { BUILD_INFO } from './build_info.js'
 import './style.css'
 
 document.querySelector('#app').innerHTML = `
@@ -19,6 +20,9 @@ document.querySelector('#app').innerHTML = `
       </dl>
     </header>
     <aside class="instructions"><b>MOVE</b><span>WASD / ARROW KEYS</span></aside>
+    <footer class="build-footer" aria-label="Build information">
+      <strong>${BUILD_INFO.label}</strong><span>v${BUILD_INFO.version}</span><span>BUILD ${BUILD_INFO.number}</span><span>${BUILD_INFO.date}</span>
+    </footer>
     <div class="cash-indicators" id="cash-indicators" aria-live="polite"></div>
     <section class="pause-menu hidden" id="pause-menu" aria-label="Pause menu">
       <p class="eyebrow">ROUND PAUSED</p>
@@ -36,7 +40,7 @@ document.querySelector('#app').innerHTML = `
     </section>
     <section class="overlay" id="overlay" aria-live="polite">
       <div class="menu-content" id="menu-content">
-        <p class="eyebrow">SYSTEM OVERRIDE</p>
+        <p class="eyebrow">A Lionsfall Game</p>
         <h1 id="overlay-title">ASTROID BELT</h1>
         <p id="overlay-copy">Collect energy cells. Avoid the obstacles.</p>
         <div class="tier-selection" aria-label="Difficulty tier selection">
@@ -352,6 +356,10 @@ function startResearch(researchId) {
     researchState.slots[emptySlot] = { researchId, level, completesAt: Date.now() + getResearchDuration(research, level) }
   } else {
     researchState.levels[researchId] = Math.min(level + 1, research.maxLevel)
+    if (researchId === 'shield' && started) {
+      shieldCharges += 1
+      shieldBubble.visible = true
+    }
   }
   saveResearchState()
   setLabMessage(RESEARCH_CONFIG.durationsEnabled ? `${research.name} research started in Slot ${emptySlot + 1}.` : `${research.name} upgraded to Level ${level + 1}.`)
@@ -745,6 +753,12 @@ slowAuraRing.rotation.x = -Math.PI / 2
 slowAuraRing.position.y = -GAME.playerStartHeight + 0.04
 slowAuraRing.visible = false
 player.add(slowAuraRing)
+const shieldBubble = new THREE.Mesh(
+  new THREE.SphereGeometry(GAME.playerRadius * 1.15, 20, 14),
+  new THREE.MeshBasicMaterial({ color: COLORS.slowAura, transparent: true, opacity: 0.18, wireframe: true, depthWrite: false }),
+)
+shieldBubble.visible = false
+player.add(shieldBubble)
 player.position.y = GAME.playerStartHeight
 scene.add(player)
 
@@ -757,6 +771,8 @@ const fireHazards = []
 const splinterPieces = []
 const explosions = []
 const bangerPulses = []
+const shockwaves = []
+const playerDeathEffects = []
 const obstacleSpawnWarnings = []
 const timer = new THREE.Timer()
 let started = false
@@ -768,30 +784,38 @@ let spawnTimer = 0
 let chronoCellTimer = 0
 let obstacleSpawnTimer = 0
 let hazardTimer = 0
+let shockwaveTimer = 0
+let shieldCharges = 0
+let shieldInvulnerability = 0
 
 const cellGeometry = new THREE.OctahedronGeometry(ENTITIES.cellRadius)
 const chronoCellGeometry = new THREE.IcosahedronGeometry(ENTITIES.chronoCellRadius, 1)
-const obstacleGeometry = createSpikyBallGeometry()
+const fallingRockGeometry = new THREE.IcosahedronGeometry(ENTITIES.obstacleRadius, ENTITIES.fallingRockDetail)
+const obstacleCoreGeometry = new THREE.IcosahedronGeometry(ENTITIES.obstacleCoreRadius, 1)
+const obstacleSpikeGeometry = new THREE.ConeGeometry(ENTITIES.obstacleSpikeRadius, ENTITIES.obstacleSpikeHeight, ENTITIES.obstacleSpikeSegments)
+const spikeDirections = [
+  [0, 1, 0], [0, -1, 0], [1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1],
+  [1, 1, 1], [-1, 1, 1], [1, 1, -1], [-1, 1, -1],
+  [1, -1, 1], [-1, -1, 1], [1, -1, -1], [-1, -1, -1],
+].map(([x, y, z]) => new THREE.Vector3(x, y, z).normalize())
+const upDirection = new THREE.Vector3(0, 1, 0)
 
-function createSpikyBallGeometry() {
-  const geometry = new THREE.IcosahedronGeometry(ENTITIES.obstacleRadius, ENTITIES.obstacleDetail)
-  const positions = geometry.getAttribute('position')
+function createSpikedObstacle(material) {
+  const obstacle = new THREE.Group()
+  const core = new THREE.Mesh(obstacleCoreGeometry, material)
+  core.castShadow = true
+  obstacle.add(core)
 
-  for (let index = 0; index < positions.count; index += 3) {
-    const spike = 1 + Math.abs(Math.sin(index * 12.9898)) * ENTITIES.obstacleSpikeAmplitude
-    for (let vertex = 0; vertex < 3; vertex += 1) {
-      positions.setXYZ(
-        index + vertex,
-        positions.getX(index + vertex) * spike,
-        positions.getY(index + vertex) * spike,
-        positions.getZ(index + vertex) * spike,
-      )
-    }
+  for (const direction of spikeDirections) {
+    const spike = new THREE.Mesh(obstacleSpikeGeometry, material)
+    spike.position.copy(direction).multiplyScalar(ENTITIES.obstacleCoreRadius + ENTITIES.obstacleSpikeHeight * 0.28)
+    spike.quaternion.setFromUnitVectors(upDirection, direction)
+    spike.castShadow = true
+    obstacle.add(spike)
   }
 
-  positions.needsUpdate = true
-  geometry.computeVertexNormals()
-  return geometry
+  obstacle.userData.material = material
+  return obstacle
 }
 
 function randomArenaPosition(minDistance = 0) {
@@ -872,10 +896,9 @@ function scheduleObstacle(savedWarning) {
 function createObstacle(position, type, savedObstacle) {
   const obstacleType = OBSTACLE_TYPES[type]
   const material = new THREE.MeshStandardMaterial({ color: obstacleType.color, emissive: obstacleType.emissive, metalness: ENTITIES.obstacleMetalness, roughness: ENTITIES.obstacleRoughness })
-  const obstacle = new THREE.Mesh(obstacleGeometry, material)
+  const obstacle = createSpikedObstacle(material)
   obstacle.position.copy(position)
   obstacle.position.y = GAME.obstacleGroundHeight
-  obstacle.castShadow = true
   obstacle.userData.type = type
   obstacle.userData.age = savedObstacle?.age ?? 0
   obstacle.userData.speed = savedObstacle?.speed ?? THREE.MathUtils.randFloat(0.8, 1.45)
@@ -916,7 +939,7 @@ function scheduleFallingObstacles() {
 function createFallingObstacle(target, savedObstacle, type = savedObstacle?.type ?? 'stoneRock') {
   const rockType = FALLING_ROCK_TYPES[type]
   const obstacle = new THREE.Mesh(
-    obstacleGeometry,
+    fallingRockGeometry,
     new THREE.MeshStandardMaterial({ color: rockType.color, emissive: rockType.emissive, emissiveIntensity: rockType.emissiveIntensity, metalness: ENTITIES.fallingObstacleMetalness, roughness: ENTITIES.fallingObstacleRoughness }),
   )
   obstacle.position.set(target.x, GAME.fallingBlockStartHeight, target.z)
@@ -942,16 +965,51 @@ function createFallingObstacle(target, savedObstacle, type = savedObstacle?.type
 }
 
 function createFireHazard(position, savedFire) {
-  const fire = new THREE.Mesh(
-    new THREE.CircleGeometry(GAME.fieryRockFireRadius, 48),
-    new THREE.MeshBasicMaterial({ color: COLORS.fire, transparent: true, opacity: 0.5, depthWrite: false }),
+  const visual = new THREE.Group()
+  visual.position.set(position.x, 0.05, position.z)
+  const ground = new THREE.Mesh(
+    new THREE.CylinderGeometry(GAME.fieryRockFireRadius, GAME.fieryRockFireRadius * 0.82, 0.06, 32),
+    new THREE.MeshBasicMaterial({ color: COLORS.fire, transparent: true, opacity: 0.34, depthWrite: false }),
   )
-  fire.rotation.x = -Math.PI / 2
-  fire.position.set(position.x, 0.055, position.z)
-  const light = new THREE.PointLight(COLORS.fire, 4, GAME.fieryRockFireRadius * 3)
+  visual.add(ground)
+
+  const flames = []
+  for (let index = 0; index < GAME.fieryRockFlameCount; index += 1) {
+    const angle = (index / GAME.fieryRockFlameCount) * Math.PI * 2 + Math.random() * 0.45
+    const distance = index === 0 ? 0 : THREE.MathUtils.randFloat(0.18, GAME.fieryRockFireRadius * 0.66)
+    const height = THREE.MathUtils.randFloat(0.75, 1.7) * (index === 0 ? 1.3 : 1)
+    const flame = new THREE.Mesh(
+      new THREE.ConeGeometry(THREE.MathUtils.randFloat(0.15, 0.32), height, 5),
+      new THREE.MeshStandardMaterial({ color: index % 3 === 0 ? '#ffe19a' : COLORS.fire, emissive: COLORS.fieryRockEmissive, emissiveIntensity: 2.6, transparent: true, opacity: 0.86, roughness: 0.45, depthWrite: false }),
+    )
+    flame.position.set(Math.cos(angle) * distance, height / 2, Math.sin(angle) * distance)
+    flame.rotation.z = THREE.MathUtils.randFloatSpread(0.28)
+    flame.rotation.x = THREE.MathUtils.randFloatSpread(0.28)
+    flame.userData.baseHeight = height
+    flame.userData.phase = Math.random() * Math.PI * 2
+    visual.add(flame)
+    flames.push(flame)
+  }
+
+  const embers = []
+  for (let index = 0; index < GAME.fieryRockEmberCount; index += 1) {
+    const ember = new THREE.Mesh(
+      new THREE.OctahedronGeometry(THREE.MathUtils.randFloat(0.035, 0.08), 0),
+      new THREE.MeshBasicMaterial({ color: '#ffe19a', transparent: true, opacity: 0.9, depthWrite: false }),
+    )
+    ember.userData.angle = Math.random() * Math.PI * 2
+    ember.userData.distance = THREE.MathUtils.randFloat(0.1, GAME.fieryRockFireRadius * 0.72)
+    ember.userData.height = THREE.MathUtils.randFloat(0.2, 1.7)
+    ember.userData.speed = THREE.MathUtils.randFloat(0.7, 1.5)
+    ember.userData.phase = Math.random() * Math.PI * 2
+    visual.add(ember)
+    embers.push(ember)
+  }
+
+  const light = new THREE.PointLight(COLORS.fire, 5.5, GAME.fieryRockFireRadius * 3)
   light.position.set(position.x, 1.2, position.z)
-  scene.add(fire, light)
-  fireHazards.push({ fire, light, position: position.clone(), age: savedFire?.age ?? 0 })
+  scene.add(visual, light)
+  fireHazards.push({ visual, ground, flames, embers, light, position: position.clone(), age: savedFire?.age ?? 0 })
 }
 
 function createSplinterPiece(position, direction, age = 0) {
@@ -1011,6 +1069,97 @@ function createBangerPulse(position, radius, fuseProgress) {
   soundSystem.playBangerPulse(fuseProgress, position)
 }
 
+function triggerShockwave() {
+  const radius = GAME.shockwaveBaseRadius * (1 + getResearchStatBonus('shockwaveSize'))
+  const shockwave = new THREE.Mesh(
+    new THREE.RingGeometry(0.2, 0.42, 64),
+    new THREE.MeshBasicMaterial({ color: COLORS.slowAura, transparent: true, opacity: 0.95, side: THREE.DoubleSide, depthWrite: false }),
+  )
+  shockwave.rotation.x = -Math.PI / 2
+  shockwave.position.set(player.position.x, 0.07, player.position.z)
+  scene.add(shockwave)
+  shockwaves.push({ shockwave, radius, age: 0 })
+
+  for (const obstacle of obstacles) {
+    const direction = obstacle.position.clone().sub(player.position)
+    direction.y = 0
+    const distance = direction.length()
+    if (distance > radius) continue
+    if (distance < 0.01) direction.set(Math.random() - 0.5, 0, Math.random() - 0.5).normalize()
+    else direction.normalize()
+    const push = GAME.shockwavePushDistance * (1 - distance / radius)
+    obstacle.position.addScaledVector(direction, push)
+    obstacle.position.x = THREE.MathUtils.clamp(obstacle.position.x, -getArenaLimit(), getArenaLimit())
+    obstacle.position.z = THREE.MathUtils.clamp(obstacle.position.z, -getArenaLimit(), getArenaLimit())
+  }
+}
+
+function createPlayerDeathEffect(position) {
+  const flash = new THREE.Mesh(
+    new THREE.SphereGeometry(0.95, 24, 16),
+    new THREE.MeshBasicMaterial({ color: '#fff4cf', transparent: true, opacity: 1, depthWrite: false }),
+  )
+  flash.position.copy(position)
+  const blast = new THREE.Mesh(
+    new THREE.IcosahedronGeometry(0.7, 2),
+    new THREE.MeshBasicMaterial({ color: COLORS.playerRing, transparent: true, opacity: 0.95, wireframe: true, depthWrite: false }),
+  )
+  blast.position.copy(position)
+  const shockwave = new THREE.Mesh(
+    new THREE.RingGeometry(0.24, 0.5, 64),
+    new THREE.MeshBasicMaterial({ color: COLORS.player, transparent: true, opacity: 1, side: THREE.DoubleSide, depthWrite: false }),
+  )
+  shockwave.rotation.x = -Math.PI / 2
+  shockwave.position.set(position.x, 0.06, position.z)
+  const innerShockwave = shockwave.clone()
+  innerShockwave.material = shockwave.material.clone()
+  const light = new THREE.PointLight('#fff4cf', 22, 18)
+  light.position.copy(position)
+  const fragments = Array.from({ length: 18 }, () => {
+    const fragment = new THREE.Mesh(
+      new THREE.TetrahedronGeometry(THREE.MathUtils.randFloat(0.08, 0.19), 0),
+      new THREE.MeshBasicMaterial({ color: Math.random() > 0.45 ? COLORS.playerRing : COLORS.player, transparent: true, opacity: 1, depthWrite: false }),
+    )
+    fragment.position.copy(position)
+    const direction = new THREE.Vector3(Math.random() - 0.5, Math.random() * 0.75 + 0.18, Math.random() - 0.5).normalize()
+    fragment.userData.velocity = direction.multiplyScalar(THREE.MathUtils.randFloat(4, 10))
+    scene.add(fragment)
+    return fragment
+  })
+  scene.add(flash, blast, shockwave, innerShockwave, light)
+  playerDeathEffects.push({ flash, blast, shockwave, innerShockwave, light, fragments, age: 0 })
+}
+
+function updatePlayerDeathEffects(delta) {
+  for (let index = playerDeathEffects.length - 1; index >= 0; index -= 1) {
+    const effect = playerDeathEffects[index]
+    effect.age += delta
+    const progress = Math.min(effect.age / GAME.playerDeathVfxDuration, 1)
+    effect.flash.scale.setScalar(THREE.MathUtils.lerp(0.25, 3.8, progress))
+    effect.flash.material.opacity = Math.max(0, 1 - progress * 3.5)
+    effect.blast.scale.setScalar(THREE.MathUtils.lerp(0.2, 5.4, progress))
+    effect.blast.rotation.y += delta * 12
+    effect.blast.rotation.x += delta * 7
+    effect.blast.material.opacity = 0.95 * (1 - progress)
+    effect.shockwave.scale.setScalar(THREE.MathUtils.lerp(0.2, 15, progress))
+    effect.shockwave.material.opacity = 1 - progress
+    effect.innerShockwave.scale.setScalar(THREE.MathUtils.lerp(0.1, 8, progress))
+    effect.innerShockwave.material.opacity = Math.max(0, 1 - progress * 1.8)
+    effect.light.intensity = 22 * (1 - progress)
+    for (const fragment of effect.fragments) {
+      fragment.position.addScaledVector(fragment.userData.velocity, delta)
+      fragment.userData.velocity.y -= delta * 7
+      fragment.rotation.x += delta * 12
+      fragment.rotation.z += delta * 9
+      fragment.material.opacity = 1 - progress
+    }
+    if (progress === 1) {
+      scene.remove(effect.flash, effect.blast, effect.shockwave, effect.innerShockwave, effect.light, ...effect.fragments)
+      playerDeathEffects.splice(index, 1)
+    }
+  }
+}
+
 function detonateBanger(banger) {
   const position = banger.position.clone()
   const radius = OBSTACLE_TYPES.banger.range
@@ -1035,7 +1184,7 @@ function resetGame(populateArena = true) {
   obstacles.length = 0
   for (const fallingObstacle of fallingObstacles) scene.remove(fallingObstacle.obstacle, fallingObstacle.shadow, fallingObstacle.targetRing)
   fallingObstacles.length = 0
-  for (const fireHazard of fireHazards) scene.remove(fireHazard.fire, fireHazard.light)
+  for (const fireHazard of fireHazards) scene.remove(fireHazard.visual, fireHazard.light)
   fireHazards.length = 0
   for (const splinterPiece of splinterPieces) scene.remove(splinterPiece.piece)
   splinterPieces.length = 0
@@ -1043,15 +1192,24 @@ function resetGame(populateArena = true) {
   explosions.length = 0
   for (const bangerPulse of bangerPulses) scene.remove(bangerPulse.pulse)
   bangerPulses.length = 0
+  for (const shockwave of shockwaves) scene.remove(shockwave.shockwave)
+  shockwaves.length = 0
+  for (const deathEffect of playerDeathEffects) scene.remove(deathEffect.flash, deathEffect.blast, deathEffect.shockwave, deathEffect.innerShockwave, deathEffect.light, ...deathEffect.fragments)
+  playerDeathEffects.length = 0
   for (const warning of obstacleSpawnWarnings) scene.remove(warning.ring, warning.glow, warning.beam)
   obstacleSpawnWarnings.length = 0
   player.position.set(0, GAME.playerStartHeight, 0)
+  player.visible = true
   score = 0
   elapsed = 0
   spawnTimer = 0
   chronoCellTimer = 0
   obstacleSpawnTimer = 0
   hazardTimer = 0
+  shockwaveTimer = 0
+  shieldCharges = getResearchLevel('shield')
+  shieldInvulnerability = 0
+  shieldBubble.visible = shieldCharges > 0
   scoreElement.textContent = '000'
   timeElement.textContent = '00:00'
   if (populateArena) {
@@ -1076,6 +1234,8 @@ function saveCurrentRound() {
     chronoCellTimer,
     obstacleSpawnTimer,
     hazardTimer,
+    shockwaveTimer,
+    shieldCharges,
     cells: cells.map((cell) => ({ position: serializePosition(cell.position), phase: cell.userData.phase, cashValue: cell.userData.cashValue })),
     chronoCells: chronoCells.map((cell) => ({ position: serializePosition(cell.position), phase: cell.userData.phase, age: cell.userData.age })),
     obstacles: obstacles.map((obstacle) => ({ position: serializePosition(obstacle.position), type: obstacle.userData.type, age: obstacle.userData.age, speed: obstacle.userData.speed, pulseTimer: obstacle.userData.pulseTimer })),
@@ -1104,6 +1264,9 @@ function restoreSavedRound() {
   chronoCellTimer = savedRound.chronoCellTimer ?? 0
   obstacleSpawnTimer = savedRound.obstacleSpawnTimer ?? 0
   hazardTimer = savedRound.hazardTimer ?? 0
+  shockwaveTimer = savedRound.shockwaveTimer ?? 0
+  shieldCharges = savedRound.shieldCharges ?? getResearchLevel('shield')
+  shieldBubble.visible = shieldCharges > 0
   for (const cell of savedRound.cells ?? []) addCell(cell)
   for (const chronoCell of savedRound.chronoCells ?? []) addChronoCell(chronoCell)
   for (const obstacle of savedRound.obstacles ?? []) createObstacle(new THREE.Vector3(obstacle.position.x, obstacle.position.y, obstacle.position.z), obstacle.type, obstacle)
@@ -1130,9 +1293,21 @@ function returnToMainMenu() {
 }
 
 function endGame() {
+  if (!started || ended) return
+  if (shieldInvulnerability > 0) return
+  if (shieldCharges > 0) {
+    shieldCharges -= 1
+    shieldInvulnerability = GAME.shieldInvulnerabilityDuration
+    shieldBubble.visible = shieldCharges > 0
+    shieldBubble.scale.setScalar(1.7)
+    return
+  }
   started = false
   ended = true
   paused = false
+  shieldBubble.visible = false
+  createPlayerDeathEffect(player.position)
+  player.visible = false
   pauseMenu.classList.add('hidden')
   clearSavedRound()
   recordTierHighScore()
@@ -1184,6 +1359,21 @@ function updateGame(delta, total) {
     slowAuraRing.scale.setScalar(slowAuraRange)
     slowAuraRing.material.opacity = 0.22 + Math.sin(total * 3.5) * 0.08
     slowAuraRing.rotation.z += delta * 0.35
+  }
+  if (shieldInvulnerability > 0) shieldInvulnerability = Math.max(0, shieldInvulnerability - delta)
+  if (shieldCharges > 0 || shieldInvulnerability > 0) {
+    shieldBubble.visible = true
+    shieldBubble.scale.setScalar(1 + Math.sin(total * 12) * 0.08 + (shieldInvulnerability > 0 ? 0.2 : 0))
+    shieldBubble.material.opacity = shieldInvulnerability > 0 ? 0.65 : 0.18
+  } else shieldBubble.visible = false
+
+  if (getResearchLevel('unlock-shockwave') > 0) {
+    shockwaveTimer += delta
+    const interval = GAME.shockwaveBaseInterval / (1 + getResearchStatBonus('shockwaveFrequency'))
+    if (shockwaveTimer >= interval) {
+      triggerShockwave()
+      shockwaveTimer = 0
+    }
   }
 
   for (let index = cells.length - 1; index >= 0; index -= 1) {
@@ -1260,7 +1450,7 @@ function updateGame(delta, total) {
       obstacle.userData.age += delta * obstacleSpeedMultiplier
       const fuseProgress = Math.min(obstacle.userData.age / ENTITIES.bangerFuseDuration, 1)
       const fusePulse = (Math.sin(obstacle.userData.age * ANIMATION.bangerFusePulseSpeed) + 1) / 2
-      obstacle.material.emissiveIntensity = ANIMATION.bangerFuseEmissiveBaseIntensity + fusePulse * ANIMATION.bangerFuseEmissivePulseAmount
+      obstacle.userData.material.emissiveIntensity = ANIMATION.bangerFuseEmissiveBaseIntensity + fusePulse * ANIMATION.bangerFuseEmissivePulseAmount
       obstacle.userData.pulseTimer = (obstacle.userData.pulseTimer ?? 0) + delta * obstacleSpeedMultiplier
       const pulseInterval = THREE.MathUtils.lerp(GAME.bangerPulseStartInterval, GAME.bangerPulseEndInterval, fuseProgress)
       if (obstacle.userData.pulseTimer >= pulseInterval) {
@@ -1304,6 +1494,18 @@ function updateGame(delta, total) {
     }
   }
 
+  for (let index = shockwaves.length - 1; index >= 0; index -= 1) {
+    const wave = shockwaves[index]
+    wave.age += delta
+    const progress = Math.min(wave.age / GAME.shockwaveVfxDuration, 1)
+    wave.shockwave.scale.setScalar(THREE.MathUtils.lerp(0.25, wave.radius / 0.42, progress))
+    wave.shockwave.material.opacity = 0.95 * (1 - progress)
+    if (progress === 1) {
+      scene.remove(wave.shockwave)
+      shockwaves.splice(index, 1)
+    }
+  }
+
   for (let index = fallingObstacles.length - 1; index >= 0; index -= 1) {
     const fallingObstacle = fallingObstacles[index]
     fallingObstacle.age += delta
@@ -1343,12 +1545,26 @@ function updateGame(delta, total) {
     fireHazard.age += delta
     const progress = fireHazard.age / GAME.fieryRockFireDuration
     const pulse = 1 + Math.sin(fireHazard.age * 9) * 0.1
-    fireHazard.fire.scale.setScalar(pulse * (0.9 + progress * 0.25))
-    fireHazard.fire.material.opacity = Math.max(0, 0.55 * (1 - progress))
-    fireHazard.light.intensity = Math.max(0, 4 * (1 - progress))
+    const fade = Math.max(0, 1 - progress)
+    fireHazard.ground.scale.setScalar(pulse * (0.9 + progress * 0.2))
+    fireHazard.ground.material.opacity = 0.34 * fade
+    fireHazard.visual.rotation.y += delta * 0.5
+    for (const flame of fireHazard.flames) {
+      const flicker = 0.82 + Math.sin(fireHazard.age * 12 + flame.userData.phase) * 0.18
+      flame.scale.y = flicker * fade
+      flame.material.opacity = 0.86 * fade
+    }
+    for (const ember of fireHazard.embers) {
+      const emberAge = (fireHazard.age * ember.userData.speed + ember.userData.phase) % 1
+      const distance = ember.userData.distance * (0.55 + emberAge * 0.7)
+      ember.position.set(Math.cos(ember.userData.angle + fireHazard.age) * distance, emberAge * ember.userData.height + 0.16, Math.sin(ember.userData.angle + fireHazard.age) * distance)
+      ember.material.opacity = 0.85 * fade * (1 - emberAge)
+      ember.scale.setScalar(0.6 + (1 - emberAge) * 0.7)
+    }
+    fireHazard.light.intensity = Math.max(0, (5.5 + Math.sin(fireHazard.age * 14)) * fade)
     if (planarDistance(player.position, fireHazard.position) < GAME.fieryRockFireRadius) endGame()
     if (progress >= 1) {
-      scene.remove(fireHazard.fire, fireHazard.light)
+      scene.remove(fireHazard.visual, fireHazard.light)
       fireHazards.splice(index, 1)
     }
   }
@@ -1425,6 +1641,7 @@ function animate() {
   const delta = Math.min(timer.getDelta(), 0.05)
   const total = timer.getElapsed()
   if (started && !paused) updateGame(delta, total)
+  updatePlayerDeathEffects(delta)
   camera.position.lerp(new THREE.Vector3(player.position.x * 0.26, CAMERA.height, player.position.z + CAMERA.distance), CAMERA.followStrength)
   camera.lookAt(player.position.x * 0.28, 0, player.position.z * 0.3)
   renderer.render(scene, camera)

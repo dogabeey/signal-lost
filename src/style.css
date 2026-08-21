@@ -54,6 +54,9 @@ button { font: inherit; }
 .stats dd { color: #f7f1d3; font-size: 19px; font-weight: 700; margin: 0; }
 .instructions { bottom: 28px; color: #a7c0bf; display: flex; font-size: 11px; gap: 10px; left: 32px; position: absolute; }
 .instructions b { color: #63f5cd; }
+.build-footer { bottom: 28px; color: #8ca7a7; display: flex; font-family: 'Trebuchet MS', Arial, sans-serif; font-size: 9px; font-weight: 700; gap: 10px; letter-spacing: 0.08em; pointer-events: none; position: absolute; right: 32px; text-align: right; }
+.build-footer strong { color: #ffcf76; }
+.build-footer span + span::before { color: #42636a; content: '•'; margin-right: 10px; }
 
 .overlay { align-items: center; background: rgba(10, 20, 28, 0.3); display: flex; flex-direction: column; inset: 0; justify-content: center; padding: 24px; position: absolute; text-align: center; transition: opacity 240ms ease, visibility 240ms ease; }
 .overlay.hidden { opacity: 0; pointer-events: none; visibility: hidden; }
@@ -130,6 +133,8 @@ button:focus-visible { outline: 2px solid #fff4d2; outline-offset: 4px; }
   .hud { padding: 20px; }
   .stats { gap: 16px; }
   .instructions { bottom: 20px; font-size: 10px; left: 20px; }
+  .build-footer { bottom: 20px; font-size: 8px; gap: 6px; right: 20px; }
+  .build-footer span + span::before { margin-right: 6px; }
   .lab-panel { max-height: 88svh; padding: 17px; }
   .research-slots { grid-template-columns: 1fr; }
   .research-card { align-items: stretch; flex-direction: column; gap: 11px; }

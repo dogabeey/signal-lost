@@ -1,3 +1,13 @@
+// Instructions for adding new research:
+// 1. Add a new research object to the "researches" array below.
+// 2. Make sure to give it a unique "id" and fill in the other properties as needed.
+// 3. If the research has requirements, specify them in the "requirements" property.
+// 4. If the research has an effect, specify it in the "effect" property.
+// 5. If the research has a cost, specify it in the "cost" property.
+// 6. If the research has a duration, specify it in the "duration" property.
+// 7. Unless stated explicitly, all researches cost cash.
+
+
 export const RESEARCH_CONFIG = {
   durationsEnabled: false,
   maxSlots: 3,
@@ -93,6 +103,49 @@ export const RESEARCH_CONFIG = {
       effect: { stat: 'chronoLifetimeMultiplier', perLevel: 0.05, format: 'percent' },
       cost: { currency: 'cash', base: 5, multiplier: 2, jerk: 2 },
       duration: { baseMs: 120_000_000, multiplier: 1.35 },
+      requirements: { minTier: 4 },
+    },
+    {
+      id: 'unlock-shockwave',
+      category: 'Player Enhancements',
+      name: 'Unlock Shockwave',
+      description: 'Periodically emits a green shockwave that pushes obstacles away.',
+      maxLevel: 1,
+      cost: { currency: 'cash', base: 20_000, multiplier: 1, jerk: 1 },
+      duration: { baseMs: 120_000, multiplier: 1 },
+      requirements: { minTier: 2 },
+    },
+    {
+      id: 'shockwave-size',
+      category: 'Player Enhancements',
+      name: 'Shockwave Size',
+      description: 'Increases the range of each Shockwave.',
+      maxLevel: 20,
+      effect: { stat: 'shockwaveSize', perLevel: 0.1, format: 'percent' },
+      cost: { currency: 'cash', base: 100, multiplier: 1.28, jerk: 1.005 },
+      duration: { baseMs: 120_000, multiplier: 1.2 },
+      requirements: { minTier: 2, researchId: 'unlock-shockwave' },
+    },
+    {
+      id: 'shockwave-frequency',
+      category: 'Player Enhancements',
+      name: 'Shockwave Frequency',
+      description: 'Makes Shockwaves trigger more frequently.',
+      maxLevel: 20,
+      effect: { stat: 'shockwaveFrequency', perLevel: 0.1, format: 'percent' },
+      cost: { currency: 'cash', base: 120, multiplier: 1.28, jerk: 1.005 },
+      duration: { baseMs: 120_000, multiplier: 1.2 },
+      requirements: { minTier: 2, researchId: 'unlock-shockwave' },
+    },
+    {
+      id: 'shield',
+      category: 'Player Enhancements',
+      name: 'Shield',
+      description: 'Grants one death save per level at the start of every run.',
+      maxLevel: 10,
+      effect: { stat: 'shieldCharges', perLevel: 1, format: 'flat' },
+      cost: { currency: 'cash', base: 125_000, multiplier: 1.45, jerk: 1.02 },
+      duration: { baseMs: 180_000, multiplier: 1.25 },
       requirements: { minTier: 4 },
     }
   ],
