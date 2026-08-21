@@ -285,6 +285,11 @@ function getResearchLockReason(research) {
   return ''
 }
 
+function isResearchVisible(research) {
+  const visibleWhen = research.visibleWhen
+  return !visibleWhen?.anyResearch || visibleWhen.anyResearch.some((researchId) => getResearchLevel(researchId) > 0)
+}
+
 function completeFinishedResearches() {
   const now = Date.now()
   let changed = false
@@ -330,7 +335,7 @@ function renderResearchLab() {
   }).join('') : ''
 
   const researchesByCategory = new Map()
-  for (const research of RESEARCH_CONFIG.researches) {
+  for (const research of RESEARCH_CONFIG.researches.filter(isResearchVisible)) {
     const category = research.category ?? 'General'
     researchesByCategory.set(category, [...(researchesByCategory.get(category) ?? []), research])
   }
@@ -1354,7 +1359,7 @@ function resetGame(populateArena = true) {
   scoreElement.textContent = '000'
   timeElement.textContent = '00:00'
   if (populateArena) {
-    for (let index = 0; index < GAME.initialCellCount; index += 1) addCell()
+    for (let index = 0; index < GAME.initialCellCount + getResearchStatBonus('initialCellCount'); index += 1) addCell()
     for (const type of GAME.initialObstacleTypes) {
       if (getCurrentDifficulty().availableObstacleTypes.includes(type)) addObstacle(type)
     }
@@ -1528,7 +1533,8 @@ function updateGame(delta, total) {
   playerCore.rotation.x += delta * ANIMATION.playerCoreSpinSpeed
   playerRing.rotation.z += delta * ANIMATION.playerRingSpinSpeed
   const slowAuraUnlocked = getResearchLevel('unlock-slow-aura') > 0
-  const slowAuraRange = GAME.slowAuraBaseRange * (1 + getResearchStatBonus('slowAuraRange'))
+  const effectRangeMultiplier = 1 + getResearchStatBonus('effectRange')
+  const slowAuraRange = GAME.slowAuraBaseRange * effectRangeMultiplier
   const slowAuraEffect = THREE.MathUtils.clamp(GAME.slowAuraBaseEffect + getResearchStatBonus('slowAuraEffect'), 0, 0.9)
   slowAuraRing.visible = slowAuraUnlocked
   if (slowAuraUnlocked) {
@@ -1556,6 +1562,12 @@ function updateGame(delta, total) {
     const cell = cells[index]
     cell.rotation.y += delta * ANIMATION.cellSpinSpeed
     cell.position.y = ANIMATION.cellBobBaseHeight + Math.sin(total * ANIMATION.cellBobSpeed + cell.userData.phase) * ANIMATION.cellBobAmplitude
+    const cellMagnetSpeed = getResearchStatBonus('cellMagnetSpeed')
+    const cellOffset = player.position.clone().sub(cell.position)
+    cellOffset.y = 0
+    if (cellMagnetSpeed > 0 && cellOffset.length() <= GAME.cellMagnetRange * effectRangeMultiplier) {
+      cell.position.addScaledVector(cellOffset.normalize(), (GAME.cellMagnetBaseSpeed + cellMagnetSpeed) * delta)
+    }
     if (cell.position.distanceTo(player.position) < GAME.cellPickupRadius) {
       soundSystem.playCellCollect(cell.position)
       scene.remove(cell)

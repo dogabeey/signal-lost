@@ -12,6 +12,8 @@ export const GAME = {
   initialCellCount: 5,
   initialObstacleTypes: ['regular', 'chaser', 'creeper'],
   cellSpawnInterval: 5,
+  cellMagnetRange: 4,
+  cellMagnetBaseSpeed: 0.8,
   slowAuraBaseRange: 4,
   slowAuraBaseEffect: 0.25,
   cellMinDistance: 3,
