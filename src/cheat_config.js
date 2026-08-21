@@ -9,5 +9,5 @@ export const CHEAT_CONFIG = {
     unlockTiers: 'unlock_tiers',
     clearSave: 'clear_save',
   },
-  clearSaveTargets: ['currency', 'game_progress', 'research', 'all'],
+  clearSaveTargets: ['currency', 'game_progress', 'research', 'buildings', 'all'],
 }

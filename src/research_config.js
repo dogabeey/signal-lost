@@ -171,6 +171,17 @@ export const RESEARCH_CONFIG = {
       duration: { baseMs: 180_000, multiplier: 1.25 },
       requirements: { minTier: 4 },
     },
+    {
+      id: 'building-slots',
+      category: 'Building System',
+      name: 'Building Slots',
+      description: 'Increases the number of buildings you can place in the arena by 1.',
+      maxLevel: 7,
+      effect: { stat: 'buildingSlots', perLevel: 1, format: 'flat' },
+      cost: { currency: 'cash', base: 12_000, multiplier: 1.48, jerk: 1.015 },
+      duration: { baseMs: 120_000, multiplier: 1.2 },
+      requirements: { minTier: 2 },
+    },
     ...[
       ['unlock-speed-booster', 'Unlock Speed Boosters', 'Unlocks Speed Booster pickups that double movement speed.', 1, null, 2],
       ['speed-booster-duration', 'Speed Booster Duration', 'Increases Speed Booster duration.', 20, 'speedBoosterDuration', 2],

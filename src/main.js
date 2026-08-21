@@ -3,6 +3,7 @@ import { ANIMATION, CAMERA, COLORS, DIFFICULTY, ENEMY_TYPES as OBSTACLE_TYPES, E
 import { RESEARCH_CONFIG } from './research_config.js'
 import { CHEAT_CONFIG } from './cheat_config.js'
 import { BUILD_INFO } from './build_info.js'
+import { BUILDING_CONFIG } from './building_config.js'
 import './style.css'
 
 document.querySelector('#app').innerHTML = `
@@ -61,6 +62,7 @@ document.querySelector('#app').innerHTML = `
         <div class="menu-actions">
           <button id="start-button" type="button">START RUN</button>
           <button class="secondary-button" id="open-lab-button" type="button">RESEARCH LAB</button>
+          <button class="secondary-button" id="open-building-button" type="button">BUILDING SYSTEM</button>
         </div>
       </div>
       <section class="lab-panel hidden" id="lab-panel" aria-label="Research Lab">
@@ -70,7 +72,10 @@ document.querySelector('#app').innerHTML = `
         <h3 id="research-slots-heading">ACTIVE SLOTS</h3><div class="research-slots" id="research-slots"></div>
         <h3>AVAILABLE RESEARCH</h3><label class="research-search"><span>SEARCH</span><input id="research-search" type="search" placeholder="Search research names" autocomplete="off"></label><div class="research-list" id="research-list"></div>
       </section>
+      <section class="building-panel hidden" id="building-panel"><div class="lab-header"><div><p class="eyebrow">PERMANENT DEFENSES</p><h2>BUILDING SYSTEM</h2></div><button class="secondary-button" id="close-building-button" type="button">BACK</button></div><p class="lab-balance">CASH <span id="building-cash"></span> · CHRONOSHARDS <span id="building-chronoshards"></span> · SLOTS <span id="building-slots"></span></p><div class="building-actions"><button id="enter-build-mode" type="button">BUILD MODE</button></div><h3>UNLOCK BUILDINGS</h3><div class="building-list" id="building-list"></div></section>
     </section>
+    <div class="build-bar hidden" id="build-bar"><span>SELECT A BUILDING</span><div id="build-options"></div><button id="exit-build-mode" type="button">DONE</button></div>
+    <section class="building-upgrade hidden" id="building-upgrade"></section>
   </main>
 `
 
@@ -87,6 +92,18 @@ const startButton = document.querySelector('#start-button')
 const menuContent = document.querySelector('#menu-content')
 const labPanel = document.querySelector('#lab-panel')
 const openLabButton = document.querySelector('#open-lab-button')
+const openBuildingButton = document.querySelector('#open-building-button')
+const buildingPanel = document.querySelector('#building-panel')
+const closeBuildingButton = document.querySelector('#close-building-button')
+const buildingList = document.querySelector('#building-list')
+const buildingCash = document.querySelector('#building-cash')
+const buildingChronoshards = document.querySelector('#building-chronoshards')
+const buildingSlots = document.querySelector('#building-slots')
+const enterBuildModeButton = document.querySelector('#enter-build-mode')
+const buildBar = document.querySelector('#build-bar')
+const buildOptions = document.querySelector('#build-options')
+const exitBuildModeButton = document.querySelector('#exit-build-mode')
+const buildingUpgrade = document.querySelector('#building-upgrade')
 const closeLabButton = document.querySelector('#close-lab-button')
 const labCashElement = document.querySelector('#lab-cash')
 const labChronoshardsElement = document.querySelector('#lab-chronoshards')
@@ -120,6 +137,7 @@ const CASH_STORAGE_KEY = 'astroid-belt-cash'
 const CHRONOSHARDS_STORAGE_KEY = 'astroid-belt-chronoshards'
 const RESEARCH_LAB_STORAGE_KEY = 'astroid-belt-research-lab'
 const SAVED_ROUND_STORAGE_KEY = 'astroid-belt-saved-round'
+const BUILDINGS_STORAGE_KEY = 'astroid-belt-buildings'
 const tierKeys = Object.keys(DIFFICULTY)
 
 function readStoredNumber(key, fallback = 0) {
@@ -194,6 +212,12 @@ let selectedTierIndex = Math.min(readStoredNumber(TIER_STORAGE_KEY), getUnlocked
 let cash = readStoredNumber(CASH_STORAGE_KEY)
 let chronoshards = readStoredNumber(CHRONOSHARDS_STORAGE_KEY)
 let savedRound = readSavedRound()
+let buildingState = (() => { try { const saved = JSON.parse(localStorage.getItem(BUILDINGS_STORAGE_KEY)); return saved?.unlocked ? saved : { unlocked: [], placed: [] } } catch { return { unlocked: [], placed: [] } } })()
+const buildingMeshes = new Map()
+const buildingRuntime = new Map()
+let buildMode = false
+let selectedBuildingType = null
+let buildingPreview = null
 let researchSearchQuery = ''
 const collapsedResearchCategories = new Set()
 
@@ -450,6 +474,15 @@ function clearResearchSave() {
   renderResearchLab()
 }
 
+function clearBuildingsSave() {
+  buildingState = { unlocked: [], placed: [] }
+  selectedBuildingType = null
+  setBuildingPreview(null)
+  saveBuildings()
+  syncBuildings()
+  renderBuildings()
+}
+
 function runCheatCommand(rawCommand) {
   const [command, argument] = rawCommand.trim().toLowerCase().split(/\s+/, 2)
   if (!command) return
@@ -486,6 +519,7 @@ function runCheatCommand(rawCommand) {
     if (argument === 'currency' || argument === 'all') clearCurrencySave()
     if (argument === 'game_progress' || argument === 'all') clearGameProgressSave()
     if (argument === 'research' || argument === 'all') clearResearchSave()
+    if (argument === 'buildings' || argument === 'all') clearBuildingsSave()
     setCheatOutput(`Cleared ${argument.replace('_', ' ')} save data.`)
     return
   }
@@ -696,6 +730,7 @@ function createSoundSystem() {
       const [start, end] = notes[type]
       playTone(start, end, 0.22, 0.3, position, type === 'freezer' ? 'sine' : 'triangle')
     },
+    playBuildingEffect(position, type) { const notes = { chronoGenerator: [280, 360], gapGenerator: [150, 110], autocannon: [220, 90] }; const [start, end] = notes[type]; playTone(start, end, 0.12, 0.16, position, 'sine') },
     playObstacleSummon(position) {
       const fallback = SOUND.fallback.obstacleSummon
       playSound('obstacleSummon', SOUND.obstacleSummonVolume, position, () => playTone(fallback.startFrequency, fallback.endFrequency, fallback.duration, SOUND.obstacleSummonVolume, position, fallback.type))
@@ -817,6 +852,7 @@ const splinterPieces = []
 const explosions = []
 const bangerPulses = []
 const shooterProjectiles = []
+const autocannonProjectiles = []
 const spores = []
 const boosters = []
 const shockwaves = []
@@ -881,6 +917,75 @@ function randomArenaPosition(minDistance = 0) {
     position = new THREE.Vector3(THREE.MathUtils.randFloat(-arenaLimit, arenaLimit), 0, THREE.MathUtils.randFloat(-arenaLimit, arenaLimit))
   } while (position.distanceTo(player.position) < minDistance)
   return position
+}
+
+function saveBuildings() { try { localStorage.setItem(BUILDINGS_STORAGE_KEY, JSON.stringify(buildingState)) } catch {} }
+function getBuildingSlotLimit() { return 1 + getResearchLevel('building-slots') }
+function getBuildingUpgradeCost(building, key) { const entry = BUILDING_CONFIG.types[building.type].upgrades[key]; const level = building.upgrades[key] ?? 0; return Math.ceil(entry.base * 1.65 ** level) }
+function getBuildingRefund(building) { return Math.round((building.spent ?? BUILDING_CONFIG.types[building.type].baseCost) * 100) / 100 }
+function createBuildingMesh(building) {
+  const config = BUILDING_CONFIG.types[building.type]
+  const group = new THREE.Group()
+  const material = new THREE.MeshStandardMaterial({ color: '#33465a', emissive: config.color, emissiveIntensity: 0.24, metalness: 0.92, roughness: 0.14 })
+  const accentColor = building.type === 'autocannon' ? '#ffd36f' : building.type === 'gapGenerator' ? '#63f5cd' : '#a6a2ff'
+  const accent = new THREE.MeshStandardMaterial({ color: accentColor, emissive: accentColor, emissiveIntensity: 1.25, metalness: 0.78, roughness: 0.12 })
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.53, 0.64, 0.26, 8), material)
+  base.position.y = 0.13; group.add(base)
+  if (building.type === 'chronoGenerator') { const core = new THREE.Mesh(new THREE.IcosahedronGeometry(0.32, 1), accent); core.position.y = 0.6; group.add(core) }
+  if (building.type === 'gapGenerator') { const core = new THREE.Mesh(new THREE.TorusGeometry(0.32, 0.085, 8, 20), accent); core.rotation.x = Math.PI / 2; core.position.y = 0.54; group.add(core) }
+  if (building.type === 'autocannon') { const turret = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.3, 0.22, 8), accent); turret.position.y = 0.38; group.add(turret); const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.12, 0.78, 8), accent); barrel.rotation.x = Math.PI / 2; barrel.position.set(0, 0.5, 0.27); group.add(barrel) }
+  const effectRing = new THREE.Mesh(new THREE.RingGeometry(0.985, 1.005, 48), new THREE.MeshBasicMaterial({ color: config.color, transparent: true, opacity: 0.28, side: THREE.DoubleSide, depthWrite: false })); effectRing.rotation.x = -Math.PI / 2; effectRing.position.y = 0.03; effectRing.scale.setScalar(buildingValue(building, 'range')); group.add(effectRing)
+  group.position.set(building.x, 0, building.z); group.userData.buildingId = building.id; scene.add(group); buildingMeshes.set(building.id, group); buildingRuntime.set(building.id, { timer: 0, active: 0, effectRing })
+}
+function syncBuildings() { for (const mesh of buildingMeshes.values()) scene.remove(mesh); buildingMeshes.clear(); buildingRuntime.clear(); for (const building of buildingState.placed) createBuildingMesh(building) }
+function buildingCost(type) { const config = BUILDING_CONFIG.types[type]; return Math.ceil(config.baseCost * config.costMultiplier ** buildingState.placed.filter((b) => b.type === type).length) }
+function setBuildingPreview(type) {
+  if (buildingPreview) scene.remove(buildingPreview)
+  buildingPreview = null
+  if (!type) return
+  const config = BUILDING_CONFIG.types[type]
+  const preview = new THREE.Group()
+  const material = new THREE.MeshStandardMaterial({ color: '#26374a', emissive: config.color, emissiveIntensity: 0.45, metalness: 0.65, roughness: 0.2 })
+  const accent = new THREE.MeshStandardMaterial({ color: type === 'autocannon' ? '#ffd36f' : type === 'gapGenerator' ? '#63f5cd' : '#a6a2ff', emissive: config.color, emissiveIntensity: 1.4, metalness: 0.5, roughness: 0.18 })
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.72, 0.9, 0.32, 8), material)
+  preview.add(base)
+  if (type === 'chronoGenerator') { const core = new THREE.Mesh(new THREE.IcosahedronGeometry(0.46, 1), accent); core.position.y = 0.62; preview.add(core) }
+  if (type === 'gapGenerator') { const core = new THREE.Mesh(new THREE.TorusGeometry(0.43, 0.11, 8, 20), accent); core.rotation.x = Math.PI / 2; core.position.y = 0.55; preview.add(core) }
+  if (type === 'autocannon') { const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.18, 1.1, 8), accent); barrel.rotation.x = Math.PI / 2; barrel.position.set(0, 0.48, 0.38); preview.add(barrel) }
+  preview.scale.setScalar(0.58)
+  preview.renderOrder = 5
+  scene.add(preview)
+  buildingPreview = preview
+}
+function renderBuildings() {
+  buildingCash.textContent = `$${cash.toLocaleString()}`; buildingChronoshards.textContent = `✦ ${chronoshards}`; buildingSlots.textContent = `${buildingState.placed.length}/${getBuildingSlotLimit()}`
+  buildingList.innerHTML = Object.entries(BUILDING_CONFIG.types).map(([type, config]) => { const unlocked = buildingState.unlocked.includes(type); return `<article class="building-card"><strong>${config.name}</strong><small>${unlocked ? `Build cost: $${buildingCost(type)}` : `Unlock: ✦ ${config.unlockCost}`}</small><button data-unlock-building="${type}" ${unlocked ? 'disabled' : ''}>${unlocked ? 'UNLOCKED' : 'UNLOCK'}</button></article>` }).join('')
+  buildOptions.innerHTML = buildingState.unlocked.map((type) => `<button data-select-building="${type}" class="${selectedBuildingType === type ? 'selected' : ''}">${BUILDING_CONFIG.types[type].name}<small>$${buildingCost(type)}</small></button>`).join('')
+}
+function enterBuildMode() { if (!buildingState.unlocked.length) return; buildMode = true; selectedBuildingType = buildingState.unlocked[0]; setBuildingPreview(selectedBuildingType); overlay.classList.add('hidden'); buildBar.classList.remove('hidden'); renderBuildings() }
+function exitBuildMode() { buildMode = false; selectedBuildingType = null; setBuildingPreview(null); buildBar.classList.add('hidden'); overlay.classList.remove('hidden'); buildingUpgrade.classList.add('hidden') }
+function openBuildingUpgrade(building) { const config = BUILDING_CONFIG.types[building.type]; buildingUpgrade.innerHTML = `<h3>${config.name}</h3><div>${Object.entries(config.upgrades).map(([key]) => { const level = building.upgrades[key] ?? 0; const cost = getBuildingUpgradeCost(building, key); return `<button data-upgrade-building="${building.id}" data-upgrade-key="${key}">${key.toUpperCase()} Lv.${level} · $${cost}</button>` }).join('')}</div><button data-destroy-building="${building.id}" class="secondary-button">DEMOLISH · REFUND $${getBuildingRefund(building)}</button><button data-close-building-upgrade="1">CLOSE</button>`; buildingUpgrade.classList.remove('hidden') }
+function buildingValue(building, key) { const config = BUILDING_CONFIG.types[building.type]; const directUpgrade = (config.upgrades[key]?.step ?? 0) * (building.upgrades[key] ?? 0); const effectivenessUpgrade = key === 'slow' ? (config.upgrades.effectiveness?.step ?? 0) * (building.upgrades.effectiveness ?? 0) : 0; return config.effect[key] + directUpgrade + effectivenessUpgrade }
+function updateBuildings(delta, total) {
+  for (let index = autocannonProjectiles.length - 1; index >= 0; index -= 1) {
+    const shot = autocannonProjectiles[index]
+    shot.age += delta
+    shot.mesh.position.addScaledVector(shot.direction, 14 * delta)
+    shot.mesh.rotation.x += delta * 12
+    if (shot.mesh.position.distanceTo(shot.destination) < 0.45 || shot.age > 2.5) {
+      scene.remove(shot.mesh)
+      const targetIndex = obstacles.indexOf(shot.target)
+      if (targetIndex >= 0) { scene.remove(shot.target, shot.target.userData.rangeIndicator, shot.target.userData.magnetPulse); obstacles.splice(targetIndex, 1) }
+      autocannonProjectiles.splice(index, 1)
+    }
+  }
+  for (const building of buildingState.placed) {
+    const runtime = buildingRuntime.get(building.id); if (!runtime) continue
+    const mesh = buildingMeshes.get(building.id); runtime.timer += delta; runtime.effectRing.rotation.z += delta * 1.4
+    const range = buildingValue(building, 'range'); runtime.effectRing.scale.setScalar(range); runtime.effectRing.material.opacity = 0.12 + Math.sin(total * 3) * 0.06
+    if (building.type === 'gapGenerator') { const period = Math.max(2, buildingValue(building, 'period')); if (runtime.timer >= period) { runtime.timer = 0; runtime.active = buildingValue(building, 'duration'); soundSystem.playBuildingEffect(mesh.position, building.type) } runtime.active = Math.max(0, runtime.active - delta); runtime.effectRing.material.opacity = runtime.active > 0 ? 0.48 : 0.12 }
+    if (building.type === 'autocannon' && runtime.timer >= Math.max(0.35, buildingValue(building, 'interval'))) { runtime.timer = 0; const target = obstacles.filter((o) => planarDistance(o.position, building) <= range).sort((a, b) => planarDistance(a.position, building) - planarDistance(b.position, building))[0]; if (target) { const direction = target.position.clone().sub(mesh.position); direction.y = 0; direction.normalize(); mesh.rotation.y = Math.atan2(direction.x, direction.z); const shot = new THREE.Mesh(new THREE.SphereGeometry(0.16, 10, 8), new THREE.MeshBasicMaterial({ color: '#fff1a6', transparent: true, opacity: 0.95 })); shot.position.copy(mesh.position).addScaledVector(direction, 0.95); shot.position.y = 0.7; scene.add(shot); autocannonProjectiles.push({ mesh: shot, direction, destination: target.position.clone().setY(0.7), target, age: 0 }); soundSystem.playBuildingEffect(mesh.position, building.type) } }
+  }
 }
 
 function addCell(savedCell) {
@@ -1371,6 +1476,8 @@ function resetGame(populateArena = true) {
   bangerPulses.length = 0
   for (const shooterProjectile of shooterProjectiles) scene.remove(shooterProjectile.projectile)
   shooterProjectiles.length = 0
+  for (const autocannonProjectile of autocannonProjectiles) scene.remove(autocannonProjectile.mesh)
+  autocannonProjectiles.length = 0
   for (const shockwave of shockwaves) scene.remove(shockwave.shockwave)
   shockwaves.length = 0
   shockwavePushes.length = 0
@@ -1604,6 +1711,7 @@ function updateGame(delta, total) {
       shockwaveTimer = 0
     }
   }
+  updateBuildings(delta, total)
 
   for (let index = cells.length - 1; index >= 0; index -= 1) {
     const cell = cells[index]
@@ -1677,6 +1785,8 @@ function updateGame(delta, total) {
     }
     const playerOffset = player.position.clone().sub(obstacle.position)
     playerOffset.y = 0
+    const chronoSlow = buildingState.placed.filter((b) => b.type === 'chronoGenerator' && planarDistance(obstacle.position, b) <= buildingValue(b, 'range')).reduce((slow, b) => Math.max(slow, buildingValue(b, 'slow')), 0)
+    const inGapFog = buildingState.placed.some((b) => b.type === 'gapGenerator' && buildingRuntime.get(b.id)?.active > 0 && planarDistance(obstacle.position, b) <= buildingValue(b, 'range'))
     if (thornShieldTime > 0 && playerOffset.length() < GAME.playerRadius) {
       scene.remove(obstacle, obstacle.userData.rangeIndicator, obstacle.userData.magnetPulse)
       clearPorterTeleportTarget(obstacle)
@@ -1684,14 +1794,14 @@ function updateGame(delta, total) {
       continue
     }
     if (freezerTime > 0) continue
-    const obstacleSpeedMultiplier = slowAuraUnlocked && playerOffset.length() <= slowAuraRange ? 1 - slowAuraEffect : 1
+    const obstacleSpeedMultiplier = (slowAuraUnlocked && playerOffset.length() <= slowAuraRange ? 1 - slowAuraEffect : 1) * (1 - chronoSlow)
     const pushbackSpeed = getResearchStatBonus('pushbackSpeed')
     if (pushbackSpeed > 0 && obstacleType.speed === 0 && playerOffset.length() <= GAME.pushbackBaseRange * effectRangeMultiplier) {
       const pushDirection = obstacle.position.clone().sub(player.position)
       pushDirection.y = 0
       if (pushDirection.lengthSq() > 0) obstacle.position.addScaledVector(pushDirection.normalize(), (GAME.pushbackBaseSpeed + pushbackSpeed) * delta)
     }
-    if (playerOffset.length() <= effectiveRange && obstacleType.speed > 0) {
+    if (!inGapFog && playerOffset.length() <= effectiveRange && obstacleType.speed > 0) {
       const speedMultiplier = obstacle.userData.type === 'creeper' ? Math.max(0.5, 1 - getResearchStatBonus('creeperSpeedDebuff')) : 1
       obstacle.position.addScaledVector(playerOffset.normalize(), obstacleType.speed * speedMultiplier * obstacleSpeedMultiplier * delta)
     }
@@ -2025,6 +2135,13 @@ function animate() {
   updatePlayerDeathEffects(delta)
   camera.position.set(player.position.x, CAMERA.height, player.position.z + CAMERA.distance)
   camera.lookAt(player.position.x, 0, player.position.z)
+  if (buildingPreview) {
+    const viewDirection = new THREE.Vector3()
+    camera.getWorldDirection(viewDirection)
+    buildingPreview.position.copy(camera.position).addScaledVector(viewDirection, 10)
+    buildingPreview.position.y = 2.9
+    buildingPreview.rotation.y += delta * 1.4
+  }
   renderer.render(scene, camera)
 }
 
@@ -2052,6 +2169,13 @@ closeLabButton.addEventListener('click', () => {
   labPanel.classList.add('hidden')
   menuContent.classList.remove('hidden')
 })
+openBuildingButton.addEventListener('click', () => { menuContent.classList.add('hidden'); buildingPanel.classList.remove('hidden'); renderBuildings() })
+closeBuildingButton.addEventListener('click', () => { buildingPanel.classList.add('hidden'); menuContent.classList.remove('hidden') })
+enterBuildModeButton.addEventListener('click', enterBuildMode)
+exitBuildModeButton.addEventListener('click', exitBuildMode)
+buildingPanel.addEventListener('click', (event) => { const button = event.target.closest('[data-unlock-building]'); if (!button) return; const type = button.dataset.unlockBuilding; const config = BUILDING_CONFIG.types[type]; if (chronoshards < config.unlockCost) return; chronoshards -= config.unlockCost; writeStoredNumber(CHRONOSHARDS_STORAGE_KEY, chronoshards); buildingState.unlocked.push(type); saveBuildings(); updateChronoshards(); renderBuildings() })
+buildBar.addEventListener('click', (event) => { const button = event.target.closest('[data-select-building]'); if (!button) return; selectedBuildingType = button.dataset.selectBuilding; setBuildingPreview(selectedBuildingType); renderBuildings() })
+buildingUpgrade.addEventListener('click', (event) => { const upgrade = event.target.closest('[data-upgrade-building]'); const destroy = event.target.closest('[data-destroy-building]'); if (event.target.closest('[data-close-building-upgrade]')) { buildingUpgrade.classList.add('hidden'); return } if (destroy) { const building = buildingState.placed.find((entry) => entry.id === destroy.dataset.destroyBuilding); if (!building) return; updateCash(getBuildingRefund(building)); buildingState.placed = buildingState.placed.filter((entry) => entry.id !== building.id); saveBuildings(); syncBuildings(); renderBuildings(); buildingUpgrade.classList.add('hidden'); return } if (upgrade) { const building = buildingState.placed.find((entry) => entry.id === upgrade.dataset.upgradeBuilding); if (!building) return; const cost = getBuildingUpgradeCost(building, upgrade.dataset.upgradeKey); if (cash < cost) return; updateCash(-cost); building.upgrades[upgrade.dataset.upgradeKey] = (building.upgrades[upgrade.dataset.upgradeKey] ?? 0) + 1; building.spent = (building.spent ?? BUILDING_CONFIG.types[building.type].baseCost) + cost; saveBuildings(); syncBuildings(); openBuildingUpgrade(building) } })
 
 labPanel.addEventListener('click', (event) => {
   const categoryToggle = event.target.closest('[data-toggle-research-category]')
@@ -2149,6 +2273,11 @@ function releaseJoystick(event) {
 }
 
 canvas.addEventListener('pointerdown', (event) => {
+  if (buildMode && selectedBuildingType) {
+    const rect = canvas.getBoundingClientRect(); const pointer = new THREE.Vector2(((event.clientX - rect.left) / rect.width) * 2 - 1, -((event.clientY - rect.top) / rect.height) * 2 + 1); const raycaster = new THREE.Raycaster(); raycaster.setFromCamera(pointer, camera); const selected = raycaster.intersectObjects([...buildingMeshes.values()], true)[0]; if (selected) { let object = selected.object; while (object && !object.userData.buildingId) object = object.parent; const building = buildingState.placed.find((b) => b.id === object?.userData.buildingId); if (building) openBuildingUpgrade(building); return } const hit = raycaster.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), new THREE.Vector3()); if (!hit) return
+    hit.x = Math.round(hit.x); hit.z = Math.round(hit.z); const config = BUILDING_CONFIG.types[selectedBuildingType]; const valid = buildingState.placed.length < getBuildingSlotLimit() && hit.length() <= BUILDING_CONFIG.placementRadius && hit.length() >= BUILDING_CONFIG.spawnClearance && !buildingState.placed.some((b) => Math.hypot(b.x - hit.x, b.z - hit.z) < BUILDING_CONFIG.minimumSpacing); const cost = buildingCost(selectedBuildingType); if (!valid || cash < cost) return
+    updateCash(-cost); const building = { id: crypto.randomUUID(), type: selectedBuildingType, x: hit.x, z: hit.z, upgrades: {}, spent: cost }; buildingState.placed.push(building); saveBuildings(); createBuildingMesh(building); renderBuildings(); return
+  }
   if (!isMobileInputMode() || !started || paused || event.button !== 0 || joystickPointerId !== null) return
   event.preventDefault()
   joystickPointerId = event.pointerId
@@ -2180,6 +2309,7 @@ window.addEventListener('resize', () => {
 })
 
 applyDifficulty()
+syncBuildings()
 completeFinishedResearches()
 updateBankedCells()
 updateCash()
