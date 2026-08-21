@@ -14,10 +14,12 @@ document.querySelector('#app').innerHTML = `
         <div class="cash-balance">CASH <span id="cash">$000</span></div>
         <div class="chronoshard-balance">CHRONOSHARDS <span id="chronoshards">✦ 0</span></div>
       </div>
-      <dl class="stats">
+      <div class="shield-indicators" id="shield-indicators" aria-label="Shield charges"></div>
+      <div class="hud-tier" id="hud-tier" aria-label="Current difficulty tier"></div>
+      <div class="hud-right"><dl class="stats">
         <div><dt>CELLS</dt><dd id="score">000</dd></div>
         <div><dt>TIME</dt><dd id="time">00:00</dd></div>
-      </dl>
+      </dl><button class="pause-button" id="pause-button" type="button" aria-label="Pause game">Ⅱ</button></div>
     </header>
     <aside class="instructions"><b>MOVE</b><span>WASD / ARROW KEYS</span></aside>
     <footer class="build-footer" aria-label="Build information">
@@ -75,6 +77,9 @@ document.querySelector('#app').innerHTML = `
 const canvas = document.querySelector('#game')
 const scoreElement = document.querySelector('#score')
 const timeElement = document.querySelector('#time')
+const hudTierElement = document.querySelector('#hud-tier')
+const shieldIndicators = document.querySelector('#shield-indicators')
+const pauseButton = document.querySelector('#pause-button')
 const overlay = document.querySelector('#overlay')
 const overlayTitle = document.querySelector('#overlay-title')
 const overlayCopy = document.querySelector('#overlay-copy')
@@ -809,6 +814,7 @@ const bangerPulses = []
 const shooterProjectiles = []
 const spores = []
 const shockwaves = []
+const shockwavePushes = []
 const playerDeathEffects = []
 const obstacleSpawnWarnings = []
 const timer = new THREE.Timer()
@@ -946,7 +952,7 @@ function createObstacle(position, type, savedObstacle) {
   obstacle.userData.teleportTimer = savedObstacle?.teleportTimer ?? 0
   obstacle.userData.teleportTarget = null
   obstacle.userData.colliderRadius = GAME.obstacleColliderRadius
-  if (type === 'chaser' || type === 'banger' || type === 'shooter') {
+  if (type === 'chaser' || type === 'banger' || type === 'shooter' || type === 'magnet') {
     const rangeIndicator = new THREE.Mesh(
       new THREE.RingGeometry(obstacleType.range - ENTITIES.chaserRangeIndicatorWidth, obstacleType.range, ENTITIES.chaserRangeIndicatorSegments),
       new THREE.MeshBasicMaterial({ color: obstacleType.color, transparent: true, opacity: ANIMATION.chaserRangeIndicatorBaseOpacity, side: THREE.DoubleSide, depthWrite: false }),
@@ -955,6 +961,17 @@ function createObstacle(position, type, savedObstacle) {
     rangeIndicator.position.set(position.x, 0.025, position.z)
     obstacle.userData.rangeIndicator = rangeIndicator
     scene.add(rangeIndicator)
+  }
+  if (type === 'magnet') {
+    const magnetPulse = new THREE.Mesh(
+      new THREE.RingGeometry(0.18, 0.3, ENTITIES.chaserRangeIndicatorSegments),
+      new THREE.MeshBasicMaterial({ color: COLORS.slowAura, transparent: true, opacity: 0.5, side: THREE.DoubleSide, depthWrite: false }),
+    )
+    magnetPulse.rotation.x = -Math.PI / 2
+    magnetPulse.position.set(position.x, 0.035, position.z)
+    obstacle.userData.magnetPulse = magnetPulse
+    obstacle.userData.magnetPulsePhase = Math.random()
+    scene.add(magnetPulse)
   }
   scene.add(obstacle)
   obstacles.push(obstacle)
@@ -1007,7 +1024,7 @@ function releaseSpores(position) {
 
 function detonateSpore(sporeEnemy) {
   const position = sporeEnemy.position.clone()
-  scene.remove(sporeEnemy, sporeEnemy.userData.rangeIndicator)
+  scene.remove(sporeEnemy, sporeEnemy.userData.rangeIndicator, sporeEnemy.userData.magnetPulse)
   clearPorterTeleportTarget(sporeEnemy)
   const index = obstacles.indexOf(sporeEnemy)
   if (index >= 0) obstacles.splice(index, 1)
@@ -1216,20 +1233,7 @@ function triggerShockwave() {
   shockwave.rotation.x = -Math.PI / 2
   shockwave.position.set(player.position.x, 0.07, player.position.z)
   scene.add(shockwave)
-  shockwaves.push({ shockwave, radius, age: 0 })
-
-  for (const obstacle of obstacles) {
-    const direction = obstacle.position.clone().sub(player.position)
-    direction.y = 0
-    const distance = direction.length()
-    if (distance > radius) continue
-    if (distance < 0.01) direction.set(Math.random() - 0.5, 0, Math.random() - 0.5).normalize()
-    else direction.normalize()
-    const push = GAME.shockwavePushDistance * (1 - distance / radius)
-    obstacle.position.addScaledVector(direction, push)
-    obstacle.position.x = THREE.MathUtils.clamp(obstacle.position.x, -getArenaLimit(), getArenaLimit())
-    obstacle.position.z = THREE.MathUtils.clamp(obstacle.position.z, -getArenaLimit(), getArenaLimit())
-  }
+  shockwaves.push({ shockwave, origin: player.position.clone(), radius, age: 0, affected: new Set() })
 }
 
 function createPlayerDeathEffect(position) {
@@ -1307,7 +1311,7 @@ function detonateBanger(banger) {
   for (let index = obstacles.length - 1; index >= 0; index -= 1) {
     const obstacle = obstacles[index]
     if (obstacle === banger || (planarDistance(obstacle.position, position) <= radius && Math.random() < destructionChance)) {
-      scene.remove(obstacle, obstacle.userData.rangeIndicator)
+      scene.remove(obstacle, obstacle.userData.rangeIndicator, obstacle.userData.magnetPulse)
       obstacles.splice(index, 1)
     }
   }
@@ -1320,7 +1324,7 @@ function resetGame(populateArena = true) {
   clearObjects(cells)
   clearObjects(chronoCells)
   for (const obstacle of obstacles) {
-    scene.remove(obstacle, obstacle.userData.rangeIndicator)
+    scene.remove(obstacle, obstacle.userData.rangeIndicator, obstacle.userData.magnetPulse)
     clearPorterTeleportTarget(obstacle)
   }
   obstacles.length = 0
@@ -1340,6 +1344,7 @@ function resetGame(populateArena = true) {
   shooterProjectiles.length = 0
   for (const shockwave of shockwaves) scene.remove(shockwave.shockwave)
   shockwaves.length = 0
+  shockwavePushes.length = 0
   for (const deathEffect of playerDeathEffects) scene.remove(deathEffect.flash, deathEffect.blast, deathEffect.shockwave, deathEffect.innerShockwave, deathEffect.light, ...deathEffect.fragments)
   playerDeathEffects.length = 0
   for (const warning of obstacleSpawnWarnings) scene.remove(warning.ring, warning.glow, warning.beam)
@@ -1457,7 +1462,7 @@ function triggerShieldBreakExplosion() {
   for (let index = obstacles.length - 1; index >= 0; index -= 1) {
     const obstacle = obstacles[index]
     if (planarDistance(obstacle.position, position) > radius) continue
-    scene.remove(obstacle, obstacle.userData.rangeIndicator)
+    scene.remove(obstacle, obstacle.userData.rangeIndicator, obstacle.userData.magnetPulse)
     clearPorterTeleportTarget(obstacle)
     obstacles.splice(index, 1)
   }
@@ -1494,6 +1499,9 @@ function updateHud() {
   const minutes = Math.floor(elapsed / 60)
   const seconds = Math.floor(elapsed % 60)
   timeElement.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+  hudTierElement.textContent = `TIER ${selectedTierIndex + 1}`
+  shieldIndicators.innerHTML = Array.from({ length: shieldCharges }, () => '<i aria-hidden="true"></i>').join('')
+  shieldIndicators.hidden = shieldCharges === 0
 }
 
 function updateGame(delta, total) {
@@ -1640,6 +1648,13 @@ function updateGame(delta, total) {
         ? ANIMATION.chaserRangeIndicatorActiveOpacity
         : ANIMATION.chaserRangeIndicatorBaseOpacity
     }
+    if (obstacle.userData.magnetPulse) {
+      const magnetPulse = obstacle.userData.magnetPulse
+      const pulseProgress = (total * 0.85 + obstacle.userData.magnetPulsePhase) % 1
+      magnetPulse.position.set(obstacle.position.x, 0.035, obstacle.position.z)
+      magnetPulse.scale.setScalar(effectiveRange * (1.1 - pulseProgress * 0.9))
+      magnetPulse.material.opacity = 0.5 * (1 - pulseProgress)
+    }
     obstacle.rotation.y += delta * obstacle.userData.speed * obstacleSpeedMultiplier
     obstacle.position.y = ANIMATION.obstacleBobBaseHeight + Math.sin(total * ANIMATION.obstacleBobSpeed + obstacle.position.x) * ANIMATION.obstacleBobAmplitude
     if (obstacle.userData.type === 'banger') {
@@ -1771,10 +1786,38 @@ function updateGame(delta, total) {
     const progress = Math.min(wave.age / GAME.shockwaveVfxDuration, 1)
     wave.shockwave.scale.setScalar(THREE.MathUtils.lerp(0.25, wave.radius / 0.42, progress))
     wave.shockwave.material.opacity = 0.95 * (1 - progress)
+    const waveRadius = wave.radius * progress
+    for (const obstacle of obstacles) {
+      if (wave.affected.has(obstacle)) continue
+      const direction = obstacle.position.clone().sub(wave.origin)
+      direction.y = 0
+      const distance = direction.length()
+      if (distance > waveRadius) continue
+      wave.affected.add(obstacle)
+      if (distance < 0.01) direction.set(Math.random() - 0.5, 0, Math.random() - 0.5).normalize()
+      else direction.normalize()
+      shockwavePushes.push({ obstacle, direction, distance: GAME.shockwavePushDistance * (1 - distance / wave.radius), remaining: 0.28 })
+    }
     if (progress === 1) {
       scene.remove(wave.shockwave)
       shockwaves.splice(index, 1)
     }
+  }
+
+  for (let index = shockwavePushes.length - 1; index >= 0; index -= 1) {
+    const push = shockwavePushes[index]
+    if (!obstacles.includes(push.obstacle)) {
+      shockwavePushes.splice(index, 1)
+      continue
+    }
+    const step = Math.min(delta / push.remaining, 1)
+    push.obstacle.position.addScaledVector(push.direction, push.distance * step)
+    const arenaLimit = getArenaLimit()
+    push.obstacle.position.x = THREE.MathUtils.clamp(push.obstacle.position.x, -arenaLimit, arenaLimit)
+    push.obstacle.position.z = THREE.MathUtils.clamp(push.obstacle.position.z, -arenaLimit, arenaLimit)
+    push.distance *= 1 - step
+    push.remaining -= delta
+    if (push.remaining <= 0) shockwavePushes.splice(index, 1)
   }
 
   for (let index = fallingObstacles.length - 1; index >= 0; index -= 1) {
@@ -1977,6 +2020,12 @@ surrenderButton.addEventListener('click', () => {
 })
 
 returnMenuButton.addEventListener('click', returnToMainMenu)
+
+pauseButton.addEventListener('click', () => {
+  if (!started) return
+  paused = !paused
+  pauseMenu.classList.toggle('hidden', !paused)
+})
 
 closeCheatConsoleButton.addEventListener('click', () => toggleCheatConsole(false))
 cheatInput.addEventListener('keydown', (event) => {

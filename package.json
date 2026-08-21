@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && powershell -NoProfile -Command \"Remove-Item -LiteralPath 'dist.zip' -Force -ErrorAction SilentlyContinue; tar.exe -a -c -f dist.zip -C dist .\"",
     "preview": "vite preview"
   },
   "devDependencies": {
