@@ -297,7 +297,6 @@ const buildingMeshes = new Map()
 const buildingRuntime = new Map()
 let buildMode = false
 let selectedBuildingType = null
-let buildingPreview = null
 let researchSearchQuery = ''
 const collapsedResearchCategories = new Set()
 
@@ -459,7 +458,12 @@ function renderResearchLab() {
   }
   const normalizedSearch = researchSearchQuery.trim().toLocaleLowerCase()
   const visibleCategories = [...researchesByCategory.entries()]
-    .map(([category, researches]) => [category, researches.filter((research) => research.name.toLocaleLowerCase().includes(normalizedSearch))])
+    .map(([category, researches]) => [category, researches
+      .filter((research) => `${research.name} ${research.description}`.toLocaleLowerCase().includes(normalizedSearch))
+      .sort((first, second) => {
+        const priority = (research) => getResearchLevel(research.id) >= research.maxLevel ? 2 : getResearchLockReason(research) ? 1 : 0
+        return priority(first) - priority(second) || first.name.localeCompare(second.name)
+      })])
     .filter(([, researches]) => researches.length)
   researchListElement.innerHTML = visibleCategories.length ? visibleCategories.map(([category, researches]) => {
     const open = normalizedSearch || !collapsedResearchCategories.has(category)
@@ -607,7 +611,6 @@ function unlockFeature(feature) {
 function clearBuildingsSave() {
   buildingState = { unlocked: [], placed: [] }
   selectedBuildingType = null
-  setBuildingPreview(null)
   saveBuildings()
   syncBuildings()
   renderBuildings()
@@ -1107,18 +1110,51 @@ function applyDifficulty() {
 }
 
 const player = new THREE.Group()
+const chronoBuildingTint = new THREE.Color(COLORS.slowAura)
+let playerTargetHeading = 0
 const playerCore = new THREE.Mesh(
-  new THREE.IcosahedronGeometry(ENTITIES.playerCoreRadius, ENTITIES.playerCoreDetail),
-  new THREE.MeshStandardMaterial({ color: COLORS.player, emissive: COLORS.playerEmissive, emissiveIntensity: ENTITIES.playerCoreEmissiveIntensity, metalness: ENTITIES.playerCoreMetalness, roughness: ENTITIES.playerCoreRoughness }),
+  new THREE.ConeGeometry(0.58, 1.45, 6),
+  new THREE.MeshStandardMaterial({ color: COLORS.player, emissive: COLORS.playerEmissive, emissiveIntensity: ENTITIES.playerCoreEmissiveIntensity, metalness: 0.78, roughness: 0.18 }),
 )
+playerCore.rotation.x = Math.PI / 2
+playerCore.position.y = 0.18
 playerCore.castShadow = true
 player.add(playerCore)
-const playerRing = new THREE.Mesh(
-  new THREE.TorusGeometry(ENTITIES.playerRingRadius, ENTITIES.playerRingTube, ENTITIES.playerRingRadialSegments, ENTITIES.playerRingTubularSegments),
-  new THREE.MeshBasicMaterial({ color: COLORS.playerRing }),
+const shipWingMaterial = new THREE.MeshStandardMaterial({ color: '#f6b05c', emissive: '#b9502d', emissiveIntensity: 0.55, metalness: 0.85, roughness: 0.16 })
+for (const side of [-1, 1]) {
+  const wing = new THREE.Mesh(new THREE.BoxGeometry(0.82, 0.08, 0.58), shipWingMaterial)
+  wing.position.set(side * 0.52, 0.12, -0.08)
+  wing.rotation.z = side * -0.16
+  wing.castShadow = true
+  player.add(wing)
+}
+const cockpit = new THREE.Mesh(
+  new THREE.SphereGeometry(0.29, 12, 8),
+  new THREE.MeshStandardMaterial({ color: '#76ddff', emissive: '#267ca0', emissiveIntensity: 1.25, metalness: 0.92, roughness: 0.08 }),
 )
-playerRing.rotation.x = Math.PI / 2
+cockpit.scale.set(0.82, 0.62, 1.15)
+cockpit.position.set(0, 0.38, 0.18)
+player.add(cockpit)
+const playerRing = new THREE.Mesh(
+  new THREE.TorusGeometry(0.3, ENTITIES.playerRingTube * 0.72, ENTITIES.playerRingRadialSegments, ENTITIES.playerRingTubularSegments),
+  new THREE.MeshBasicMaterial({ color: COLORS.playerRing, transparent: true, opacity: 0.88 }),
+)
+playerRing.position.set(0, 0.17, -0.67)
 player.add(playerRing)
+const engineFlame = new THREE.Group()
+const engineFlameOuter = new THREE.Mesh(
+  new THREE.ConeGeometry(0.27, 0.82, 8),
+  new THREE.MeshBasicMaterial({ color: '#ff5c32', transparent: true, opacity: 0.74, depthWrite: false }),
+)
+const engineFlameInner = new THREE.Mesh(
+  new THREE.ConeGeometry(0.14, 0.57, 8),
+  new THREE.MeshBasicMaterial({ color: '#ffe781', transparent: true, opacity: 0.94, depthWrite: false }),
+)
+for (const flame of [engineFlameOuter, engineFlameInner]) flame.rotation.x = -Math.PI / 2
+engineFlameInner.position.z = -0.08
+engineFlame.add(engineFlameOuter, engineFlameInner)
+engineFlame.position.set(0, 0.17, -0.93)
+player.add(engineFlame)
 const slowAuraRing = new THREE.Mesh(
   new THREE.RingGeometry(1 - ENTITIES.slowAuraRingWidth, 1, ENTITIES.slowAuraRingSegments),
   new THREE.MeshBasicMaterial({ color: COLORS.slowAura, transparent: true, opacity: 0.35, side: THREE.DoubleSide, depthWrite: false }),
@@ -1239,7 +1275,6 @@ function createBuildingMesh(building) {
 }
 function syncBuildings() { for (const mesh of buildingMeshes.values()) scene.remove(mesh); buildingMeshes.clear(); buildingRuntime.clear(); for (const building of buildingState.placed) createBuildingMesh(building) }
 function buildingCost(type) { const config = BUILDING_CONFIG.types[type]; return Math.ceil(config.baseCost * config.costMultiplier ** buildingState.placed.filter((b) => b.type === type).length) }
-function setBuildingPreview() { if (buildingPreview) scene.remove(buildingPreview); buildingPreview = null }
 function getBuildSites() {
   const sites = []
   for (let x = -10; x <= 10; x += 2) for (let z = -10; z <= 10; z += 2) if (Math.hypot(x, z) <= BUILDING_CONFIG.placementRadius && Math.hypot(x, z) >= BUILDING_CONFIG.spawnClearance) sites.push({ x, z })
@@ -1254,6 +1289,7 @@ function renderBuildGrid() {
     return `<button class="build-site ${existing ? 'occupied' : ''}" data-build-x="${x}" data-build-z="${z}" type="button">${existing ? 'UPGRADE' : `$${cost}`}</button>${label}`
   }).join('')
   buildGridUi.classList.remove('hidden')
+  requestAnimationFrame(updateBuildGridPositions)
 }
 function updateBuildGridPositions() {
   if (!buildMode) return
@@ -1306,20 +1342,38 @@ function renderBuildings() {
   buildStatus.textContent = `BUILD MODE · SLOTS ${buildingState.placed.length}/${getBuildingSlotLimit()}`
   renderBuildGrid()
 }
-function enterBuildMode() { if (!buildingState.unlocked.length) return; buildMode = true; selectedBuildingType = buildingState.unlocked[0]; setBuildingPreview(); setBuildModeEntityVisibility(true); overlay.classList.add('hidden'); buildBar.classList.remove('hidden'); renderBuildings() }
-function exitBuildMode() { buildMode = false; selectedBuildingType = null; setBuildingPreview(); setBuildModeEntityVisibility(false); buildGridUi.classList.add('hidden'); buildBar.classList.add('hidden'); overlay.classList.remove('hidden'); buildingUpgrade.classList.add('hidden') }
+function enterBuildMode() { if (!buildingState.unlocked.length) return; buildMode = true; selectedBuildingType = buildingState.unlocked[0]; setBuildModeEntityVisibility(true); overlay.classList.add('hidden'); buildBar.classList.remove('hidden'); renderBuildings() }
+function exitBuildMode() { buildMode = false; selectedBuildingType = null; setBuildModeEntityVisibility(false); buildGridUi.classList.add('hidden'); buildBar.classList.add('hidden'); overlay.classList.remove('hidden'); buildingUpgrade.classList.add('hidden') }
 function openBuildingUpgrade(building) { const config = BUILDING_CONFIG.types[building.type]; buildingUpgrade.innerHTML = `<button class="upgrade-close" data-close-building-upgrade="1" type="button" aria-label="Close upgrade panel">×</button><p class="eyebrow">INSTALLED DEFENSE</p><h3>${config.name}</h3><p class="building-upgrade-summary">Choose an upgrade for this structure.</p><div class="upgrade-grid">${Object.entries(config.upgrades).map(([key]) => { const level = building.upgrades[key] ?? 0; const cost = getBuildingUpgradeCost(building, key); return `<button data-upgrade-building="${building.id}" data-upgrade-key="${key}" type="button"><span>${key.toUpperCase()}</span><strong>LV. ${level} → ${level + 1}</strong><small>$${formatCompactNumber(cost)}</small></button>` }).join('')}</div><button data-destroy-building="${building.id}" class="demolish-button" type="button">DEMOLISH · REFUND $${formatCompactNumber(getBuildingRefund(building))}</button>`; buildingUpgrade.classList.remove('hidden') }
-function buildingValue(building, key) { const config = BUILDING_CONFIG.types[building.type]; const directUpgrade = (config.upgrades[key]?.step ?? 0) * (building.upgrades[key] ?? 0); const effectivenessUpgrade = key === 'slow' ? (config.upgrades.effectiveness?.step ?? 0) * (building.upgrades.effectiveness ?? 0) : 0; return config.effect[key] + directUpgrade + effectivenessUpgrade }
+function buildingValue(building, key) { const config = BUILDING_CONFIG.types[building.type]; const upgradeKey = key === 'interval' ? 'frequency' : key; const directUpgrade = (config.upgrades[upgradeKey]?.step ?? 0) * (building.upgrades[upgradeKey] ?? 0); const effectivenessUpgrade = key === 'slow' ? (config.upgrades.effectiveness?.step ?? 0) * (building.upgrades.effectiveness ?? 0) : 0; return config.effect[key] + directUpgrade + effectivenessUpgrade }
 function updateBuildings(delta, total) {
   for (let index = autocannonProjectiles.length - 1; index >= 0; index -= 1) {
     const shot = autocannonProjectiles[index]
     shot.age += delta
+    if (!obstacles.includes(shot.target)) {
+      scene.remove(shot.mesh)
+      autocannonProjectiles.splice(index, 1)
+      continue
+    }
+    const targetOffset = shot.target.position.clone().sub(shot.mesh.position)
+    targetOffset.y = 0
+    const targetDistance = targetOffset.length()
+    if (targetDistance > 0.001) shot.direction.lerp(targetOffset.multiplyScalar(1 / targetDistance), 1 - Math.exp(-12 * delta)).normalize()
     shot.mesh.position.addScaledVector(shot.direction, 14 * delta)
     shot.mesh.rotation.x += delta * 12
-    if (shot.mesh.position.distanceTo(shot.destination) < 0.45 || shot.age > 2.5) {
+    shot.mesh.scale.setScalar(0.85 + Math.sin(shot.age * 28) * 0.12)
+    if (targetDistance <= GAME.obstacleColliderRadius + 0.24) {
       scene.remove(shot.mesh)
       const targetIndex = obstacles.indexOf(shot.target)
-      if (targetIndex >= 0) { scene.remove(shot.target, shot.target.userData.rangeIndicator, shot.target.userData.magnetPulse); obstacles.splice(targetIndex, 1) }
+      if (targetIndex >= 0) {
+        createExplosion(shot.target.position, 0.58)
+        scene.remove(shot.target, shot.target.userData.rangeIndicator, shot.target.userData.magnetPulse)
+        clearPorterTeleportTarget(shot.target)
+        obstacles.splice(targetIndex, 1)
+      }
+      autocannonProjectiles.splice(index, 1)
+    } else if (shot.age > 2.5) {
+      scene.remove(shot.mesh)
       autocannonProjectiles.splice(index, 1)
     }
   }
@@ -1357,11 +1411,11 @@ function addChronoCell(savedCell) {
   chronoCells.push(chronoCell)
 }
 
-function addBooster(type) {
+function addBooster(type, savedBooster) {
   const colors = { speed: '#ffcf76', thorn: '#ff795f', freezer: '#7bdcff' }
   const booster = new THREE.Mesh(boosterGeometry, new THREE.MeshStandardMaterial({ color: colors[type], emissive: colors[type], emissiveIntensity: 1.7, metalness: 0.25, roughness: 0.2 }))
-  booster.position.copy(randomArenaPosition(GAME.cellMinDistance))
-  booster.position.y = GAME.playerStartHeight
+  if (savedBooster) booster.position.set(savedBooster.position.x, savedBooster.position.y, savedBooster.position.z)
+  else { booster.position.copy(randomArenaPosition(GAME.cellMinDistance)); booster.position.y = GAME.playerStartHeight }
   booster.userData.type = type
   scene.add(booster)
   boosters.push(booster)
@@ -1422,13 +1476,14 @@ function createObstacle(position, type, savedObstacle) {
   obstacle.position.copy(position)
   obstacle.position.y = GAME.obstacleGroundHeight
   obstacle.userData.type = type
+  obstacle.userData.id = savedObstacle?.id ?? crypto.randomUUID()
   obstacle.userData.age = savedObstacle?.age ?? 0
   obstacle.userData.lifetimeAge = savedObstacle?.lifetimeAge ?? 0
   obstacle.userData.speed = savedObstacle?.speed ?? THREE.MathUtils.randFloat(0.8, 1.45)
   obstacle.userData.pulseTimer = savedObstacle?.pulseTimer ?? 0
   obstacle.userData.shotCooldown = savedObstacle?.shotCooldown ?? 0
   obstacle.userData.teleportTimer = savedObstacle?.teleportTimer ?? 0
-  obstacle.userData.teleportTarget = null
+  obstacle.userData.teleportTarget = savedObstacle?.teleportTarget ? new THREE.Vector3(savedObstacle.teleportTarget.x, savedObstacle.teleportTarget.y, savedObstacle.teleportTarget.z) : null
   obstacle.userData.colliderRadius = GAME.obstacleColliderRadius
   if (type === 'chaser' || type === 'banger' || type === 'shooter' || type === 'magnet') {
     const rangeIndicator = new THREE.Mesh(
@@ -1448,11 +1503,12 @@ function createObstacle(position, type, savedObstacle) {
     magnetPulse.rotation.x = -Math.PI / 2
     magnetPulse.position.set(position.x, 0.035, position.z)
     obstacle.userData.magnetPulse = magnetPulse
-    obstacle.userData.magnetPulsePhase = Math.random()
+    obstacle.userData.magnetPulsePhase = savedObstacle?.magnetPulsePhase ?? Math.random()
     scene.add(magnetPulse)
   }
   scene.add(obstacle)
   obstacles.push(obstacle)
+  if (type === 'porter' && obstacle.userData.teleportTarget) showPorterTeleportTarget(obstacle)
 }
 
 function randomPositionNearPlayer() {
@@ -1488,14 +1544,18 @@ function clearPorterTeleportTarget(porter) {
   porter.userData.teleportEffect = null
 }
 
+function createSpore(position, direction) {
+  const spore = new THREE.Mesh(sporeGeometry, new THREE.MeshStandardMaterial({ color: COLORS.spore, emissive: COLORS.sporeEmissive, emissiveIntensity: 2, transparent: true, opacity: 0.9 }))
+  spore.position.copy(position)
+  scene.add(spore)
+  spores.push({ spore, direction: direction.clone() })
+}
+
 function releaseSpores(position) {
   const startAngle = Math.random() * Math.PI * 2
   for (let index = 0; index < ENTITIES.sporeCount; index += 1) {
     const angle = startAngle + index * (Math.PI * 2 / ENTITIES.sporeCount)
-    const spore = new THREE.Mesh(sporeGeometry, new THREE.MeshStandardMaterial({ color: COLORS.spore, emissive: COLORS.sporeEmissive, emissiveIntensity: 2, transparent: true, opacity: 0.9 }))
-    spore.position.set(position.x, GAME.playerStartHeight, position.z)
-    scene.add(spore)
-    spores.push({ spore, direction: new THREE.Vector3(Math.cos(angle), 0, Math.sin(angle)) })
+    createSpore(new THREE.Vector3(position.x, GAME.playerStartHeight, position.z), new THREE.Vector3(Math.cos(angle), 0, Math.sin(angle)))
   }
 }
 
@@ -1708,16 +1768,20 @@ function createBangerPulse(position, radius, fuseProgress) {
   soundSystem.playBangerPulse(fuseProgress, position)
 }
 
-function triggerShockwave() {
-  const radius = GAME.shockwaveBaseRadius * (1 + getResearchStatBonus('shockwaveSize'))
+function createShockwave(origin, radius, age = 0, affectedIds = []) {
   const shockwave = new THREE.Mesh(
     new THREE.RingGeometry(0.2, 0.42, 64),
     new THREE.MeshBasicMaterial({ color: COLORS.slowAura, transparent: true, opacity: 0.95, side: THREE.DoubleSide, depthWrite: false }),
   )
   shockwave.rotation.x = -Math.PI / 2
-  shockwave.position.set(player.position.x, 0.07, player.position.z)
+  shockwave.position.set(origin.x, 0.07, origin.z)
   scene.add(shockwave)
-  shockwaves.push({ shockwave, origin: player.position.clone(), radius, age: 0, affected: new Set() })
+  shockwaves.push({ shockwave, origin: origin.clone(), radius, age, affected: new Set(obstacles.filter((obstacle) => affectedIds.includes(obstacle.userData.id))) })
+}
+
+function triggerShockwave() {
+  const radius = GAME.shockwaveBaseRadius * (1 + getResearchStatBonus('shockwaveSize'))
+  createShockwave(player.position, radius)
 }
 
 function createPlayerDeathEffect(position) {
@@ -1837,6 +1901,8 @@ function resetGame(populateArena = true) {
   for (const warning of obstacleSpawnWarnings) scene.remove(warning.ring, warning.glow, warning.beam)
   obstacleSpawnWarnings.length = 0
   player.position.set(0, GAME.playerStartHeight, 0)
+  player.rotation.y = 0
+  playerTargetHeading = 0
   player.visible = true
   score = 0
   elapsed = 0
@@ -1870,6 +1936,7 @@ function saveCurrentRound() {
   savedRound = {
     tierIndex: selectedTierIndex,
     player: serializePosition(player.position),
+    playerHeading: player.rotation.y,
     score,
     elapsed,
     spawnTimer,
@@ -1878,11 +1945,24 @@ function saveCurrentRound() {
     hazardTimer,
     shockwaveTimer,
     shieldCharges,
+    shieldInvulnerability,
+    boosterTimer,
+    speedBoosterTime,
+    thornShieldTime,
+    freezerTime,
     cells: cells.map((cell) => ({ position: serializePosition(cell.position), phase: cell.userData.phase, cashValue: cell.userData.cashValue })),
     chronoCells: chronoCells.map((cell) => ({ position: serializePosition(cell.position), phase: cell.userData.phase, age: cell.userData.age })),
-    obstacles: obstacles.map((obstacle) => ({ position: serializePosition(obstacle.position), type: obstacle.userData.type, age: obstacle.userData.age, lifetimeAge: obstacle.userData.lifetimeAge, speed: obstacle.userData.speed, pulseTimer: obstacle.userData.pulseTimer, shotCooldown: obstacle.userData.shotCooldown })),
+    boosters: boosters.map((booster) => ({ type: booster.userData.type, position: serializePosition(booster.position) })),
+    obstacles: obstacles.map((obstacle) => ({ id: obstacle.userData.id, position: serializePosition(obstacle.position), type: obstacle.userData.type, age: obstacle.userData.age, lifetimeAge: obstacle.userData.lifetimeAge, speed: obstacle.userData.speed, pulseTimer: obstacle.userData.pulseTimer, shotCooldown: obstacle.userData.shotCooldown, teleportTimer: obstacle.userData.teleportTimer, teleportTarget: obstacle.userData.teleportTarget && serializePosition(obstacle.userData.teleportTarget), magnetPulsePhase: obstacle.userData.magnetPulsePhase })),
+    spores: spores.map((entry) => ({ position: serializePosition(entry.spore.position), direction: serializePosition(entry.direction) })),
     shooterProjectiles: shooterProjectiles.map((projectile) => ({ position: serializePosition(projectile.projectile.position), direction: serializePosition(projectile.direction), age: projectile.age })),
     fallingObstacles: fallingObstacles.map((fallingObstacle) => ({ target: serializePosition(fallingObstacle.target), type: fallingObstacle.type, age: fallingObstacle.age, landed: fallingObstacle.landed, impactTriggered: fallingObstacle.impactTriggered })),
+    fireHazards: fireHazards.map((fireHazard) => ({ position: serializePosition(fireHazard.position), age: fireHazard.age })),
+    splinterPieces: splinterPieces.map((entry) => ({ position: serializePosition(entry.piece.position), direction: serializePosition(entry.direction), age: entry.age })),
+    buildingRuntime: buildingState.placed.map((building) => ({ id: building.id, timer: buildingRuntime.get(building.id)?.timer ?? 0, active: buildingRuntime.get(building.id)?.active ?? 0 })),
+    autocannonProjectiles: autocannonProjectiles.map((entry) => ({ position: serializePosition(entry.mesh.position), direction: serializePosition(entry.direction), destination: serializePosition(entry.destination), targetId: entry.target.userData.id, age: entry.age })),
+    shockwaves: shockwaves.map((wave) => ({ origin: serializePosition(wave.origin), radius: wave.radius, age: wave.age, affectedIds: [...wave.affected].map((obstacle) => obstacle.userData.id) })),
+    shockwavePushes: shockwavePushes.map((push) => ({ obstacleId: push.obstacle.userData.id, direction: serializePosition(push.direction), distance: push.distance, remaining: push.remaining })),
     warnings: obstacleSpawnWarnings.map((warning) => ({ position: serializePosition(warning.position), type: warning.type, age: warning.age })),
   }
   persistSavedRound(savedRound)
@@ -1901,6 +1981,8 @@ function restoreSavedRound() {
   applyDifficulty()
   resetGame(false)
   player.position.set(savedRound.player.x, savedRound.player.y, savedRound.player.z)
+  player.rotation.y = savedRound.playerHeading ?? 0
+  playerTargetHeading = player.rotation.y
   score = savedRound.score ?? 0
   elapsed = savedRound.elapsed ?? 0
   spawnTimer = savedRound.spawnTimer ?? 0
@@ -1909,10 +1991,17 @@ function restoreSavedRound() {
   hazardTimer = savedRound.hazardTimer ?? 0
   shockwaveTimer = savedRound.shockwaveTimer ?? 0
   shieldCharges = savedRound.shieldCharges ?? getResearchLevel('shield')
+  shieldInvulnerability = savedRound.shieldInvulnerability ?? 0
+  boosterTimer = savedRound.boosterTimer ?? 0
+  speedBoosterTime = savedRound.speedBoosterTime ?? 0
+  thornShieldTime = savedRound.thornShieldTime ?? 0
+  freezerTime = savedRound.freezerTime ?? 0
   shieldBubble.visible = shieldCharges > 0
   for (const cell of savedRound.cells ?? []) addCell(cell)
   for (const chronoCell of savedRound.chronoCells ?? []) addChronoCell(chronoCell)
   for (const obstacle of savedRound.obstacles ?? []) createObstacle(new THREE.Vector3(obstacle.position.x, obstacle.position.y, obstacle.position.z), obstacle.type, obstacle)
+  for (const booster of savedRound.boosters ?? []) addBooster(booster.type, booster)
+  for (const spore of savedRound.spores ?? []) createSpore(new THREE.Vector3(spore.position.x, spore.position.y, spore.position.z), new THREE.Vector3(spore.direction.x, spore.direction.y, spore.direction.z))
   for (const savedProjectile of savedRound.shooterProjectiles ?? []) {
     const projectile = new THREE.Mesh(
       shooterProjectileGeometry,
@@ -1923,6 +2012,19 @@ function restoreSavedRound() {
     shooterProjectiles.push({ projectile, direction: new THREE.Vector3(savedProjectile.direction.x, savedProjectile.direction.y, savedProjectile.direction.z), age: savedProjectile.age ?? 0 })
   }
   for (const fallingObstacle of savedRound.fallingObstacles ?? []) createFallingObstacle(new THREE.Vector3(fallingObstacle.target.x, fallingObstacle.target.y, fallingObstacle.target.z), fallingObstacle)
+  for (const fireHazard of savedRound.fireHazards ?? []) createFireHazard(new THREE.Vector3(fireHazard.position.x, fireHazard.position.y, fireHazard.position.z), fireHazard)
+  for (const splinterPiece of savedRound.splinterPieces ?? []) createSplinterPiece(new THREE.Vector3(splinterPiece.position.x, splinterPiece.position.y, splinterPiece.position.z), new THREE.Vector3(splinterPiece.direction.x, splinterPiece.direction.y, splinterPiece.direction.z), splinterPiece.age)
+  for (const runtime of savedRound.buildingRuntime ?? []) { const entry = buildingRuntime.get(runtime.id); if (entry) { entry.timer = runtime.timer ?? 0; entry.active = runtime.active ?? 0 } }
+  for (const savedProjectile of savedRound.autocannonProjectiles ?? []) {
+    const target = obstacles.find((obstacle) => obstacle.userData.id === savedProjectile.targetId)
+    if (!target) continue
+    const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.16, 10, 8), new THREE.MeshBasicMaterial({ color: '#fff1a6', transparent: true, opacity: 0.95 }))
+    mesh.position.set(savedProjectile.position.x, savedProjectile.position.y, savedProjectile.position.z)
+    scene.add(mesh)
+    autocannonProjectiles.push({ mesh, direction: new THREE.Vector3(savedProjectile.direction.x, savedProjectile.direction.y, savedProjectile.direction.z), destination: new THREE.Vector3(savedProjectile.destination.x, savedProjectile.destination.y, savedProjectile.destination.z), target, age: savedProjectile.age ?? 0 })
+  }
+  for (const wave of savedRound.shockwaves ?? []) createShockwave(new THREE.Vector3(wave.origin.x, wave.origin.y, wave.origin.z), wave.radius, wave.age ?? 0, wave.affectedIds ?? [])
+  for (const push of savedRound.shockwavePushes ?? []) { const obstacle = obstacles.find((entry) => entry.userData.id === push.obstacleId); if (obstacle) shockwavePushes.push({ obstacle, direction: new THREE.Vector3(push.direction.x, push.direction.y, push.direction.z), distance: push.distance, remaining: push.remaining }) }
   for (const warning of savedRound.warnings ?? []) scheduleObstacle({ ...warning, position: new THREE.Vector3(warning.position.x, warning.position.y, warning.position.z) })
   updateHud()
   return true
@@ -2026,13 +2128,18 @@ function updateGame(delta, total) {
   if (direction.lengthSq() > 0) {
     direction.normalize()
     player.position.addScaledVector(direction, GAME.playerSpeed * (1 + getResearchStatBonus('playerSpeedMultiplier')) * (speedBoosterTime > 0 ? 2 : 1) * delta)
-    player.rotation.y = Math.atan2(direction.x, direction.z)
+    playerTargetHeading = Math.atan2(direction.x, direction.z)
   }
 
+  const headingDifference = Math.atan2(Math.sin(playerTargetHeading - player.rotation.y), Math.cos(playerTargetHeading - player.rotation.y))
+  player.rotation.y += headingDifference * (1 - Math.exp(-10 * delta))
+
   keepInsideArena(player.position)
-  player.rotation.y += delta * ANIMATION.playerTurnSpeed
-  playerCore.rotation.x += delta * ANIMATION.playerCoreSpinSpeed
   playerRing.rotation.z += delta * ANIMATION.playerRingSpinSpeed
+  const flamePulse = 0.9 + Math.sin(total * 20) * 0.12 + Math.sin(total * 33) * 0.06
+  engineFlame.scale.set(1, 1, flamePulse)
+  engineFlameOuter.material.opacity = 0.62 + Math.sin(total * 17) * 0.12
+  engineFlameInner.material.opacity = 0.8 + Math.sin(total * 23) * 0.14
   const slowAuraUnlocked = getResearchLevel('unlock-slow-aura') > 0
   const effectRangeMultiplier = 1 + getResearchStatBonus('effectRange')
   const slowAuraRange = GAME.slowAuraBaseRange * effectRangeMultiplier
@@ -2153,6 +2260,8 @@ function updateGame(delta, total) {
     }
     const chronoSlow = buildingState.placed.filter((b) => b.type === 'chronoGenerator' && planarDistance(obstacle.position, b) <= buildingValue(b, 'range')).reduce((slow, b) => Math.max(slow, buildingValue(b, 'slow')), 0)
     const inGapFog = buildingState.placed.some((b) => b.type === 'gapGenerator' && buildingRuntime.get(b.id)?.active > 0 && planarDistance(obstacle.position, b) <= buildingValue(b, 'range'))
+    obstacle.userData.material.emissive.set(obstacleType.emissive)
+    if (chronoSlow > 0) obstacle.userData.material.emissive.lerp(chronoBuildingTint, THREE.MathUtils.clamp(chronoSlow * 1.6, 0, 0.82))
     if (thornShieldTime > 0 && playerOffset.length() < GAME.playerRadius) {
       scene.remove(obstacle, obstacle.userData.rangeIndicator, obstacle.userData.magnetPulse)
       clearPorterTeleportTarget(obstacle)
@@ -2507,19 +2616,11 @@ function animate() {
   if (buildMode) {
     camera.position.set(0, 28, 0.01)
     camera.lookAt(0, 0, 0)
-    updateBuildGridPositions()
   } else {
     camera.position.set(player.position.x, CAMERA.height, player.position.z + getCameraDistance())
     camera.lookAt(player.position.x, 0, player.position.z)
   }
   starfield.position.copy(camera.position)
-  if (buildingPreview) {
-    const viewDirection = new THREE.Vector3()
-    camera.getWorldDirection(viewDirection)
-    buildingPreview.position.copy(camera.position).addScaledVector(viewDirection, 10)
-    buildingPreview.position.y = 2.9
-    buildingPreview.rotation.y += delta * 1.4
-  }
   renderer.render(scene, camera)
 }
 
@@ -2665,11 +2766,6 @@ function releaseJoystick(event) {
 
 canvas.addEventListener('pointerdown', (event) => {
   if (buildMode) return
-  if (buildMode && selectedBuildingType) {
-    const rect = canvas.getBoundingClientRect(); const pointer = new THREE.Vector2(((event.clientX - rect.left) / rect.width) * 2 - 1, -((event.clientY - rect.top) / rect.height) * 2 + 1); const raycaster = new THREE.Raycaster(); raycaster.setFromCamera(pointer, camera); const selected = raycaster.intersectObjects([...buildingMeshes.values()], true)[0]; if (selected) { let object = selected.object; while (object && !object.userData.buildingId) object = object.parent; const building = buildingState.placed.find((b) => b.id === object?.userData.buildingId); if (building) openBuildingUpgrade(building); return } const hit = raycaster.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), new THREE.Vector3()); if (!hit) return
-    hit.x = Math.round(hit.x); hit.z = Math.round(hit.z); const config = BUILDING_CONFIG.types[selectedBuildingType]; const valid = buildingState.placed.length < getBuildingSlotLimit() && hit.length() <= BUILDING_CONFIG.placementRadius && hit.length() >= BUILDING_CONFIG.spawnClearance && !buildingState.placed.some((b) => Math.hypot(b.x - hit.x, b.z - hit.z) < BUILDING_CONFIG.minimumSpacing); const cost = buildingCost(selectedBuildingType); if (!valid || cash < cost) return
-    updateCash(-cost); const building = { id: crypto.randomUUID(), type: selectedBuildingType, x: hit.x, z: hit.z, upgrades: {}, spent: cost }; buildingState.placed.push(building); saveBuildings(); createBuildingMesh(building); renderBuildings(); return
-  }
   if (!isMobileInputMode() || !started || paused || event.button !== 0 || joystickPointerId !== null) return
   event.preventDefault()
   joystickPointerId = event.pointerId
@@ -2698,6 +2794,7 @@ window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight
   camera.updateProjectionMatrix()
   renderer.setSize(window.innerWidth, window.innerHeight)
+  if (buildMode) updateBuildGridPositions()
 })
 
 applyDifficulty()
