@@ -1840,7 +1840,7 @@ function updateGame(delta, total) {
       const speedMultiplier = obstacle.userData.type === 'creeper' ? Math.max(0.5, 1 - getResearchStatBonus('creeperSpeedDebuff')) : 1
       const creeperLifetimeProgress = obstacle.userData.type === 'creeper' ? Math.min(obstacle.userData.lifetimeAge / regularObstacleLifetime, 1) : 0
       const movementSpeed = obstacle.userData.type === 'creeper'
-        ? THREE.MathUtils.lerp(obstacleType.speed, GAME.playerSpeed, creeperLifetimeProgress)
+        ? THREE.MathUtils.lerp(obstacleType.speed, GAME.playerSpeed * 0.9, creeperLifetimeProgress)
         : obstacleType.speed
       obstacle.position.addScaledVector(playerOffset.normalize(), movementSpeed * speedMultiplier * obstacleSpeedMultiplier * delta)
     }
