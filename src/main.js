@@ -1250,18 +1250,45 @@ function renderBuildGrid() {
   const cost = selectedBuildingType ? buildingCost(selectedBuildingType) : 0
   buildGridUi.innerHTML = getBuildSites().map(({ x, z }) => {
     const existing = buildingState.placed.find((entry) => entry.x === x && entry.z === z)
-    return `<button class="build-site ${existing ? 'occupied' : ''}" data-build-x="${x}" data-build-z="${z}" type="button">${existing ? 'UPGRADE' : `$${cost}`}</button>`
+    const label = existing ? `<span class="build-name" data-build-x="${x}" data-build-z="${z}">${BUILDING_CONFIG.types[existing.type].name}</span>` : ''
+    return `<button class="build-site ${existing ? 'occupied' : ''}" data-build-x="${x}" data-build-z="${z}" type="button">${existing ? 'UPGRADE' : `$${cost}`}</button>${label}`
   }).join('')
   buildGridUi.classList.remove('hidden')
 }
 function updateBuildGridPositions() {
   if (!buildMode) return
-  for (const button of buildGridUi.querySelectorAll('.build-site')) {
-    const point = new THREE.Vector3(Number(button.dataset.buildX), 0.08, Number(button.dataset.buildZ)).project(camera)
-    button.style.left = `${(point.x * 0.5 + 0.5) * window.innerWidth}px`
-    const verticalOffset = button.classList.contains('occupied') ? 38 : 0
-    button.style.top = `${(-point.y * 0.5 + 0.5) * window.innerHeight + verticalOffset}px`
+  for (const element of buildGridUi.querySelectorAll('[data-build-x]')) {
+    const isName = element.classList.contains('build-name')
+    const point = new THREE.Vector3(Number(element.dataset.buildX), isName ? 1.25 : 0.08, Number(element.dataset.buildZ)).project(camera)
+    element.style.left = `${(point.x * 0.5 + 0.5) * window.innerWidth}px`
+    const verticalOffset = element.classList.contains('occupied') ? 38 : 0
+    element.style.top = `${(-point.y * 0.5 + 0.5) * window.innerHeight + verticalOffset}px`
   }
+}
+function setBuildModeEntityVisibility(hidden) {
+  player.visible = !hidden && !ended
+  for (const cell of cells) cell.visible = !hidden
+  for (const chronoCell of chronoCells) chronoCell.visible = !hidden
+  for (const booster of boosters) booster.visible = !hidden
+  for (const obstacle of obstacles) {
+    obstacle.visible = !hidden
+    if (obstacle.userData.rangeIndicator) obstacle.userData.rangeIndicator.visible = !hidden
+    if (obstacle.userData.magnetPulse) obstacle.userData.magnetPulse.visible = !hidden
+  }
+  for (const entry of spores) entry.spore.visible = !hidden
+  for (const projectile of shooterProjectiles) projectile.projectile.visible = !hidden
+  for (const fallingObstacle of fallingObstacles) {
+    fallingObstacle.obstacle.visible = !hidden
+    fallingObstacle.shadow.visible = !hidden
+    fallingObstacle.targetRing.visible = !hidden
+  }
+  for (const warning of obstacleSpawnWarnings) { warning.ring.visible = !hidden; warning.glow.visible = !hidden; warning.beam.visible = !hidden }
+  for (const explosion of explosions) { explosion.shockwave.visible = !hidden; explosion.blast.visible = !hidden; explosion.light.visible = !hidden }
+  for (const effect of playerDeathEffects) { effect.flash.visible = !hidden; effect.blast.visible = !hidden; effect.shockwave.visible = !hidden; effect.innerShockwave.visible = !hidden; effect.light.visible = !hidden; for (const fragment of effect.fragments) fragment.visible = !hidden }
+  for (const fireHazard of fireHazards) { fireHazard.visual.visible = !hidden; fireHazard.light.visible = !hidden }
+  for (const piece of splinterPieces) piece.piece.visible = !hidden
+  for (const pulse of bangerPulses) pulse.pulse.visible = !hidden
+  for (const wave of shockwaves) wave.shockwave.visible = !hidden
 }
 function placeBuildingAt(x, z) {
   const existing = buildingState.placed.find((entry) => entry.x === x && entry.z === z)
@@ -1279,8 +1306,8 @@ function renderBuildings() {
   buildStatus.textContent = `BUILD MODE · SLOTS ${buildingState.placed.length}/${getBuildingSlotLimit()}`
   renderBuildGrid()
 }
-function enterBuildMode() { if (!buildingState.unlocked.length) return; buildMode = true; selectedBuildingType = buildingState.unlocked[0]; setBuildingPreview(); overlay.classList.add('hidden'); buildBar.classList.remove('hidden'); renderBuildings() }
-function exitBuildMode() { buildMode = false; selectedBuildingType = null; setBuildingPreview(); buildGridUi.classList.add('hidden'); buildBar.classList.add('hidden'); overlay.classList.remove('hidden'); buildingUpgrade.classList.add('hidden') }
+function enterBuildMode() { if (!buildingState.unlocked.length) return; buildMode = true; selectedBuildingType = buildingState.unlocked[0]; setBuildingPreview(); setBuildModeEntityVisibility(true); overlay.classList.add('hidden'); buildBar.classList.remove('hidden'); renderBuildings() }
+function exitBuildMode() { buildMode = false; selectedBuildingType = null; setBuildingPreview(); setBuildModeEntityVisibility(false); buildGridUi.classList.add('hidden'); buildBar.classList.add('hidden'); overlay.classList.remove('hidden'); buildingUpgrade.classList.add('hidden') }
 function openBuildingUpgrade(building) { const config = BUILDING_CONFIG.types[building.type]; buildingUpgrade.innerHTML = `<button class="upgrade-close" data-close-building-upgrade="1" type="button" aria-label="Close upgrade panel">×</button><p class="eyebrow">INSTALLED DEFENSE</p><h3>${config.name}</h3><p class="building-upgrade-summary">Choose an upgrade for this structure.</p><div class="upgrade-grid">${Object.entries(config.upgrades).map(([key]) => { const level = building.upgrades[key] ?? 0; const cost = getBuildingUpgradeCost(building, key); return `<button data-upgrade-building="${building.id}" data-upgrade-key="${key}" type="button"><span>${key.toUpperCase()}</span><strong>LV. ${level} → ${level + 1}</strong><small>$${formatCompactNumber(cost)}</small></button>` }).join('')}</div><button data-destroy-building="${building.id}" class="demolish-button" type="button">DEMOLISH · REFUND $${formatCompactNumber(getBuildingRefund(building))}</button>`; buildingUpgrade.classList.remove('hidden') }
 function buildingValue(building, key) { const config = BUILDING_CONFIG.types[building.type]; const directUpgrade = (config.upgrades[key]?.step ?? 0) * (building.upgrades[key] ?? 0); const effectivenessUpgrade = key === 'slow' ? (config.upgrades.effectiveness?.step ?? 0) * (building.upgrades.effectiveness ?? 0) : 0; return config.effect[key] + directUpgrade + effectivenessUpgrade }
 function updateBuildings(delta, total) {
