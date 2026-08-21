@@ -35,6 +35,9 @@ export const GAME = {
   obstacleSpawnDecreasePerCell: 0.07,
   regularObstacleLifetime: 32,
   regularObstacleLifetimeIncreasePerCell: 0.14,
+  obstacleDespawnWarningDuration: 2,
+  obstacleDespawnWarningStartFrequency: 1.2,
+  obstacleDespawnWarningEndFrequency: 10,
   obstacleSpawnWarningDuration: 2,
   bangerExplosionVfxDuration: 0.65,
   bangerPulseStartInterval: 0.9,
@@ -46,7 +49,7 @@ export const GAME = {
   fallingBlockDuration: 1.8,
   fallingBlockLifetime: 1.9,
   fallingBlockMinInterval: 1.8,
-  fallingBlockBaseInterval: 33.5,
+  fallingBlockBaseInterval: 24,
   fallingBlockIntervalPerCell: 0.1,
   fallingRockImpactOffset: 0.8,
   fieryRockFireDuration: 5,
@@ -81,8 +84,8 @@ export const DIFFICULTY = {
     // These weights are used to determine the probability of spawning each obstacle type. The sum isn't normalized, so the actual probability 
     // is calculated by dividing each weight by the sum of all weights. If an obstacle type is not included in the availableObstacleTypes array, its weight is ignored.
     // If an obstacle's weight isn't specified, it defaults to 0.
-    regularSpawnWeight: 0.8,
-    creeperSpawnWeight: 0.2,
+    regularSpawnWeight: 0.7,
+    creeperSpawnWeight: 0.3,
 
     availableFallingRockTypes: ['stoneRock'],
     fallingRockSpawnIntervalOffset: 1.5,
@@ -103,9 +106,9 @@ export const DIFFICULTY = {
     obstacleSpawnDecreasePerCellOffset: 0.014,
     obstacleLifetimeOffset: -4.8,
     obstacleLifetimeIncreasePerCellOffset: 0.012,
-    regularSpawnWeight: 0.8,
-    chaserSpawnWeight: 0.1,
-    creeperSpawnWeight: 0.1,
+    regularSpawnWeight: 0.6,
+    chaserSpawnWeight: 0.2,
+    creeperSpawnWeight: 0.2,
 
     availableFallingRockTypes: ['stoneRock', 'splinter'],
     fallingRockSpawnIntervalOffset: -5.8,
@@ -127,7 +130,7 @@ export const DIFFICULTY = {
     obstacleSpawnDecreasePerCellOffset: 0.025,
     obstacleLifetimeOffset: -2.4,
     obstacleLifetimeIncreasePerCellOffset: 0.032,
-    regularSpawnWeight: 0.7,
+    regularSpawnWeight: 0.6,
     chaserSpawnWeight: 0.1,
     creeperSpawnWeight: 0.1,
     bangerSpawnWeight: 0.1,
@@ -313,7 +316,15 @@ export const COLORS = {
 }
 
 export const CAMERA = { fov: 52, near: 0.1, far: 100, height: 12, distance: 15, followStrength: 0.06 }
-export const SCENE = { fogNear: 16, fogFar: 37, floorMetalness: 0.5, floorRoughness: 0.55 }
+export const SCENE = {
+  fogNear: 16,
+  fogFar: 37,
+  floorMetalness: 0.5,
+  floorRoughness: 0.55,
+  starCount: 240,
+  starfieldRadius: 70,
+  starSize: 0.11,
+}
 export const LIGHTING = { hemisphereSky: '#b8e8ff', hemisphereGround: '#0a1016', hemisphereIntensity: 2.2, key: '#fff4cf', keyIntensity: 3 }
 
 export const ENTITIES = {

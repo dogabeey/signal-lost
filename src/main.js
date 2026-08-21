@@ -793,6 +793,46 @@ const camera = new THREE.PerspectiveCamera(CAMERA.fov, window.innerWidth / windo
 camera.position.set(0, CAMERA.height, CAMERA.distance)
 camera.lookAt(0, 0, 0)
 
+function createStarfield() {
+  const positions = new Float32Array(SCENE.starCount * 3)
+  const colors = new Float32Array(SCENE.starCount * 3)
+
+  for (let index = 0; index < SCENE.starCount; index += 1) {
+    const radius = SCENE.starfieldRadius
+    const y = THREE.MathUtils.randFloatSpread(2)
+    const horizontal = Math.sqrt(1 - y * y)
+    const angle = Math.random() * Math.PI * 2
+    const offset = index * 3
+    positions[offset] = Math.cos(angle) * horizontal * radius
+    positions[offset + 1] = y * radius
+    positions[offset + 2] = Math.sin(angle) * horizontal * radius
+
+    const warmth = Math.random()
+    colors[offset] = 0.72 + warmth * 0.28
+    colors[offset + 1] = 0.82 + warmth * 0.18
+    colors[offset + 2] = 1
+  }
+
+  const geometry = new THREE.BufferGeometry()
+  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3))
+  geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3))
+  const material = new THREE.PointsMaterial({
+    size: SCENE.starSize,
+    sizeAttenuation: false,
+    transparent: true,
+    opacity: 0.62,
+    vertexColors: true,
+    depthWrite: false,
+    fog: false,
+  })
+  const stars = new THREE.Points(geometry, material)
+  stars.frustumCulled = false
+  return stars
+}
+
+const starfield = createStarfield()
+scene.add(starfield)
+
 scene.add(new THREE.HemisphereLight(LIGHTING.hemisphereSky, LIGHTING.hemisphereGround, LIGHTING.hemisphereIntensity))
 const keyLight = new THREE.DirectionalLight(LIGHTING.key, LIGHTING.keyIntensity)
 keyLight.position.set(-7, 13, 5)
@@ -1818,6 +1858,18 @@ function updateGame(delta, total) {
       obstacles.splice(index, 1)
       continue
     }
+    const remainingLifetime = regularObstacleLifetime - obstacle.userData.lifetimeAge
+    if (remainingLifetime <= GAME.obstacleDespawnWarningDuration) {
+      const warningProgress = 1 - remainingLifetime / GAME.obstacleDespawnWarningDuration
+      const blinkFrequency = THREE.MathUtils.lerp(
+        GAME.obstacleDespawnWarningStartFrequency,
+        GAME.obstacleDespawnWarningEndFrequency,
+        warningProgress,
+      )
+      obstacle.visible = Math.sin(obstacle.userData.lifetimeAge * blinkFrequency * Math.PI * 2) > -0.1
+    } else {
+      obstacle.visible = true
+    }
     const playerOffset = player.position.clone().sub(obstacle.position)
     playerOffset.y = 0
     const chronoSlow = buildingState.placed.filter((b) => b.type === 'chronoGenerator' && planarDistance(obstacle.position, b) <= buildingValue(b, 'range')).reduce((slow, b) => Math.max(slow, buildingValue(b, 'slow')), 0)
@@ -2174,6 +2226,7 @@ function animate() {
   updatePlayerDeathEffects(delta)
   camera.position.set(player.position.x, CAMERA.height, player.position.z + CAMERA.distance)
   camera.lookAt(player.position.x, 0, player.position.z)
+  starfield.position.copy(camera.position)
   if (buildingPreview) {
     const viewDirection = new THREE.Vector3()
     camera.getWorldDirection(viewDirection)
