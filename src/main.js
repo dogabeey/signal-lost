@@ -62,7 +62,7 @@ document.querySelector('#app').innerHTML = `
           </div>
           <p class="highest-cell">HIGHEST CELL: <span id="highest-cells">000</span></p>
           <p class="tier-requirement" id="tier-requirement"></p>
-          <button class="milestone-button" id="open-milestones-button" type="button">VIEW MILESTONES <span class="milestone-claim-count" id="milestone-claim-count" hidden>0</span></button>
+          <button class="milestone-button" id="open-milestones-button" type="button">VIEW ASCENSION <span class="milestone-claim-count" id="milestone-claim-count" hidden>0</span></button>
         </div>
         <div class="menu-actions">
           <button class="menu-start-button" id="start-button" type="button">START RUN</button>
@@ -70,8 +70,8 @@ document.querySelector('#app').innerHTML = `
           <button class="menu-system-button" id="open-building-button" type="button">BUILDING SYSTEM</button>
         </div>
       </div>
-      <section class="milestones-panel hidden" id="milestones-panel" aria-label="Milestones">
-        <div class="milestones-header"><div><p class="eyebrow">BEST SINGLE RUN</p><h2>MILESTONES</h2><p>MAX CELLS <strong id="milestone-max-cells">000</strong></p></div><button class="secondary-button" id="close-milestones-button" type="button">BACK</button></div>
+      <section class="milestones-panel hidden" id="milestones-panel" aria-label="Ascension">
+        <div class="milestones-header"><div><p class="eyebrow">BEST SINGLE RUN</p><h2>ASCENSION</h2><p>MAX CELLS <strong id="milestone-max-cells">000</strong></p></div><button class="secondary-button" id="close-milestones-button" type="button">BACK</button></div>
         <div class="milestone-tier-nav"><button id="previous-milestone-tier" type="button" aria-label="View previous milestone tier">‹</button><strong id="milestone-tier-label">TIER 1</strong><button id="next-milestone-tier" type="button" aria-label="View next milestone tier">›</button></div>
         <div class="milestone-track" id="milestone-track"></div>
       </section>
@@ -382,7 +382,7 @@ function formatCurrency(currency, amount) {
 
 function getResearchLockReason(research) {
   const requirements = research.requirements ?? {}
-  if (requirements.minTier && !isResearchMilestoneUnlocked(research.id)) return 'Unlock this research in Milestones'
+  if (requirements.minTier && !isResearchMilestoneUnlocked(research.id)) return 'Unlock this research in Ascension'
   if (requirements.minBankedCells && bankedCells < requirements.minBankedCells) return `Requires ${requirements.minBankedCells} banked cells`
   if (requirements.researchId && getResearchLevel(requirements.researchId) < 1) return `Requires ${getResearchById(requirements.researchId).name}`
   for (const [researchId, level] of Object.entries(requirements.researchLevels ?? {})) {
@@ -705,7 +705,7 @@ function renderTierOptions() {
   highestCellsElement.textContent = String(tierHighScores[tierKeys[selectedTierIndex]] ?? 0).padStart(3, '0')
   const nextMilestone = MILESTONES.find((milestone) => milestone.tier === selectedTierIndex + 1 && !milestoneState.claimed.includes(milestone.id))
   const tierBestCells = tierHighScores[tierKeys[selectedTierIndex]] ?? 0
-  tierRequirementElement.textContent = nextMilestone ? tierBestCells >= nextMilestone.cells ? 'MILESTONE READY TO CLAIM' : `NEXT MILESTONE: ${nextMilestone.cells} CELLS` : 'ALL MILESTONES COMPLETE'
+  tierRequirementElement.textContent = nextMilestone ? tierBestCells >= nextMilestone.cells ? 'ASCENSION REWARD READY TO CLAIM' : `NEXT ASCENSION: ${nextMilestone.cells} CELLS` : 'ASCENSION COMPLETE'
   previousTierButton.disabled = selectedTierIndex === 0
   nextTierButton.disabled = selectedTierIndex >= unlockedTierIndex
   const claimableCount = MILESTONES.filter((milestone) => !milestoneState.claimed.includes(milestone.id) && (tierHighScores[tierKeys[milestone.tier - 1]] ?? 0) >= milestone.cells).length
