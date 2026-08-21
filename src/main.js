@@ -2475,7 +2475,8 @@ startButton.addEventListener('click', async () => {
   overlay.classList.add('hidden')
 })
 
-openLabButton.addEventListener('click', () => {
+openLabButton.addEventListener('click', (event) => {
+  event.stopPropagation()
   if (!featureUnlocks.researchLab && !unlockFeature('researchLab')) return
   menuContent.classList.add('hidden')
   labPanel.classList.remove('hidden')
