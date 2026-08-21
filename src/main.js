@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { ANIMATION, CAMERA, COLORS, DIFFICULTY, ENTITIES, GAME, LIGHTING, OBSTACLE_TYPES, SCENE, SOUND } from './constants.js'
 import { RESEARCH_CONFIG } from './research_config.js'
+import { CHEAT_CONFIG } from './cheat_config.js'
 import './style.css'
 
 document.querySelector('#app').innerHTML = `
@@ -19,6 +20,20 @@ document.querySelector('#app').innerHTML = `
     </header>
     <aside class="instructions"><b>MOVE</b><span>WASD / ARROW KEYS</span></aside>
     <div class="cash-indicators" id="cash-indicators" aria-live="polite"></div>
+    <section class="pause-menu hidden" id="pause-menu" aria-label="Pause menu">
+      <p class="eyebrow">ROUND PAUSED</p>
+      <h2>PAUSE</h2>
+      <div class="pause-actions">
+        <button id="reset-round-button" type="button">RESET</button>
+        <button id="surrender-button" type="button">SURRENDER</button>
+        <button class="secondary-button" id="return-menu-button" type="button">RETURN</button>
+      </div>
+    </section>
+    <section class="cheat-console hidden" id="cheat-console" aria-label="Debug console">
+      <header><strong>${CHEAT_CONFIG.title}</strong><button id="close-cheat-console" type="button" aria-label="Close debug console">×</button></header>
+      <p id="cheat-output">Enter a command.</p>
+      <label><span>›</span><input id="cheat-input" type="text" autocomplete="off" spellcheck="false" placeholder="cash 1000"></label>
+    </section>
     <section class="overlay" id="overlay" aria-live="polite">
       <div class="menu-content" id="menu-content">
         <p class="eyebrow">SYSTEM OVERRIDE</p>
@@ -67,6 +82,14 @@ const labMessageElement = document.querySelector('#lab-message')
 const researchSlotsElement = document.querySelector('#research-slots')
 const researchSlotsHeading = document.querySelector('#research-slots-heading')
 const researchListElement = document.querySelector('#research-list')
+const cheatConsole = document.querySelector('#cheat-console')
+const cheatInput = document.querySelector('#cheat-input')
+const cheatOutput = document.querySelector('#cheat-output')
+const closeCheatConsoleButton = document.querySelector('#close-cheat-console')
+const pauseMenu = document.querySelector('#pause-menu')
+const resetRoundButton = document.querySelector('#reset-round-button')
+const surrenderButton = document.querySelector('#surrender-button')
+const returnMenuButton = document.querySelector('#return-menu-button')
 const cashElement = document.querySelector('#cash')
 const chronoshardsElement = document.querySelector('#chronoshards')
 const cashIndicators = document.querySelector('#cash-indicators')
@@ -82,6 +105,7 @@ const TIER_HIGH_SCORES_STORAGE_KEY = 'astroid-belt-tier-high-scores'
 const CASH_STORAGE_KEY = 'astroid-belt-cash'
 const CHRONOSHARDS_STORAGE_KEY = 'astroid-belt-chronoshards'
 const RESEARCH_LAB_STORAGE_KEY = 'astroid-belt-research-lab'
+const SAVED_ROUND_STORAGE_KEY = 'astroid-belt-saved-round'
 const tierKeys = Object.keys(DIFFICULTY)
 
 function readStoredNumber(key, fallback = 0) {
@@ -98,6 +122,24 @@ function writeStoredNumber(key, value) {
     window.localStorage.setItem(key, String(value))
   } catch {
     // The game remains playable when storage is unavailable.
+  }
+}
+
+function readSavedRound() {
+  try {
+    const savedRound = JSON.parse(window.localStorage.getItem(SAVED_ROUND_STORAGE_KEY))
+    return savedRound && typeof savedRound === 'object' ? savedRound : null
+  } catch {
+    return null
+  }
+}
+
+function persistSavedRound(round) {
+  try {
+    if (round) window.localStorage.setItem(SAVED_ROUND_STORAGE_KEY, JSON.stringify(round))
+    else window.localStorage.removeItem(SAVED_ROUND_STORAGE_KEY)
+  } catch {
+    // Round saving is optional when browser storage is unavailable.
   }
 }
 
@@ -138,6 +180,7 @@ let selectedTierIndex = Math.min(readStoredNumber(TIER_STORAGE_KEY), getUnlocked
 const tierHighScores = readStoredTierHighScores()
 let cash = readStoredNumber(CASH_STORAGE_KEY)
 let chronoshards = readStoredNumber(CHRONOSHARDS_STORAGE_KEY)
+let savedRound = readSavedRound()
 
 function createDefaultResearchState() {
   return { unlockedSlots: 1, levels: {}, slots: Array(RESEARCH_CONFIG.maxSlots).fill(null) }
@@ -158,6 +201,7 @@ function readResearchState() {
 }
 
 const researchState = readResearchState()
+let freeResearch = false
 
 function saveResearchState() {
   try {
@@ -282,10 +326,10 @@ function renderResearchLab() {
     const full = level >= research.maxLevel
     const cost = getResearchCost(research, level)
     const duration = getResearchDuration(research, level)
-    const canAfford = research.cost.currency === 'cash' ? cash >= cost : chronoshards >= cost
+    const canAfford = freeResearch || (research.cost.currency === 'cash' ? cash >= cost : chronoshards >= cost)
     const noAvailableSlot = RESEARCH_CONFIG.durationsEnabled && !researchState.slots.slice(0, researchState.unlockedSlots).some((slot) => !slot)
     const disabled = lockReason || active || full || !canAfford || noAvailableSlot
-    const status = full ? 'MAX LEVEL' : active ? 'IN PROGRESS' : lockReason || `Cost ${formatCurrency(research.cost.currency, cost)}${RESEARCH_CONFIG.durationsEnabled ? ` · ${formatDuration(duration)}` : ''}`
+    const status = full ? 'MAX LEVEL' : active ? 'IN PROGRESS' : lockReason || (freeResearch ? 'FREE RESEARCH ENABLED' : `Cost ${formatCurrency(research.cost.currency, cost)}${RESEARCH_CONFIG.durationsEnabled ? ` · ${formatDuration(duration)}` : ''}`)
     return `<article class="research-card"><div><span class="research-level">LV. ${level}/${research.maxLevel}</span><h4>${research.name}</h4><p>${research.description}</p><p class="research-effect">${formatResearchEffect(research, level)} → ${formatResearchEffect(research, Math.min(level + 1, research.maxLevel))}</p><small>${status}</small></div><button data-start-research="${research.id}" type="button" ${disabled ? 'disabled' : ''}>${full ? 'MAXED' : 'RESEARCH'}</button></article>`
   }).join('')}</div></section>`).join('')
 }
@@ -299,9 +343,11 @@ function startResearch(researchId) {
   const cost = getResearchCost(research, level)
   const balance = research.cost.currency === 'cash' ? cash : chronoshards
   const researchAlreadyActive = RESEARCH_CONFIG.durationsEnabled && researchState.slots.some((slot) => slot?.researchId === researchId)
-  if (lockReason || level >= research.maxLevel || (RESEARCH_CONFIG.durationsEnabled && emptySlot < 0) || researchAlreadyActive || balance < cost) return
-  if (research.cost.currency === 'cash') updateCash(-cost)
-  else updateChronoshards(-cost)
+  if (lockReason || level >= research.maxLevel || (RESEARCH_CONFIG.durationsEnabled && emptySlot < 0) || researchAlreadyActive || (!freeResearch && balance < cost)) return
+  if (!freeResearch) {
+    if (research.cost.currency === 'cash') updateCash(-cost)
+    else updateChronoshards(-cost)
+  }
   if (RESEARCH_CONFIG.durationsEnabled) {
     researchState.slots[emptySlot] = { researchId, level, completesAt: Date.now() + getResearchDuration(research, level) }
   } else {
@@ -324,6 +370,82 @@ function unlockResearchSlot(slotNumber) {
   saveResearchState()
   setLabMessage(`Research Slot ${slotNumber} unlocked.`)
   renderResearchLab()
+}
+
+function setCheatOutput(message) {
+  cheatOutput.textContent = message
+}
+
+function toggleCheatConsole(forceOpen) {
+  if (!CHEAT_CONFIG.enabled) return
+  const shouldOpen = forceOpen ?? cheatConsole.classList.contains('hidden')
+  cheatConsole.classList.toggle('hidden', !shouldOpen)
+  if (shouldOpen) {
+    cheatInput.focus()
+    cheatInput.select()
+  }
+}
+
+function clearCurrencySave() {
+  cash = 0
+  chronoshards = 0
+  updateCash()
+  updateChronoshards()
+}
+
+function clearGameProgressSave() {
+  bankedCells = 0
+  selectedTierIndex = 0
+  for (const tierKey of tierKeys) tierHighScores[tierKey] = 0
+  writeStoredNumber(CELL_BANK_STORAGE_KEY, bankedCells)
+  writeStoredNumber(TIER_STORAGE_KEY, selectedTierIndex)
+  writeStoredTierHighScores()
+  applyDifficulty()
+  renderTierOptions()
+  resetGame()
+}
+
+function clearResearchSave() {
+  researchState.unlockedSlots = 1
+  researchState.levels = {}
+  researchState.slots = Array(RESEARCH_CONFIG.maxSlots).fill(null)
+  freeResearch = false
+  saveResearchState()
+  renderResearchLab()
+}
+
+function runCheatCommand(rawCommand) {
+  const [command, argument] = rawCommand.trim().toLowerCase().split(/\s+/, 2)
+  if (!command) return
+  const amount = Number(argument)
+  if (command === CHEAT_CONFIG.commands.cash || command === CHEAT_CONFIG.commands.chrono) {
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setCheatOutput(`Usage: ${command} [positive amount]`)
+      return
+    }
+    if (command === CHEAT_CONFIG.commands.cash) updateCash(amount)
+    else updateChronoshards(amount)
+    setCheatOutput(`Granted ${command === CHEAT_CONFIG.commands.cash ? '$' : '✦ '}${amount.toLocaleString()}.`)
+    return
+  }
+  if (command === CHEAT_CONFIG.commands.freeResearch) {
+    freeResearch = true
+    renderResearchLab()
+    setCheatOutput('Free research enabled for this session.')
+    return
+  }
+  if (command === CHEAT_CONFIG.commands.clearSave) {
+    if (!CHEAT_CONFIG.clearSaveTargets.includes(argument)) {
+      setCheatOutput(`Usage: clear_save [${CHEAT_CONFIG.clearSaveTargets.join(', ')}]`)
+      return
+    }
+    if (argument === 'currency' || argument === 'all') clearCurrencySave()
+    if (argument === 'game_progress' || argument === 'all') clearGameProgressSave()
+    if (argument === 'research' || argument === 'all') clearResearchSave()
+    setCheatOutput(`Cleared ${argument.replace('_', ' ')} save data.`)
+    return
+  }
+  setCheatOutput(`Unknown command: ${command}`)
 }
 
 function getCurrentDifficulty() {
@@ -636,6 +758,7 @@ const bangerPulses = []
 const obstacleSpawnWarnings = []
 const timer = new THREE.Timer()
 let started = false
+let paused = false
 let ended = false
 let score = 0
 let elapsed = 0
@@ -678,25 +801,27 @@ function randomArenaPosition(minDistance = 0) {
   return position
 }
 
-function addCell() {
+function addCell(savedCell) {
   const material = new THREE.MeshStandardMaterial({ color: COLORS.cell, emissive: COLORS.cellEmissive, emissiveIntensity: ENTITIES.cellEmissiveIntensity, metalness: ENTITIES.cellMetalness, roughness: ENTITIES.cellRoughness })
   const cell = new THREE.Mesh(cellGeometry, material)
-  cell.position.copy(randomArenaPosition(GAME.cellMinDistance))
-  cell.position.y = GAME.playerStartHeight
-  cell.userData.phase = Math.random() * Math.PI * 2
-  cell.userData.cashValue = GAME.cellCashValue * getCurrentDifficulty().cashValueMultiplier * (1 + getResearchStatBonus('cashMultiplier'))
+  if (savedCell) cell.position.set(savedCell.position.x, savedCell.position.y, savedCell.position.z)
+  else cell.position.copy(randomArenaPosition(GAME.cellMinDistance))
+  if (!savedCell) cell.position.y = GAME.playerStartHeight
+  cell.userData.phase = savedCell?.phase ?? Math.random() * Math.PI * 2
+  cell.userData.cashValue = savedCell?.cashValue ?? GAME.cellCashValue * getCurrentDifficulty().cashValueMultiplier * (1 + getResearchStatBonus('cashMultiplier'))
   scene.add(cell)
   cells.push(cell)
 }
 
-function addChronoCell() {
+function addChronoCell(savedCell) {
   if (chronoCells.length > 0) return
   const material = new THREE.MeshStandardMaterial({ color: COLORS.chronoCell, emissive: COLORS.chronoCellEmissive, emissiveIntensity: ENTITIES.chronoCellEmissiveIntensity, metalness: 0.4, roughness: 0.12, transparent: true })
   const chronoCell = new THREE.Mesh(chronoCellGeometry, material)
-  chronoCell.position.copy(randomArenaPosition(GAME.chronoCellMinDistance))
-  chronoCell.position.y = GAME.playerStartHeight
-  chronoCell.userData.phase = Math.random() * Math.PI * 2
-  chronoCell.userData.age = 0
+  if (savedCell) chronoCell.position.set(savedCell.position.x, savedCell.position.y, savedCell.position.z)
+  else chronoCell.position.copy(randomArenaPosition(GAME.chronoCellMinDistance))
+  if (!savedCell) chronoCell.position.y = GAME.playerStartHeight
+  chronoCell.userData.phase = savedCell?.phase ?? Math.random() * Math.PI * 2
+  chronoCell.userData.age = savedCell?.age ?? 0
   scene.add(chronoCell)
   chronoCells.push(chronoCell)
 }
@@ -705,14 +830,14 @@ function addObstacle(type) {
   createObstacle(randomArenaPosition(GAME.obstacleMinDistance), type)
 }
 
-function scheduleObstacle() {
-  const position = randomArenaPosition(GAME.obstacleMinDistance)
+function scheduleObstacle(savedWarning) {
+  const position = savedWarning?.position ?? randomArenaPosition(GAME.obstacleMinDistance)
   const difficulty = getCurrentDifficulty()
   const weightedTypes = difficulty.availableObstacleTypes.map((type) => ({ type, weight: difficulty[`${type}SpawnWeight`] ?? 0 }))
   const totalWeight = weightedTypes.reduce((total, entry) => total + entry.weight, 0)
   let randomWeight = Math.random() * totalWeight
-  let type = weightedTypes[weightedTypes.length - 1].type
-  for (const entry of weightedTypes) {
+  let type = savedWarning?.type ?? weightedTypes[weightedTypes.length - 1].type
+  for (const entry of savedWarning ? [] : weightedTypes) {
     randomWeight -= entry.weight
     if (randomWeight <= 0) {
       type = entry.type
@@ -738,11 +863,11 @@ function scheduleObstacle() {
   )
   beam.position.set(position.x, ENTITIES.spawnCueBeamHeight / 2, position.z)
   scene.add(ring, glow, beam)
-  obstacleSpawnWarnings.push({ ring, glow, beam, position, type, age: 0 })
-  soundSystem.playObstacleSummon(position)
+  obstacleSpawnWarnings.push({ ring, glow, beam, position, type, age: savedWarning?.age ?? 0 })
+  if (!savedWarning) soundSystem.playObstacleSummon(position)
 }
 
-function createObstacle(position, type) {
+function createObstacle(position, type, savedObstacle) {
   const obstacleType = OBSTACLE_TYPES[type]
   const material = new THREE.MeshStandardMaterial({ color: obstacleType.color, emissive: obstacleType.emissive, metalness: ENTITIES.obstacleMetalness, roughness: ENTITIES.obstacleRoughness })
   const obstacle = new THREE.Mesh(obstacleGeometry, material)
@@ -750,8 +875,9 @@ function createObstacle(position, type) {
   obstacle.position.y = GAME.obstacleGroundHeight
   obstacle.castShadow = true
   obstacle.userData.type = type
-  obstacle.userData.age = 0
-  obstacle.userData.speed = THREE.MathUtils.randFloat(0.8, 1.45)
+  obstacle.userData.age = savedObstacle?.age ?? 0
+  obstacle.userData.speed = savedObstacle?.speed ?? THREE.MathUtils.randFloat(0.8, 1.45)
+  obstacle.userData.pulseTimer = savedObstacle?.pulseTimer ?? 0
   if (type === 'chaser' || type === 'banger') {
     const rangeIndicator = new THREE.Mesh(
       new THREE.RingGeometry(obstacleType.range - ENTITIES.chaserRangeIndicatorWidth, obstacleType.range, ENTITIES.chaserRangeIndicatorSegments),
@@ -770,7 +896,7 @@ function scheduleFallingObstacles() {
   createFallingObstacle(player.position.clone())
 }
 
-function createFallingObstacle(target) {
+function createFallingObstacle(target, savedObstacle) {
   const obstacle = new THREE.Mesh(
     obstacleGeometry,
     new THREE.MeshStandardMaterial({ color: COLORS.fallingObstacle, emissive: COLORS.fallingObstacleEmissive, emissiveIntensity: ENTITIES.fallingObstacleEmissiveIntensity, metalness: ENTITIES.fallingObstacleMetalness, roughness: ENTITIES.fallingObstacleRoughness }),
@@ -793,8 +919,8 @@ function createFallingObstacle(target) {
   targetRing.position.set(target.x, 0.03, target.z)
 
   scene.add(obstacle, shadow, targetRing)
-  fallingObstacles.push({ obstacle, shadow, targetRing, target: target.clone(), age: 0, landed: false })
-  soundSystem.playFallingObstacle(target)
+  fallingObstacles.push({ obstacle, shadow, targetRing, target: target.clone(), age: savedObstacle?.age ?? 0, landed: savedObstacle?.landed ?? false })
+  if (!savedObstacle) soundSystem.playFallingObstacle(target)
 }
 
 function clearObjects(objects) {
@@ -853,7 +979,7 @@ function detonateBanger(banger) {
   if (playerInRange) endGame()
 }
 
-function resetGame() {
+function resetGame(populateArena = true) {
   clearObjects(cells)
   clearObjects(chronoCells)
   for (const obstacle of obstacles) scene.remove(obstacle, obstacle.userData.rangeIndicator)
@@ -875,15 +1001,87 @@ function resetGame() {
   hazardTimer = 0
   scoreElement.textContent = '000'
   timeElement.textContent = '00:00'
-  for (let index = 0; index < GAME.initialCellCount; index += 1) addCell()
-  for (const type of GAME.initialObstacleTypes) {
-    if (getCurrentDifficulty().availableObstacleTypes.includes(type)) addObstacle(type)
+  if (populateArena) {
+    for (let index = 0; index < GAME.initialCellCount; index += 1) addCell()
+    for (const type of GAME.initialObstacleTypes) {
+      if (getCurrentDifficulty().availableObstacleTypes.includes(type)) addObstacle(type)
+    }
   }
+}
+
+function serializePosition(position) {
+  return { x: position.x, y: position.y, z: position.z }
+}
+
+function saveCurrentRound() {
+  savedRound = {
+    tierIndex: selectedTierIndex,
+    player: serializePosition(player.position),
+    score,
+    elapsed,
+    spawnTimer,
+    chronoCellTimer,
+    obstacleSpawnTimer,
+    hazardTimer,
+    cells: cells.map((cell) => ({ position: serializePosition(cell.position), phase: cell.userData.phase, cashValue: cell.userData.cashValue })),
+    chronoCells: chronoCells.map((cell) => ({ position: serializePosition(cell.position), phase: cell.userData.phase, age: cell.userData.age })),
+    obstacles: obstacles.map((obstacle) => ({ position: serializePosition(obstacle.position), type: obstacle.userData.type, age: obstacle.userData.age, speed: obstacle.userData.speed, pulseTimer: obstacle.userData.pulseTimer })),
+    fallingObstacles: fallingObstacles.map((fallingObstacle) => ({ target: serializePosition(fallingObstacle.target), age: fallingObstacle.age, landed: fallingObstacle.landed })),
+    warnings: obstacleSpawnWarnings.map((warning) => ({ position: serializePosition(warning.position), type: warning.type, age: warning.age })),
+  }
+  persistSavedRound(savedRound)
+  updateStartButton()
+}
+
+function clearSavedRound() {
+  savedRound = null
+  persistSavedRound(null)
+  updateStartButton()
+}
+
+function restoreSavedRound() {
+  if (!savedRound) return false
+  selectedTierIndex = Math.min(savedRound.tierIndex ?? 0, getUnlockedTierIndex(bankedCells))
+  applyDifficulty()
+  resetGame(false)
+  player.position.set(savedRound.player.x, savedRound.player.y, savedRound.player.z)
+  score = savedRound.score ?? 0
+  elapsed = savedRound.elapsed ?? 0
+  spawnTimer = savedRound.spawnTimer ?? 0
+  chronoCellTimer = savedRound.chronoCellTimer ?? 0
+  obstacleSpawnTimer = savedRound.obstacleSpawnTimer ?? 0
+  hazardTimer = savedRound.hazardTimer ?? 0
+  for (const cell of savedRound.cells ?? []) addCell(cell)
+  for (const chronoCell of savedRound.chronoCells ?? []) addChronoCell(chronoCell)
+  for (const obstacle of savedRound.obstacles ?? []) createObstacle(new THREE.Vector3(obstacle.position.x, obstacle.position.y, obstacle.position.z), obstacle.type, obstacle)
+  for (const fallingObstacle of savedRound.fallingObstacles ?? []) createFallingObstacle(new THREE.Vector3(fallingObstacle.target.x, fallingObstacle.target.y, fallingObstacle.target.z), fallingObstacle)
+  for (const warning of savedRound.warnings ?? []) scheduleObstacle({ ...warning, position: new THREE.Vector3(warning.position.x, warning.position.y, warning.position.z) })
+  updateHud()
+  return true
+}
+
+function updateStartButton() {
+  startButton.textContent = savedRound ? 'CONTINUE' : 'START RUN'
+}
+
+function returnToMainMenu() {
+  saveCurrentRound()
+  paused = false
+  started = false
+  pauseMenu.classList.add('hidden')
+  overlayTitle.textContent = 'ASTROID BELT'
+  overlayCopy.textContent = 'Round saved. Continue when you are ready.'
+  menuContent.classList.remove('hidden')
+  labPanel.classList.add('hidden')
+  overlay.classList.remove('hidden')
 }
 
 function endGame() {
   started = false
   ended = true
+  paused = false
+  pauseMenu.classList.add('hidden')
+  clearSavedRound()
   recordTierHighScore()
   overlayTitle.textContent = 'SIGNAL LOST'
   overlayCopy.textContent = `You secured ${score} energy ${score === 1 ? 'cell' : 'cells'}.`
@@ -1134,7 +1332,7 @@ function animate() {
   timer.update()
   const delta = Math.min(timer.getDelta(), 0.05)
   const total = timer.getElapsed()
-  if (started) updateGame(delta, total)
+  if (started && !paused) updateGame(delta, total)
   camera.position.lerp(new THREE.Vector3(player.position.x * 0.26, CAMERA.height, player.position.z + CAMERA.distance), CAMERA.followStrength)
   camera.lookAt(player.position.x * 0.28, 0, player.position.z * 0.3)
   renderer.render(scene, camera)
@@ -1143,9 +1341,11 @@ function animate() {
 startButton.addEventListener('click', async () => {
   await soundSystem.initialize()
   soundSystem.playButtonClick()
-  resetGame()
+  if (savedRound) restoreSavedRound()
+  else resetGame()
   started = true
   ended = false
+  paused = false
   labPanel.classList.add('hidden')
   menuContent.classList.remove('hidden')
   overlay.classList.add('hidden')
@@ -1170,7 +1370,42 @@ labPanel.addEventListener('click', (event) => {
   if (unlockSlotButton) unlockResearchSlot(Number.parseInt(unlockSlotButton.dataset.unlockSlot, 10))
 })
 
+resetRoundButton.addEventListener('click', () => {
+  clearSavedRound()
+  resetGame()
+  paused = false
+  started = true
+  pauseMenu.classList.add('hidden')
+})
+
+surrenderButton.addEventListener('click', () => {
+  pauseMenu.classList.add('hidden')
+  endGame()
+})
+
+returnMenuButton.addEventListener('click', returnToMainMenu)
+
+closeCheatConsoleButton.addEventListener('click', () => toggleCheatConsole(false))
+cheatInput.addEventListener('keydown', (event) => {
+  if (event.key === 'Enter') {
+    runCheatCommand(cheatInput.value)
+    cheatInput.value = ''
+  }
+  if (event.key === 'Escape') toggleCheatConsole(false)
+})
+
 window.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && started) {
+    event.preventDefault()
+    paused = !paused
+    pauseMenu.classList.toggle('hidden', !paused)
+    return
+  }
+  if (CHEAT_CONFIG.enabled && event.key === CHEAT_CONFIG.hotkey) {
+    event.preventDefault()
+    toggleCheatConsole()
+    return
+  }
   if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.code)) event.preventDefault()
   keys.add(event.code)
 })
@@ -1187,6 +1422,7 @@ updateBankedCells()
 updateCash()
 updateChronoshards()
 renderResearchLab()
+updateStartButton()
 resetGame()
 animate()
 setInterval(() => {

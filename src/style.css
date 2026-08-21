@@ -57,6 +57,21 @@ button { font: inherit; }
 
 .overlay { align-items: center; background: rgba(10, 20, 28, 0.3); display: flex; flex-direction: column; inset: 0; justify-content: center; padding: 24px; position: absolute; text-align: center; transition: opacity 240ms ease, visibility 240ms ease; }
 .overlay.hidden { opacity: 0; pointer-events: none; visibility: hidden; }
+.cheat-console { background: rgba(9, 14, 23, 0.97); border: 1px solid #63f5cd; box-shadow: 0 0 20px rgba(0, 180, 135, 0.35); color: #d8fff3; font-family: Consolas, 'Courier New', monospace; left: 20px; padding: 14px; position: absolute; top: 20px; width: min(420px, calc(100% - 40px)); z-index: 10; }
+.cheat-console.hidden { display: none; }
+.cheat-console header { align-items: center; color: #63f5cd; display: flex; font-size: 13px; justify-content: space-between; letter-spacing: 0.08em; }
+.cheat-console header button { background: transparent; box-shadow: none; color: #9ab6b8; font-size: 22px; line-height: 1; padding: 0 3px; }
+.cheat-console header button:hover { box-shadow: none; color: #fff; transform: none; }
+.cheat-console p { color: #a7c0bf; font-size: 12px; margin: 12px 0; min-height: 1.2em; text-align: left; }
+.cheat-console label { align-items: center; border: 1px solid #315766; display: flex; gap: 7px; padding: 8px; }
+.cheat-console label span { color: #63f5cd; }
+.cheat-console input { background: transparent; border: 0; color: #fff; font: inherit; outline: 0; width: 100%; }
+.pause-menu { background: rgba(20, 25, 56, 0.98); border: 2px solid #6d67bb; box-shadow: 0 0 0 4px rgba(14, 17, 43, 0.85); left: 50%; padding: 26px; position: absolute; text-align: center; top: 50%; transform: translate(-50%, -50%); width: min(360px, calc(100% - 40px)); z-index: 9; }
+.pause-menu.hidden { display: none; }
+.pause-menu h2 { color: #fff4d2; font-family: 'Trebuchet MS', Arial, sans-serif; font-size: 38px; margin: 0 0 20px; }
+.pause-menu .eyebrow { margin-bottom: 8px; }
+.pause-actions { display: grid; gap: 11px; }
+.pause-actions button { width: 100%; }
 .menu-content { align-items: center; display: flex; flex-direction: column; width: 100%; }
 .menu-content.hidden, .lab-panel.hidden { display: none; }
 .eyebrow { color: #63f5cd; font-size: 11px; font-weight: 700; margin: 0 0 12px; }

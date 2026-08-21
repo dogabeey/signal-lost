@@ -2,7 +2,7 @@ export const GAME = {
   maxPixelRatio: 2,
   arenaSize: 26,
   arenaLimit: 12,
-  playerSpeed: 7,
+  playerSpeed: 5,
   playerStartHeight: 0.75,
   playerRadius: 1.05,
   cellPickupRadius: 1.15,
