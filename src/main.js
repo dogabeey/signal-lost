@@ -43,7 +43,7 @@ document.querySelector('#app').innerHTML = `
         <div class="lab-header"><div><p class="eyebrow">PERMANENT UPGRADES</p><h2>RESEARCH LAB</h2></div><button class="secondary-button" id="close-lab-button" type="button">BACK</button></div>
         <p class="lab-balance">CASH <span id="lab-cash">$0</span> · CHRONOSHARDS <span id="lab-chronoshards">✦ 0</span></p>
         <p class="lab-message" id="lab-message" aria-live="polite"></p>
-        <h3>ACTIVE SLOTS</h3><div class="research-slots" id="research-slots"></div>
+        <h3 id="research-slots-heading">ACTIVE SLOTS</h3><div class="research-slots" id="research-slots"></div>
         <h3>AVAILABLE RESEARCH</h3><div class="research-list" id="research-list"></div>
       </section>
     </section>
@@ -65,6 +65,7 @@ const labCashElement = document.querySelector('#lab-cash')
 const labChronoshardsElement = document.querySelector('#lab-chronoshards')
 const labMessageElement = document.querySelector('#lab-message')
 const researchSlotsElement = document.querySelector('#research-slots')
+const researchSlotsHeading = document.querySelector('#research-slots-heading')
 const researchListElement = document.querySelector('#research-list')
 const cashElement = document.querySelector('#cash')
 const chronoshardsElement = document.querySelector('#chronoshards')
@@ -230,7 +231,7 @@ function completeFinishedResearches() {
   let changed = false
   for (let index = 0; index < researchState.unlockedSlots; index += 1) {
     const slot = researchState.slots[index]
-    if (!slot || slot.completesAt > now) continue
+    if (!slot || (RESEARCH_CONFIG.durationsEnabled && slot.completesAt > now)) continue
     const research = getResearchById(slot.researchId)
     researchState.levels[slot.researchId] = Math.min(getResearchLevel(slot.researchId) + 1, research.maxLevel)
     researchState.slots[index] = null
@@ -249,7 +250,9 @@ function renderResearchLab() {
   labCashElement.textContent = `$${cash.toLocaleString(undefined, { maximumFractionDigits: 2 })}`
   labChronoshardsElement.textContent = `✦ ${chronoshards.toLocaleString()}`
   const now = Date.now()
-  researchSlotsElement.innerHTML = researchState.slots.map((slot, index) => {
+  researchSlotsHeading.hidden = !RESEARCH_CONFIG.durationsEnabled
+  researchSlotsElement.hidden = !RESEARCH_CONFIG.durationsEnabled
+  researchSlotsElement.innerHTML = RESEARCH_CONFIG.durationsEnabled ? researchState.slots.map((slot, index) => {
     const slotNumber = index + 1
     if (slot) {
       const research = getResearchById(slot.researchId)
@@ -265,7 +268,7 @@ function renderResearchLab() {
     const disabled = tierUnlocked && canAfford ? '' : 'disabled'
     const requirement = tierUnlocked ? `Unlock for ${formatCurrency(unlock.cost.currency, unlock.cost.amount)}` : `Requires Tier ${unlock.requirements.minTier}`
     return `<article class="research-slot locked"><span>SLOT ${slotNumber}</span><strong>LOCKED</strong><button data-unlock-slot="${slotNumber}" type="button" ${disabled}>${requirement}</button></article>`
-  }).join('')
+  }).join('') : ''
 
   const researchesByCategory = new Map()
   for (const research of RESEARCH_CONFIG.researches) {
@@ -275,13 +278,14 @@ function renderResearchLab() {
   researchListElement.innerHTML = [...researchesByCategory.entries()].map(([category, researches]) => `<section class="research-category"><h4>${category}</h4><div class="research-grid">${researches.map((research) => {
     const level = getResearchLevel(research.id)
     const lockReason = getResearchLockReason(research)
-    const active = researchState.slots.some((slot) => slot?.researchId === research.id)
+    const active = RESEARCH_CONFIG.durationsEnabled && researchState.slots.some((slot) => slot?.researchId === research.id)
     const full = level >= research.maxLevel
     const cost = getResearchCost(research, level)
     const duration = getResearchDuration(research, level)
     const canAfford = research.cost.currency === 'cash' ? cash >= cost : chronoshards >= cost
-    const disabled = lockReason || active || full || !canAfford || !researchState.slots.slice(0, researchState.unlockedSlots).some((slot) => !slot)
-    const status = full ? 'MAX LEVEL' : active ? 'IN PROGRESS' : lockReason || `Cost ${formatCurrency(research.cost.currency, cost)} · ${formatDuration(duration)}`
+    const noAvailableSlot = RESEARCH_CONFIG.durationsEnabled && !researchState.slots.slice(0, researchState.unlockedSlots).some((slot) => !slot)
+    const disabled = lockReason || active || full || !canAfford || noAvailableSlot
+    const status = full ? 'MAX LEVEL' : active ? 'IN PROGRESS' : lockReason || `Cost ${formatCurrency(research.cost.currency, cost)}${RESEARCH_CONFIG.durationsEnabled ? ` · ${formatDuration(duration)}` : ''}`
     return `<article class="research-card"><div><span class="research-level">LV. ${level}/${research.maxLevel}</span><h4>${research.name}</h4><p>${research.description}</p><p class="research-effect">${formatResearchEffect(research, level)} → ${formatResearchEffect(research, Math.min(level + 1, research.maxLevel))}</p><small>${status}</small></div><button data-start-research="${research.id}" type="button" ${disabled ? 'disabled' : ''}>${full ? 'MAXED' : 'RESEARCH'}</button></article>`
   }).join('')}</div></section>`).join('')
 }
@@ -294,12 +298,17 @@ function startResearch(researchId) {
   const emptySlot = researchState.slots.slice(0, researchState.unlockedSlots).findIndex((slot) => !slot)
   const cost = getResearchCost(research, level)
   const balance = research.cost.currency === 'cash' ? cash : chronoshards
-  if (lockReason || level >= research.maxLevel || emptySlot < 0 || researchState.slots.some((slot) => slot?.researchId === researchId) || balance < cost) return
+  const researchAlreadyActive = RESEARCH_CONFIG.durationsEnabled && researchState.slots.some((slot) => slot?.researchId === researchId)
+  if (lockReason || level >= research.maxLevel || (RESEARCH_CONFIG.durationsEnabled && emptySlot < 0) || researchAlreadyActive || balance < cost) return
   if (research.cost.currency === 'cash') updateCash(-cost)
   else updateChronoshards(-cost)
-  researchState.slots[emptySlot] = { researchId, level, completesAt: Date.now() + getResearchDuration(research, level) }
+  if (RESEARCH_CONFIG.durationsEnabled) {
+    researchState.slots[emptySlot] = { researchId, level, completesAt: Date.now() + getResearchDuration(research, level) }
+  } else {
+    researchState.levels[researchId] = Math.min(level + 1, research.maxLevel)
+  }
   saveResearchState()
-  setLabMessage(`${research.name} research started in Slot ${emptySlot + 1}.`)
+  setLabMessage(RESEARCH_CONFIG.durationsEnabled ? `${research.name} research started in Slot ${emptySlot + 1}.` : `${research.name} upgraded to Level ${level + 1}.`)
   renderResearchLab()
 }
 

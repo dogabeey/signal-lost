@@ -1,4 +1,5 @@
 export const RESEARCH_CONFIG = {
+  durationsEnabled: false,
   maxSlots: 3,
   slotUnlocks: [
     { slot: 2, cost: { currency: 'chronoshards', amount: 100 }, requirements: { minTier: 2 } },
