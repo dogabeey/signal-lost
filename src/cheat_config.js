@@ -1,6 +1,6 @@
 export const CHEAT_CONFIG = {
   enabled: true,
-  hotkey: 'F2',
+  hotkey: '\"',
   title: 'DEBUG CONSOLE',
   commands: {
     cash: 'cash',

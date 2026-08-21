@@ -1,6 +1,6 @@
 export const GAME = {
   maxPixelRatio: 2,
-  obstacleSpawnCount: 1, // Obstacle spawn count per spawn event.
+  obstacleSpawnCount: 1, // Enemy spawn count per spawn event.
   arenaSize: 26,
   arenaLimit: 12,
   playerSpeed: 5,
@@ -62,18 +62,18 @@ export const DIFFICULTY = {
 
     cashValueMultiplier: 1, // Multiplier applied to the base cell cash value defined in the GAME constant. A positive value increases the cash value, while a negative value decreases it.
 
-    availableObstacleTypes: ['regular', 'creeper'], // Available obstacle types for this difficulty tier. If an obstacle type is not included here, it will not spawn in this tier.
-    obstacleSpawnCountOffset: 0, // Number of obstacles that will spawn in this difficulty tier. A positive value increases the number of obstacles, while a negative value decreases it.
+    availableObstacleTypes: ['regular', 'creeper'],
+    obstacleSpawnCountOffset: 0,
     obstacleSpawnCountIncreasePerCell: 0.03,
-    obstacleSpawnIntervalOffset: 3, // This offset is added to the base obstacle spawn interval defined in the GAME constant. A positive value increases the interval (slower spawning), while a negative value decreases it (faster spawning).
-    obstacleSpawnDecreasePerCellOffset: -0.01, // This offset is added to the base obstacle spawn decrease per cell defined in the GAME constant. A positive value increases the decrease (faster spawning as cells are collected), while a negative value decreases it (slower spawning as cells are collected).
-    obstacleLifetimeOffset: -4, // This offset is added to the base obstacle lifetime defined in the GAME constant. A positive value increases the lifetime (obstacles last longer), while a negative value decreases it (obstacles disappear sooner).
-    obstacleLifetimeIncreasePerCellOffset: -0.02, // This offset is added to the base obstacle lifetime increase per cell defined in the GAME constant. A positive value increases the increase (obstacles last longer as cells are collected), while a negative value decreases it (obstacles disappear sooner as cells are collected).
+    obstacleSpawnIntervalOffset: 3,
+    obstacleSpawnDecreasePerCellOffset: -0.01,
+    obstacleLifetimeOffset: -4,
+    obstacleLifetimeIncreasePerCellOffset: -0.02,
     // These weights are used to determine the probability of spawning each obstacle type. The sum isn't normalized, so the actual probability 
     // is calculated by dividing each weight by the sum of all weights. If an obstacle type is not included in the availableObstacleTypes array, its weight is ignored.
     // If an obstacle's weight isn't specified, it defaults to 0.
-    regularSpawnWeight: 0.8, // Weight for spawning regular obstacles. A higher value increases the likelihood of spawning this type.
-    creeperSpawnWeight: 0.2, // Weight for spawning creeper obstacles. A higher value increases the likelihood of spawning this type.
+    regularSpawnWeight: 0.8,
+    creeperSpawnWeight: 0.2,
 
     availableFallingRockTypes: ['stoneRock'],
     fallingRockSpawnIntervalOffset: 2,
@@ -82,7 +82,7 @@ export const DIFFICULTY = {
     stoneRockSpawnWeight: 1,
   },
   tier2: {
-    extraArenaPadding: 0,
+    extraArenaPadding: 1,
     cellsRequiredToAdvance: 100,
 
     cashValueMultiplier: 2,
@@ -106,7 +106,7 @@ export const DIFFICULTY = {
     splinterSpawnWeight: 0.2,
   },
   tier3: {
-    extraArenaPadding: 0,
+    extraArenaPadding: 2,
     cellsRequiredToAdvance: 200,
 
     cashValueMultiplier: 4,
@@ -133,7 +133,7 @@ export const DIFFICULTY = {
     splinterSpawnWeight: 0.2,
   },
   tier4: {
-    extraArenaPadding: 0,
+    extraArenaPadding: 3,
     cellsRequiredToAdvance: 300,
 
     cashValueMultiplier: 8,
@@ -158,6 +158,107 @@ export const DIFFICULTY = {
     stoneRockSpawnWeight: 0.4,
     fieryRockSpawnWeight: 0.35,
     splinterSpawnWeight: 0.25,
+  },
+  tier5: {
+    extraArenaPadding: 4,
+    cellsRequiredToAdvance: 300,
+    cashValueMultiplier: 16,
+    availableObstacleTypes: ['regular', 'chaser', 'creeper', 'banger', 'shooter', 'porter'],
+    obstacleSpawnCountOffset: 4,
+    obstacleSpawnCountIncreasePerCell: 0.07,
+    obstacleSpawnIntervalOffset: -1,
+    obstacleSpawnDecreasePerCellOffset: 0.03,
+    obstacleLifetimeOffset: 0,
+    obstacleLifetimeIncreasePerCellOffset: 0.03,
+    regularSpawnWeight: 0.42,
+    chaserSpawnWeight: 0.2,
+    creeperSpawnWeight: 0.15,
+    bangerSpawnWeight: 0.12,
+    shooterSpawnWeight: 0.11,
+    porterSpawnWeight: 0.08,
+    availableFallingRockTypes: ['stoneRock', 'fieryRock', 'splinter'],
+    fallingRockSpawnIntervalOffset: -17,
+    fallingRockSpawnDecreasePerCellOffset: 0.07,
+    stoneRockSpawnWeight: 0.3,
+    fieryRockSpawnWeight: 0.42,
+    splinterSpawnWeight: 0.28,
+  },
+  tier6: {
+    extraArenaPadding: 5,
+    cellsRequiredToAdvance: 300,
+    cashValueMultiplier: 32,
+    availableObstacleTypes: ['regular', 'chaser', 'creeper', 'banger', 'shooter', 'porter', 'magnet'],
+    obstacleSpawnCountOffset: 5,
+    obstacleSpawnCountIncreasePerCell: 0.08,
+    obstacleSpawnIntervalOffset: -2,
+    obstacleSpawnDecreasePerCellOffset: 0.04,
+    obstacleLifetimeOffset: 1,
+    obstacleLifetimeIncreasePerCellOffset: 0.04,
+    regularSpawnWeight: 0.34,
+    chaserSpawnWeight: 0.23,
+    creeperSpawnWeight: 0.16,
+    bangerSpawnWeight: 0.14,
+    shooterSpawnWeight: 0.13,
+    porterSpawnWeight: 0.1,
+    magnetSpawnWeight: 0.09,
+    availableFallingRockTypes: ['stoneRock', 'fieryRock', 'splinter'],
+    fallingRockSpawnIntervalOffset: -19,
+    fallingRockSpawnDecreasePerCellOffset: 0.09,
+    stoneRockSpawnWeight: 0.24,
+    fieryRockSpawnWeight: 0.47,
+    splinterSpawnWeight: 0.29,
+  },
+  tier7: {
+    extraArenaPadding: 6,
+    cellsRequiredToAdvance: 300,
+    cashValueMultiplier: 64,
+    availableObstacleTypes: ['regular', 'chaser', 'creeper', 'banger', 'shooter', 'porter', 'magnet', 'spore'],
+    obstacleSpawnCountOffset: 6,
+    obstacleSpawnCountIncreasePerCell: 0.09,
+    obstacleSpawnIntervalOffset: -3,
+    obstacleSpawnDecreasePerCellOffset: 0.05,
+    obstacleLifetimeOffset: 2,
+    obstacleLifetimeIncreasePerCellOffset: 0.05,
+    regularSpawnWeight: 0.28,
+    chaserSpawnWeight: 0.26,
+    creeperSpawnWeight: 0.17,
+    bangerSpawnWeight: 0.15,
+    shooterSpawnWeight: 0.14,
+    porterSpawnWeight: 0.11,
+    magnetSpawnWeight: 0.11,
+    sporeSpawnWeight: 0.1,
+    availableFallingRockTypes: ['stoneRock', 'fieryRock', 'splinter'],
+    fallingRockSpawnIntervalOffset: -21,
+    fallingRockSpawnDecreasePerCellOffset: 0.11,
+    stoneRockSpawnWeight: 0.18,
+    fieryRockSpawnWeight: 0.51,
+    splinterSpawnWeight: 0.31,
+  },
+  tier8: {
+    extraArenaPadding: 7,
+    cellsRequiredToAdvance: 300,
+    cashValueMultiplier: 128,
+    availableObstacleTypes: ['regular', 'chaser', 'creeper', 'banger', 'shooter', 'porter', 'magnet', 'spore'],
+    obstacleSpawnCountOffset: 7,
+    obstacleSpawnCountIncreasePerCell: 0.1,
+    obstacleSpawnIntervalOffset: -4,
+    obstacleSpawnDecreasePerCellOffset: 0.06,
+    obstacleLifetimeOffset: 3,
+    obstacleLifetimeIncreasePerCellOffset: 0.06,
+    regularSpawnWeight: 0.22,
+    chaserSpawnWeight: 0.29,
+    creeperSpawnWeight: 0.18,
+    bangerSpawnWeight: 0.16,
+    shooterSpawnWeight: 0.15,
+    porterSpawnWeight: 0.12,
+    magnetSpawnWeight: 0.13,
+    sporeSpawnWeight: 0.12,
+    availableFallingRockTypes: ['stoneRock', 'fieryRock', 'splinter'],
+    fallingRockSpawnIntervalOffset: -23,
+    fallingRockSpawnDecreasePerCellOffset: 0.13,
+    stoneRockSpawnWeight: 0.14,
+    fieryRockSpawnWeight: 0.54,
+    splinterSpawnWeight: 0.32,
   },
 }
 export const COLORS = {
@@ -185,6 +286,12 @@ export const COLORS = {
   bangerEmissive: '#8f3100',
   shooter: '#63f58a',
   shooterEmissive: '#086b35',
+  porter: '#4ba3ff',
+  porterEmissive: '#124b9e',
+  magnet: '#050505',
+  magnetEmissive: '#171717',
+  spore: '#d990ff',
+  sporeEmissive: '#5e1b86',
   fallingObstacle: '#66869a',
   fallingObstacleEmissive: '#152b3b',
   fieryRock: '#ff6948',
@@ -237,6 +344,15 @@ export const ENTITIES = {
   shooterProjectileSpeed: 9,
   shooterProjectileLifetime: 2.4,
   shooterProjectileCooldown: 2,
+  porterTeleportInterval: 10,
+  porterWarningDuration: 2,
+  porterTeleportMinDistance: 3,
+  porterTeleportMaxDistance: 7,
+  magnetPullSpeed: 1.1,
+  sporeFuseDuration: 3,
+  sporeCount: 5,
+  sporeRadius: 0.16,
+  sporeSpeed: 2.4,
   spawnRingInnerRadius: 0.38,
   spawnRingOuterRadius: 0.5,
   spawnRingSegments: 32,
@@ -314,12 +430,15 @@ export const SOUND = {
   },
 }
 
-export const OBSTACLE_TYPES = {
+export const ENEMY_TYPES = {
   regular: { color: COLORS.obstacle, emissive: COLORS.obstacleEmissive, speed: 0, range: 0 },
   chaser: { color: COLORS.chaser, emissive: COLORS.chaserEmissive, speed: GAME.playerSpeed / 2, range: ENTITIES.chaserRange },
   creeper: { color: COLORS.creeper, emissive: COLORS.creeperEmissive, speed: GAME.playerSpeed / 4, range: Infinity },
   banger: { color: COLORS.banger, emissive: COLORS.bangerEmissive, speed: 0, range: ENTITIES.chaserRange * ENTITIES.bangerRangeMultiplier },
   shooter: { color: COLORS.shooter, emissive: COLORS.shooterEmissive, speed: 0, range: ENTITIES.chaserRange * ENTITIES.shooterRangeMultiplier },
+  porter: { color: COLORS.porter, emissive: COLORS.porterEmissive, speed: 0, range: 0 },
+  magnet: { color: COLORS.magnet, emissive: COLORS.magnetEmissive, speed: 0, range: ENTITIES.chaserRange },
+  spore: { color: COLORS.spore, emissive: COLORS.sporeEmissive, speed: 0, range: 0 },
 }
 
 export const FALLING_ROCK_TYPES = {

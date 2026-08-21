@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { ANIMATION, CAMERA, COLORS, DIFFICULTY, ENTITIES, FALLING_ROCK_TYPES, GAME, LIGHTING, OBSTACLE_TYPES, SCENE, SOUND } from './constants.js'
+import { ANIMATION, CAMERA, COLORS, DIFFICULTY, ENEMY_TYPES as OBSTACLE_TYPES, ENTITIES, FALLING_ROCK_TYPES, GAME, LIGHTING, SCENE, SOUND } from './constants.js'
 import { RESEARCH_CONFIG } from './research_config.js'
 import { CHEAT_CONFIG } from './cheat_config.js'
 import { BUILD_INFO } from './build_info.js'
@@ -45,7 +45,7 @@ document.querySelector('#app').innerHTML = `
       <div class="menu-content" id="menu-content">
         <p class="eyebrow">A Lionsfall Game</p>
         <h1 id="overlay-title">ASTROID BELT</h1>
-        <p id="overlay-copy">Collect energy cells. Avoid the obstacles.</p>
+        <p id="overlay-copy">Collect energy cells. Avoid the enemies.</p>
         <div class="tier-selection" aria-label="Difficulty tier selection">
           <div class="tier-heading"><span class="tier-icon" aria-hidden="true">✦</span><span>Difficulty</span></div>
           <div class="tier-carousel">
@@ -779,6 +779,7 @@ const splinterPieces = []
 const explosions = []
 const bangerPulses = []
 const shooterProjectiles = []
+const spores = []
 const shockwaves = []
 const playerDeathEffects = []
 const obstacleSpawnWarnings = []
@@ -802,6 +803,7 @@ const fallingRockGeometry = new THREE.IcosahedronGeometry(ENTITIES.obstacleRadiu
 const obstacleCoreGeometry = new THREE.IcosahedronGeometry(ENTITIES.obstacleCoreRadius, 1)
 const obstacleSpikeGeometry = new THREE.ConeGeometry(ENTITIES.obstacleSpikeRadius, ENTITIES.obstacleSpikeHeight, ENTITIES.obstacleSpikeSegments)
 const shooterProjectileGeometry = new THREE.IcosahedronGeometry(ENTITIES.shooterProjectileRadius, 1)
+const sporeGeometry = new THREE.SphereGeometry(ENTITIES.sporeRadius, 10, 8)
 const spikeDirections = [
   [0, 1, 0], [0, -1, 0], [1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1],
   [1, 1, 1], [-1, 1, 1], [1, 1, -1], [-1, 1, -1],
@@ -913,6 +915,8 @@ function createObstacle(position, type, savedObstacle) {
   obstacle.userData.speed = savedObstacle?.speed ?? THREE.MathUtils.randFloat(0.8, 1.45)
   obstacle.userData.pulseTimer = savedObstacle?.pulseTimer ?? 0
   obstacle.userData.shotCooldown = savedObstacle?.shotCooldown ?? 0
+  obstacle.userData.teleportTimer = savedObstacle?.teleportTimer ?? 0
+  obstacle.userData.teleportTarget = null
   obstacle.userData.colliderRadius = GAME.obstacleColliderRadius
   if (type === 'chaser' || type === 'banger' || type === 'shooter') {
     const rangeIndicator = new THREE.Mesh(
@@ -926,6 +930,60 @@ function createObstacle(position, type, savedObstacle) {
   }
   scene.add(obstacle)
   obstacles.push(obstacle)
+}
+
+function randomPositionNearPlayer() {
+  const angle = Math.random() * Math.PI * 2
+  const distance = THREE.MathUtils.randFloat(ENTITIES.porterTeleportMinDistance, ENTITIES.porterTeleportMaxDistance)
+  const limit = getArenaLimit()
+  return new THREE.Vector3(
+    THREE.MathUtils.clamp(player.position.x + Math.cos(angle) * distance, -limit, limit),
+    GAME.obstacleGroundHeight,
+    THREE.MathUtils.clamp(player.position.z + Math.sin(angle) * distance, -limit, limit),
+  )
+}
+
+function showPorterTeleportTarget(porter) {
+  const target = porter.userData.teleportTarget
+  const ring = new THREE.Mesh(
+    new THREE.RingGeometry(0.4, 0.65, 32),
+    new THREE.MeshBasicMaterial({ color: COLORS.porter, transparent: true, opacity: 0.8, side: THREE.DoubleSide, depthWrite: false }),
+  )
+  ring.rotation.x = -Math.PI / 2
+  ring.position.set(target.x, 0.04, target.z)
+  const beam = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.18, 0.7, 2.8, 20, 1, true),
+    new THREE.MeshBasicMaterial({ color: COLORS.porter, transparent: true, opacity: 0.25, side: THREE.DoubleSide, depthWrite: false }),
+  )
+  beam.position.set(target.x, 1.4, target.z)
+  porter.userData.teleportEffect = { ring, beam }
+  scene.add(ring, beam)
+}
+
+function clearPorterTeleportTarget(porter) {
+  const effect = porter.userData.teleportEffect
+  if (effect) scene.remove(effect.ring, effect.beam)
+  porter.userData.teleportEffect = null
+}
+
+function releaseSpores(position) {
+  const startAngle = Math.random() * Math.PI * 2
+  for (let index = 0; index < ENTITIES.sporeCount; index += 1) {
+    const angle = startAngle + index * (Math.PI * 2 / ENTITIES.sporeCount)
+    const spore = new THREE.Mesh(sporeGeometry, new THREE.MeshStandardMaterial({ color: COLORS.spore, emissive: COLORS.sporeEmissive, emissiveIntensity: 2, transparent: true, opacity: 0.9 }))
+    spore.position.set(position.x, GAME.playerStartHeight, position.z)
+    scene.add(spore)
+    spores.push({ spore, direction: new THREE.Vector3(Math.cos(angle), 0, Math.sin(angle)) })
+  }
+}
+
+function detonateSpore(sporeEnemy) {
+  const position = sporeEnemy.position.clone()
+  scene.remove(sporeEnemy, sporeEnemy.userData.rangeIndicator)
+  clearPorterTeleportTarget(sporeEnemy)
+  const index = obstacles.indexOf(sporeEnemy)
+  if (index >= 0) obstacles.splice(index, 1)
+  releaseSpores(position)
 }
 
 function createShooterProjectile(shooter) {
@@ -1232,8 +1290,13 @@ function detonateBanger(banger) {
 function resetGame(populateArena = true) {
   clearObjects(cells)
   clearObjects(chronoCells)
-  for (const obstacle of obstacles) scene.remove(obstacle, obstacle.userData.rangeIndicator)
+  for (const obstacle of obstacles) {
+    scene.remove(obstacle, obstacle.userData.rangeIndicator)
+    clearPorterTeleportTarget(obstacle)
+  }
   obstacles.length = 0
+  for (const entry of spores) scene.remove(entry.spore)
+  spores.length = 0
   for (const fallingObstacle of fallingObstacles) scene.remove(fallingObstacle.obstacle, fallingObstacle.shadow, fallingObstacle.targetRing)
   fallingObstacles.length = 0
   for (const fireHazard of fireHazards) scene.remove(fireHazard.visual, fireHazard.light)
@@ -1489,6 +1552,7 @@ function updateGame(delta, total) {
   }
 
   const bangersToDetonate = []
+  const sporesToDetonate = []
   for (let index = obstacles.length - 1; index >= 0; index -= 1) {
     const obstacle = obstacles[index]
     const obstacleType = OBSTACLE_TYPES[obstacle.userData.type]
@@ -1539,6 +1603,38 @@ function updateGame(delta, total) {
         obstacle.userData.shotCooldown = ENTITIES.shooterProjectileCooldown
       }
     }
+    if (obstacle.userData.type === 'magnet' && playerOffset.length() <= obstacleType.range) {
+      const pullDirection = obstacle.position.clone().sub(player.position)
+      pullDirection.y = 0
+      if (pullDirection.lengthSq() > 0) player.position.addScaledVector(pullDirection.normalize(), ENTITIES.magnetPullSpeed * delta)
+    }
+    if (obstacle.userData.type === 'porter') {
+      obstacle.userData.teleportTimer += delta
+      const warningStart = ENTITIES.porterTeleportInterval - ENTITIES.porterWarningDuration
+      if (obstacle.userData.teleportTimer >= warningStart && !obstacle.userData.teleportTarget) {
+        obstacle.userData.teleportTarget = randomPositionNearPlayer()
+        showPorterTeleportTarget(obstacle)
+      }
+      if (obstacle.userData.teleportTarget) {
+        const flash = (Math.sin(total * 22) + 1) / 2
+        obstacle.userData.material.emissiveIntensity = 0.8 + flash * 3
+        obstacle.userData.teleportEffect.ring.scale.setScalar(1 + flash * 0.35)
+        obstacle.userData.teleportEffect.ring.material.opacity = 0.45 + flash * 0.5
+        obstacle.userData.teleportEffect.beam.material.opacity = 0.14 + flash * 0.3
+      }
+      if (obstacle.userData.teleportTimer >= ENTITIES.porterTeleportInterval) {
+        obstacle.position.copy(obstacle.userData.teleportTarget)
+        clearPorterTeleportTarget(obstacle)
+        obstacle.userData.teleportTarget = null
+        obstacle.userData.teleportTimer = 0
+        obstacle.userData.material.emissiveIntensity = 1
+      }
+    }
+    if (obstacle.userData.type === 'spore') {
+      obstacle.userData.age += delta
+      obstacle.userData.material.emissiveIntensity = 1 + (Math.sin(obstacle.userData.age * 10) + 1) * 1.3
+      if (obstacle.userData.age >= ENTITIES.sporeFuseDuration) sporesToDetonate.push(obstacle)
+    }
     if (obstacle.position.distanceTo(player.position) < GAME.playerRadius) endGame()
   }
 
@@ -1546,6 +1642,21 @@ function updateGame(delta, total) {
 
   for (const banger of bangersToDetonate) {
     if (obstacles.includes(banger)) detonateBanger(banger)
+  }
+  for (const sporeEnemy of sporesToDetonate) {
+    if (obstacles.includes(sporeEnemy)) detonateSpore(sporeEnemy)
+  }
+
+  const sporeArenaLimit = getArenaLimit()
+  for (let index = spores.length - 1; index >= 0; index -= 1) {
+    const entry = spores[index]
+    entry.spore.position.addScaledVector(entry.direction, ENTITIES.sporeSpeed * delta)
+    entry.spore.rotation.x += delta * 7
+    entry.spore.rotation.z += delta * 5
+    if (Math.abs(entry.spore.position.x) > sporeArenaLimit || Math.abs(entry.spore.position.z) > sporeArenaLimit) {
+      scene.remove(entry.spore)
+      spores.splice(index, 1)
+    }
   }
 
   for (let index = shooterProjectiles.length - 1; index >= 0; index -= 1) {
