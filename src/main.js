@@ -4,6 +4,7 @@ import { RESEARCH_CONFIG } from './research_config.js'
 import { CHEAT_CONFIG } from './cheat_config.js'
 import { BUILD_INFO } from './build_info.js'
 import { BUILDING_CONFIG } from './building_config.js'
+import { TIPS } from './tips.js'
 import './style.css'
 
 document.querySelector('#app').innerHTML = `
@@ -49,6 +50,7 @@ document.querySelector('#app').innerHTML = `
         <p class="eyebrow">A Lionsfall Game</p>
         <h1 id="overlay-title">ASTEROID BELT</h1>
         <p id="overlay-copy">Collect energy cells. Avoid the enemies.</p>
+        <p class="game-over-tip" id="game-over-tip" hidden></p>
         <div class="tier-selection" aria-label="Difficulty tier selection">
           <div class="tier-heading"><span class="tier-icon" aria-hidden="true">✦</span><span>Difficulty</span></div>
           <div class="tier-carousel">
@@ -88,6 +90,7 @@ const pauseButton = document.querySelector('#pause-button')
 const overlay = document.querySelector('#overlay')
 const overlayTitle = document.querySelector('#overlay-title')
 const overlayCopy = document.querySelector('#overlay-copy')
+const gameOverTip = document.querySelector('#game-over-tip')
 const startButton = document.querySelector('#start-button')
 const menuContent = document.querySelector('#menu-content')
 const labPanel = document.querySelector('#lab-panel')
@@ -129,6 +132,15 @@ const tierOptions = document.querySelector('#tier-options')
 const previousTierButton = document.querySelector('#previous-tier')
 const nextTierButton = document.querySelector('#next-tier')
 const virtualJoystick = document.querySelector('#virtual-joystick')
+
+let lastGameOverTip = ''
+
+function getGameOverTip() {
+  const availableTips = TIPS.filter((tip) => tip !== lastGameOverTip)
+  const tip = availableTips[Math.floor(Math.random() * availableTips.length)] ?? TIPS[0]
+  lastGameOverTip = tip
+  return tip
+}
 
 const CELL_BANK_STORAGE_KEY = 'asteroid-belt-banked-cells'
 const TIER_STORAGE_KEY = 'asteroid-belt-selected-tier'
@@ -1303,6 +1315,11 @@ function resolveObstacleCollisions() {
         const distanceSquared = offsetX * offsetX + offsetZ * offsetZ
         if (distanceSquared >= minimumDistance * minimumDistance) continue
 
+        const firstType = OBSTACLE_TYPES[first.userData.type]
+        const secondType = OBSTACLE_TYPES[second.userData.type]
+        if (first.userData.type === 'creeper' && secondType.speed === 0) first.userData.staticCollisionSlow = GAME.creeperStaticCollisionSlowDuration
+        if (second.userData.type === 'creeper' && firstType.speed === 0) second.userData.staticCollisionSlow = GAME.creeperStaticCollisionSlowDuration
+
         const distance = Math.sqrt(distanceSquared)
         const normalX = distance > 0.001 ? offsetX / distance : (firstIndex + secondIndex) % 2 ? 1 : -1
         const normalZ = distance > 0.001 ? offsetZ / distance : 0
@@ -1702,6 +1719,7 @@ function returnToMainMenu() {
   pauseMenu.classList.add('hidden')
   overlayTitle.textContent = 'ASTEROID BELT'
   overlayCopy.textContent = 'Round saved. Continue when you are ready.'
+  gameOverTip.hidden = true
   menuContent.classList.remove('hidden')
   labPanel.classList.add('hidden')
   overlay.classList.remove('hidden')
@@ -1744,6 +1762,8 @@ function endGame() {
   recordTierHighScore()
   overlayTitle.textContent = 'SIGNAL LOST'
   overlayCopy.textContent = `You secured ${score} energy ${score === 1 ? 'cell' : 'cells'}.`
+  gameOverTip.textContent = `TIP · ${getGameOverTip()}`
+  gameOverTip.hidden = false
   startButton.textContent = 'RUN AGAIN'
   overlay.classList.remove('hidden')
 }
@@ -1908,6 +1928,9 @@ function updateGame(delta, total) {
     }
     const playerOffset = player.position.clone().sub(obstacle.position)
     playerOffset.y = 0
+    if (obstacle.userData.type === 'creeper') {
+      obstacle.userData.staticCollisionSlow = Math.max(0, (obstacle.userData.staticCollisionSlow ?? 0) - delta)
+    }
     const chronoSlow = buildingState.placed.filter((b) => b.type === 'chronoGenerator' && planarDistance(obstacle.position, b) <= buildingValue(b, 'range')).reduce((slow, b) => Math.max(slow, buildingValue(b, 'slow')), 0)
     const inGapFog = buildingState.placed.some((b) => b.type === 'gapGenerator' && buildingRuntime.get(b.id)?.active > 0 && planarDistance(obstacle.position, b) <= buildingValue(b, 'range'))
     if (thornShieldTime > 0 && playerOffset.length() < GAME.playerRadius) {
@@ -1930,7 +1953,10 @@ function updateGame(delta, total) {
       const movementSpeed = obstacle.userData.type === 'creeper'
         ? THREE.MathUtils.lerp(obstacleType.speed, GAME.playerSpeed * 0.9, creeperLifetimeProgress)
         : obstacleType.speed
-      obstacle.position.addScaledVector(playerOffset.normalize(), movementSpeed * speedMultiplier * obstacleSpeedMultiplier * delta)
+      const staticCollisionSpeedMultiplier = obstacle.userData.type === 'creeper' && obstacle.userData.staticCollisionSlow > 0
+        ? GAME.creeperStaticCollisionSpeedMultiplier
+        : 1
+      obstacle.position.addScaledVector(playerOffset.normalize(), movementSpeed * speedMultiplier * obstacleSpeedMultiplier * staticCollisionSpeedMultiplier * delta)
     }
     if (obstacle.userData.rangeIndicator) {
       const rangeIndicator = obstacle.userData.rangeIndicator

@@ -88,6 +88,7 @@ button { font: inherit; }
 .eyebrow { color: #63f5cd; font-size: 11px; font-weight: 700; margin: 0 0 12px; }
 h1 { color: #fff4d2; font-size: clamp(40px, 8vw, 84px); font-weight: 400; line-height: 0.95; margin: 0; }
 .overlay > p:not(.eyebrow) { color: #c7d3cd; font-size: 16px; margin: 20px 0 28px; max-width: 320px; }
+.game-over-tip { background: rgba(99, 245, 205, 0.08); border: 1px solid rgba(99, 245, 205, 0.34); color: #c9fff1 !important; font: 700 11px/1.45 'Trebuchet MS', Arial, sans-serif !important; letter-spacing: 0.04em; margin: -8px 0 22px !important; max-width: 390px !important; padding: 10px 13px; }
 .tier-selection { background: linear-gradient(135deg, rgba(23, 49, 61, 0.98), rgba(12, 27, 38, 0.98)); border: 1px solid #3c8190; box-shadow: inset 0 0 0 3px rgba(11, 25, 35, 0.82), 0 0 22px rgba(41, 181, 168, 0.14); color: #e7f0ec; margin: 0 0 24px; padding: 13px 16px 15px; position: relative; width: min(100%, 338px); }
 .tier-selection::before { background: #ff795f; content: ''; height: 3px; left: 14px; position: absolute; top: 0; width: 64px; }
 .tier-heading { align-items: center; color: #63f5cd; display: flex; font-family: 'Trebuchet MS', Arial, sans-serif; font-size: 14px; font-weight: 700; gap: 10px; letter-spacing: 0.14em; line-height: 1; margin-bottom: 15px; text-transform: uppercase; }

@@ -31,6 +31,8 @@ export const GAME = {
   obstacleMinDistance: 4,
   obstacleColliderRadius: 0.86,
   obstacleColliderIterations: 2,
+  creeperStaticCollisionSlowDuration: 0.35,
+  creeperStaticCollisionSpeedMultiplier: 0.45,
   obstacleSpawnInterval: 7.85,
   obstacleSpawnDecreasePerCell: 0.07,
   regularObstacleLifetime: 32,
