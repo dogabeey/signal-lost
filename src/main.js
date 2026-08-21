@@ -23,6 +23,9 @@ document.querySelector('#app').innerHTML = `
     <footer class="build-footer" aria-label="Build information">
       <strong>${BUILD_INFO.label}</strong><span>v${BUILD_INFO.version}</span><span>BUILD ${BUILD_INFO.number}</span><span>${BUILD_INFO.date}</span>
     </footer>
+    <div class="virtual-joystick" id="virtual-joystick" aria-hidden="true">
+      <div class="virtual-joystick-knob"></div>
+    </div>
     <div class="cash-indicators" id="cash-indicators" aria-live="polite"></div>
     <section class="pause-menu hidden" id="pause-menu" aria-label="Pause menu">
       <p class="eyebrow">ROUND PAUSED</p>
@@ -102,6 +105,7 @@ const tierRequirementElement = document.querySelector('#tier-requirement')
 const tierOptions = document.querySelector('#tier-options')
 const previousTierButton = document.querySelector('#previous-tier')
 const nextTierButton = document.querySelector('#next-tier')
+const virtualJoystick = document.querySelector('#virtual-joystick')
 
 const CELL_BANK_STORAGE_KEY = 'astroid-belt-banked-cells'
 const TIER_STORAGE_KEY = 'astroid-belt-selected-tier'
@@ -168,20 +172,19 @@ function writeStoredTierHighScores() {
   }
 }
 
-function getUnlockedTierIndex(cells) {
+function getUnlockedTierIndex() {
   let unlockedTierIndex = 0
-  let cellsRequired = 0
   for (let index = 0; index < tierKeys.length - 1; index += 1) {
-    cellsRequired += DIFFICULTY[tierKeys[index]].cellsRequiredToAdvance
-    if (cells < cellsRequired) break
+    const tierKey = tierKeys[index]
+    if ((tierHighScores[tierKey] ?? 0) < DIFFICULTY[tierKey].cellsRequiredToAdvance) break
     unlockedTierIndex = index + 1
   }
   return unlockedTierIndex
 }
 
 let bankedCells = readStoredNumber(CELL_BANK_STORAGE_KEY)
-let selectedTierIndex = Math.min(readStoredNumber(TIER_STORAGE_KEY), getUnlockedTierIndex(bankedCells))
 const tierHighScores = readStoredTierHighScores()
+let selectedTierIndex = Math.min(readStoredNumber(TIER_STORAGE_KEY), getUnlockedTierIndex())
 let cash = readStoredNumber(CASH_STORAGE_KEY)
 let chronoshards = readStoredNumber(CHRONOSHARDS_STORAGE_KEY)
 let savedRound = readSavedRound()
@@ -265,7 +268,7 @@ function formatCurrency(currency, amount) {
 
 function getResearchLockReason(research) {
   const requirements = research.requirements ?? {}
-  if (requirements.minTier && getUnlockedTierIndex(bankedCells) + 1 < requirements.minTier) return `Requires Tier ${requirements.minTier}`
+  if (requirements.minTier && getUnlockedTierIndex() + 1 < requirements.minTier) return `Requires Tier ${requirements.minTier}`
   if (requirements.minBankedCells && bankedCells < requirements.minBankedCells) return `Requires ${requirements.minBankedCells} banked cells`
   if (requirements.researchId && getResearchLevel(requirements.researchId) < 1) return `Requires ${getResearchById(requirements.researchId).name}`
   for (const [researchId, level] of Object.entries(requirements.researchLevels ?? {})) {
@@ -311,7 +314,7 @@ function renderResearchLab() {
     }
     if (slotNumber <= researchState.unlockedSlots) return `<article class="research-slot"><span>SLOT ${slotNumber}</span><strong>AVAILABLE</strong><small>Select a research below.</small></article>`
     const unlock = RESEARCH_CONFIG.slotUnlocks.find((entry) => entry.slot === slotNumber)
-    const tierUnlocked = !unlock.requirements?.minTier || getUnlockedTierIndex(bankedCells) + 1 >= unlock.requirements.minTier
+    const tierUnlocked = !unlock.requirements?.minTier || getUnlockedTierIndex() + 1 >= unlock.requirements.minTier
     const canAfford = unlock.cost.currency === 'cash' ? cash >= unlock.cost.amount : chronoshards >= unlock.cost.amount
     const disabled = tierUnlocked && canAfford ? '' : 'disabled'
     const requirement = tierUnlocked ? `Unlock for ${formatCurrency(unlock.cost.currency, unlock.cost.amount)}` : `Requires Tier ${unlock.requirements.minTier}`
@@ -369,7 +372,7 @@ function startResearch(researchId) {
 function unlockResearchSlot(slotNumber) {
   const unlock = RESEARCH_CONFIG.slotUnlocks.find((entry) => entry.slot === slotNumber)
   if (!unlock || slotNumber !== researchState.unlockedSlots + 1) return
-  if (unlock.requirements?.minTier && getUnlockedTierIndex(bankedCells) + 1 < unlock.requirements.minTier) return
+  if (unlock.requirements?.minTier && getUnlockedTierIndex() + 1 < unlock.requirements.minTier) return
   const balance = unlock.cost.currency === 'cash' ? cash : chronoshards
   if (balance < unlock.cost.amount) return
   if (unlock.cost.currency === 'cash') updateCash(-unlock.cost.amount)
@@ -504,7 +507,7 @@ function recordTierHighScore() {
 }
 
 function renderTierOptions() {
-  const unlockedTierIndex = getUnlockedTierIndex(bankedCells)
+  const unlockedTierIndex = getUnlockedTierIndex()
   if (selectedTierIndex > unlockedTierIndex) selectedTierIndex = unlockedTierIndex
   tierOptions.textContent = `Tier ${selectedTierIndex + 1}`
   const tierKey = tierKeys[selectedTierIndex]
@@ -515,7 +518,7 @@ function renderTierOptions() {
 }
 
 function selectTier(tierIndex) {
-  if (tierIndex < 0 || tierIndex > getUnlockedTierIndex(bankedCells)) return
+  if (tierIndex < 0 || tierIndex > getUnlockedTierIndex()) return
   selectedTierIndex = tierIndex
   writeStoredNumber(TIER_STORAGE_KEY, selectedTierIndex)
   applyDifficulty()
@@ -763,6 +766,10 @@ player.position.y = GAME.playerStartHeight
 scene.add(player)
 
 const keys = new Set()
+const joystickInput = new THREE.Vector2()
+let joystickPointerId = null
+let joystickOrigin = null
+const JOYSTICK_RADIUS = 58
 const cells = []
 const chronoCells = []
 const obstacles = []
@@ -1254,7 +1261,7 @@ function clearSavedRound() {
 
 function restoreSavedRound() {
   if (!savedRound) return false
-  selectedTierIndex = Math.min(savedRound.tierIndex ?? 0, getUnlockedTierIndex(bankedCells))
+  selectedTierIndex = Math.min(savedRound.tierIndex ?? 0, getUnlockedTierIndex())
   applyDifficulty()
   resetGame(false)
   player.position.set(savedRound.player.x, savedRound.player.y, savedRound.player.z)
@@ -1334,9 +1341,9 @@ function updateGame(delta, total) {
       - score * (GAME.obstacleSpawnDecreasePerCell + difficulty.obstacleSpawnDecreasePerCellOffset),
   )
   const direction = new THREE.Vector3(
-    (keys.has('KeyD') || keys.has('ArrowRight') ? 1 : 0) - (keys.has('KeyA') || keys.has('ArrowLeft') ? 1 : 0),
+    (keys.has('KeyD') || keys.has('ArrowRight') ? 1 : 0) - (keys.has('KeyA') || keys.has('ArrowLeft') ? 1 : 0) + joystickInput.x,
     0,
-    (keys.has('KeyS') || keys.has('ArrowDown') ? 1 : 0) - (keys.has('KeyW') || keys.has('ArrowUp') ? 1 : 0),
+    (keys.has('KeyS') || keys.has('ArrowDown') ? 1 : 0) - (keys.has('KeyW') || keys.has('ArrowUp') ? 1 : 0) + joystickInput.y,
   )
 
   if (direction.lengthSq() > 0) {
@@ -1719,6 +1726,60 @@ window.addEventListener('keydown', (event) => {
   keys.add(event.code)
 })
 window.addEventListener('keyup', (event) => keys.delete(event.code))
+
+function isMobileInputMode() {
+  return window.matchMedia('(max-width: 580px), (hover: none) and (pointer: coarse)').matches
+}
+
+function updateJoystick(event) {
+  if (!joystickOrigin) return
+  const offsetX = event.clientX - joystickOrigin.x
+  const offsetY = event.clientY - joystickOrigin.y
+  const distance = Math.hypot(offsetX, offsetY)
+  const clampedDistance = Math.min(distance, JOYSTICK_RADIUS)
+  const scale = distance ? clampedDistance / distance : 0
+  const knobX = offsetX * scale
+  const knobY = offsetY * scale
+  const strength = distance < 8 ? 0 : clampedDistance / JOYSTICK_RADIUS
+
+  joystickInput.set((knobX / JOYSTICK_RADIUS) * strength, (knobY / JOYSTICK_RADIUS) * strength)
+  virtualJoystick.querySelector('.virtual-joystick-knob').style.transform = `translate(${knobX}px, ${knobY}px)`
+}
+
+function releaseJoystick(event) {
+  if (event && event.pointerId !== joystickPointerId) return
+  joystickPointerId = null
+  joystickOrigin = null
+  joystickInput.set(0, 0)
+  virtualJoystick.classList.remove('active')
+  virtualJoystick.querySelector('.virtual-joystick-knob').style.transform = ''
+}
+
+canvas.addEventListener('pointerdown', (event) => {
+  if (!isMobileInputMode() || !started || paused || event.button !== 0 || joystickPointerId !== null) return
+  event.preventDefault()
+  joystickPointerId = event.pointerId
+  joystickOrigin = { x: event.clientX, y: event.clientY }
+  virtualJoystick.style.left = `${event.clientX}px`
+  virtualJoystick.style.top = `${event.clientY}px`
+  virtualJoystick.classList.add('active')
+  canvas.setPointerCapture(event.pointerId)
+  updateJoystick(event)
+})
+
+canvas.addEventListener('pointermove', (event) => {
+  if (event.pointerId !== joystickPointerId) return
+  event.preventDefault()
+  updateJoystick(event)
+})
+
+canvas.addEventListener('pointerup', releaseJoystick)
+canvas.addEventListener('pointercancel', releaseJoystick)
+canvas.addEventListener('lostpointercapture', releaseJoystick)
+window.addEventListener('blur', () => {
+  keys.clear()
+  releaseJoystick()
+})
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight
   camera.updateProjectionMatrix()

@@ -10,7 +10,7 @@ export const GAME = {
   baseCellCashValue: 1,
   initialCellCount: 5,
   initialObstacleTypes: ['regular', 'chaser', 'creeper'],
-  cellSpawnInterval: 6,
+  cellSpawnInterval: 5,
   slowAuraBaseRange: 4,
   slowAuraBaseEffect: 0.25,
   cellMinDistance: 3,
@@ -19,10 +19,10 @@ export const GAME = {
   chronoCellMinDistance: 4,
   chronoCellChronoshardValue: 1,
   obstacleMinDistance: 4,
-  obstacleSpawnInterval: 8,
-  obstacleSpawnDecreasePerCell: 0.04,
-  regularObstacleLifetime: 15,
-  regularObstacleLifetimeIncreasePerCell: 0.1,
+  obstacleSpawnInterval: 7,
+  obstacleSpawnDecreasePerCell: 0.07,
+  regularObstacleLifetime: 16,
+  regularObstacleLifetimeIncreasePerCell: 0.07,
   obstacleSpawnWarningDuration: 2,
   bangerExplosionVfxDuration: 0.65,
   bangerPulseStartInterval: 0.9,
@@ -34,7 +34,7 @@ export const GAME = {
   fallingBlockDuration: 1.8,
   fallingBlockLifetime: 1.9,
   fallingBlockMinInterval: 1.8,
-  fallingBlockBaseInterval: 60,
+  fallingBlockBaseInterval: 30,
   fallingBlockIntervalPerCell: 0.1,
   fallingRockImpactOffset: 0.8,
   fieryRockFireDuration: 5,
@@ -55,7 +55,7 @@ export const GAME = {
 export const DIFFICULTY = {
   tier1: {
     extraArenaPadding: 0, // Extra padding added to the arena size and playable area for this difficulty tier. A positive value increases the arena size, while a negative value decreases it.
-    cellsRequiredToAdvance: 10, // Number of cells the player must collect to advance to the next difficulty tier.
+    cellsRequiredToAdvance: 30, // Number of cells the player must collect to advance to the next difficulty tier.
 
     cashValueMultiplier: 1, // Multiplier applied to the base cell cash value defined in the GAME constant. A positive value increases the cash value, while a negative value decreases it.
 
@@ -69,16 +69,18 @@ export const DIFFICULTY = {
     // If an obstacle's weight isn't specified, it defaults to 0.
     regularSpawnWeight: 0.8, // Weight for spawning regular obstacles. A higher value increases the likelihood of spawning this type.
     creeperSpawnWeight: 0.2, // Weight for spawning creeper obstacles. A higher value increases the likelihood of spawning this type.
+
     availableFallingRockTypes: ['stoneRock'],
     fallingRockSpawnIntervalOffset: 2,
     fallingRockSpawnDecreasePerCellOffset: -0.05,
+
     stoneRockSpawnWeight: 1,
   },
   tier2: {
     extraArenaPadding: 0,
-    cellsRequiredToAdvance: 20,
+    cellsRequiredToAdvance: 100,
 
-    cashValueMultiplier: 1.2,
+    cashValueMultiplier: 2,
 
     availableObstacleTypes: ['regular', 'chaser', 'creeper'],
     obstacleSpawnIntervalOffset: 2,
@@ -88,17 +90,19 @@ export const DIFFICULTY = {
     regularSpawnWeight: 0.8,
     chaserSpawnWeight: 0.1,
     creeperSpawnWeight: 0.1,
+
     availableFallingRockTypes: ['stoneRock', 'splinter'],
     fallingRockSpawnIntervalOffset: -5,
     fallingRockSpawnDecreasePerCellOffset: -0.02,
+
     stoneRockSpawnWeight: 0.8,
     splinterSpawnWeight: 0.2,
   },
   tier3: {
     extraArenaPadding: 0,
-    cellsRequiredToAdvance: 30,
+    cellsRequiredToAdvance: 200,
 
-    cashValueMultiplier: 1.5,
+    cashValueMultiplier: 4,
 
     availableObstacleTypes: ['regular', 'chaser', 'creeper', 'banger'],
     obstacleSpawnIntervalOffset: 1,
@@ -109,18 +113,20 @@ export const DIFFICULTY = {
     chaserSpawnWeight: 0.1,
     creeperSpawnWeight: 0.1,
     bangerSpawnWeight: 0.1,
+
     availableFallingRockTypes: ['stoneRock', 'fieryRock', 'splinter'],
     fallingRockSpawnIntervalOffset: -10,
     fallingRockSpawnDecreasePerCellOffset: 0,
+
     stoneRockSpawnWeight: 0.6,
     fieryRockSpawnWeight: 0.2,
     splinterSpawnWeight: 0.2,
   },
   tier4: {
     extraArenaPadding: 0,
-    cellsRequiredToAdvance: 40,
+    cellsRequiredToAdvance: 300,
 
-    cashValueMultiplier: 2,
+    cashValueMultiplier: 8,
 
     availableObstacleTypes: ['regular', 'chaser', 'creeper', 'banger'],
     obstacleSpawnIntervalOffset: 0,
@@ -131,9 +137,11 @@ export const DIFFICULTY = {
     chaserSpawnWeight: 0.15,
     creeperSpawnWeight: 0.15,
     bangerSpawnWeight: 0.1,
+
     availableFallingRockTypes: ['stoneRock', 'fieryRock', 'splinter'],
     fallingRockSpawnIntervalOffset: -15,
     fallingRockSpawnDecreasePerCellOffset: 0.05,
+
     stoneRockSpawnWeight: 0.4,
     fieryRockSpawnWeight: 0.35,
     splinterSpawnWeight: 0.25,
@@ -278,11 +286,11 @@ export const SOUND = {
     buttonClick: { startFrequency: 440, endFrequency: 660, duration: 0.07, type: 'square' },
   },
   assets: {
-    bangerPulse: '/audio/banger-pulse.wav',
-    fallingObstacle: '/audio/falling-obstacle.wav',
-    cellCollect: '/audio/cell-collect.wav',
-    obstacleSummon: '/audio/obstacle-summon.wav',
-    buttonClick: '/audio/button-click.wav',
+    bangerPulse: './audio/banger-pulse.wav',
+    fallingObstacle: './audio/falling-obstacle.wav',
+    cellCollect: './audio/cell-collect.wav',
+    obstacleSummon: './audio/obstacle-summon.wav',
+    buttonClick: './audio/button-click.wav',
   },
 }
 
