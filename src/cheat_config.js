@@ -6,6 +6,7 @@ export const CHEAT_CONFIG = {
     cash: 'cash',
     chrono: 'chrono',
     freeResearch: 'free_research',
+    unlockTiers: 'unlock_tiers',
     clearSave: 'clear_save',
   },
   clearSaveTargets: ['currency', 'game_progress', 'research', 'all'],

@@ -445,6 +445,14 @@ function runCheatCommand(rawCommand) {
     setCheatOutput('Free research enabled for this session.')
     return
   }
+  if (command === CHEAT_CONFIG.commands.unlockTiers) {
+    for (const tierKey of tierKeys) tierHighScores[tierKey] = DIFFICULTY[tierKey].cellsRequiredToAdvance
+    writeStoredTierHighScores()
+    renderTierOptions()
+    renderResearchLab()
+    setCheatOutput('All difficulty tiers unlocked.')
+    return
+  }
   if (command === CHEAT_CONFIG.commands.clearSave) {
     if (!CHEAT_CONFIG.clearSaveTargets.includes(argument)) {
       setCheatOutput(`Usage: clear_save [${CHEAT_CONFIG.clearSaveTargets.join(', ')}]`)
