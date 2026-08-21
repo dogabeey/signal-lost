@@ -1507,11 +1507,11 @@ function updateGame(delta, total) {
       - score * (GAME.obstacleSpawnDecreasePerCell + difficulty.obstacleSpawnDecreasePerCellOffset),
   )
   const obstacleSpawnCount = Math.max(
-    0,
+    1,
     Math.floor(
-      GAME.obstacleSpawnCount
+      (GAME.obstacleSpawnCount
       + difficulty.obstacleSpawnCountOffset
-      + score * difficulty.obstacleSpawnCountIncreasePerCell,
+      + score * difficulty.obstacleSpawnCountIncreasePerCell) * GAME.difficultyPressureMultiplier,
     ),
   )
   const direction = new THREE.Vector3(
@@ -1620,6 +1620,12 @@ function updateGame(delta, total) {
     const playerOffset = player.position.clone().sub(obstacle.position)
     playerOffset.y = 0
     const obstacleSpeedMultiplier = slowAuraUnlocked && playerOffset.length() <= slowAuraRange ? 1 - slowAuraEffect : 1
+    const pushbackSpeed = getResearchStatBonus('pushbackSpeed')
+    if (pushbackSpeed > 0 && obstacleType.speed === 0 && playerOffset.length() <= GAME.pushbackBaseRange * effectRangeMultiplier) {
+      const pushDirection = obstacle.position.clone().sub(player.position)
+      pushDirection.y = 0
+      if (pushDirection.lengthSq() > 0) obstacle.position.addScaledVector(pushDirection.normalize(), (GAME.pushbackBaseSpeed + pushbackSpeed) * delta)
+    }
     if (playerOffset.length() <= effectiveRange && obstacleType.speed > 0) {
       const speedMultiplier = obstacle.userData.type === 'creeper' ? Math.max(0.5, 1 - getResearchStatBonus('creeperSpeedDebuff')) : 1
       obstacle.position.addScaledVector(playerOffset.normalize(), obstacleType.speed * speedMultiplier * obstacleSpeedMultiplier * delta)
@@ -1907,8 +1913,8 @@ function animate() {
   const total = timer.getElapsed()
   if (started && !paused) updateGame(delta, total)
   updatePlayerDeathEffects(delta)
-  camera.position.lerp(new THREE.Vector3(player.position.x * 0.26, CAMERA.height, player.position.z + CAMERA.distance), CAMERA.followStrength)
-  camera.lookAt(player.position.x * 0.28, 0, player.position.z * 0.3)
+  camera.position.set(player.position.x, CAMERA.height, player.position.z + CAMERA.distance)
+  camera.lookAt(player.position.x, 0, player.position.z)
   renderer.render(scene, camera)
 }
 

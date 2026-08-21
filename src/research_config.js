@@ -60,7 +60,7 @@ export const RESEARCH_CONFIG = {
       cost: { currency: 'cash', base: 100, multiplier: 1.15, jerk: 1.01 },
       duration: { baseMs: 120_000_000, multiplier: 1.35 },
       requirements: { minTier: 2 },
-      visibleWhen: { anyResearch: ['unlock-slow-aura', 'cell-magnet'] },
+      visibleWhen: { anyResearch: ['unlock-slow-aura', 'cell-magnet', 'pushback'] },
     },
     {
       id: 'cell-spawn-rate',
@@ -169,6 +169,17 @@ export const RESEARCH_CONFIG = {
       effect: { stat: 'shieldCharges', perLevel: 1, format: 'flat' },
       cost: { currency: 'cash', base: 125_000, multiplier: 1.45, jerk: 1.02 },
       duration: { baseMs: 180_000, multiplier: 1.25 },
+      requirements: { minTier: 4 },
+    },
+    {
+      id: 'pushback',
+      category: 'Player Enhancements',
+      name: 'Pushback',
+      description: 'Pushes nearby stationary enemies away. Each level increases push speed.',
+      maxLevel: 20,
+      effect: { stat: 'pushbackSpeed', perLevel: 0.25, format: 'flat' },
+      cost: { currency: 'cash', base: 80_000, multiplier: 1.32, jerk: 1.01 },
+      duration: { baseMs: 150_000, multiplier: 1.18 },
       requirements: { minTier: 4 },
     },
     {
