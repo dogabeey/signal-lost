@@ -32,6 +32,7 @@ document.querySelector('#app').innerHTML = `
       <div class="virtual-joystick-knob"></div>
     </div>
     <div class="cash-indicators" id="cash-indicators" aria-live="polite"></div>
+    <div class="build-grid-ui hidden" id="build-grid-ui" aria-label="Build locations"></div>
     <div class="milestone-claim-toast hidden" id="milestone-claim-toast" role="status" aria-live="polite"></div>
     <section class="pause-menu hidden" id="pause-menu" aria-label="Pause menu">
       <p class="eyebrow">ROUND PAUSED</p>
@@ -54,7 +55,7 @@ document.querySelector('#app').innerHTML = `
         <p id="overlay-copy">Collect energy cells. Avoid the enemies.</p>
         <p class="game-over-tip" id="game-over-tip" hidden></p>
         <div class="tier-selection" aria-label="Difficulty tier selection">
-          <div class="tier-heading"><span class="tier-icon" aria-hidden="true">✦</span><span>Difficulty</span></div>
+          <div class="tier-heading">Difficulty</div>
           <div class="tier-carousel">
             <button class="tier-nav" id="previous-tier" type="button" aria-label="Select previous tier">‹</button>
             <span class="tier-options" id="tier-options" aria-live="polite"></span>
@@ -84,7 +85,7 @@ document.querySelector('#app').innerHTML = `
       </section>
       <section class="building-panel hidden" id="building-panel"><div class="lab-header"><div><p class="eyebrow">PERMANENT DEFENSES</p><h2>BUILDING SYSTEM</h2></div><button class="secondary-button" id="close-building-button" type="button">BACK</button></div><p class="lab-balance">CASH <span id="building-cash"></span> · CHRONOSHARDS <span id="building-chronoshards"></span> · SLOTS <span id="building-slots"></span></p><div class="building-actions"><button id="enter-build-mode" type="button">BUILD MODE</button></div><h3>UNLOCK BUILDINGS</h3><div class="building-list" id="building-list"></div></section>
     </section>
-    <div class="build-bar hidden" id="build-bar"><span>SELECT A BUILDING</span><div id="build-options"></div><button id="exit-build-mode" type="button">DONE</button></div>
+    <div class="build-bar hidden" id="build-bar"><span id="build-status">SELECT A BUILDING</span><div id="build-options"></div><button id="exit-build-mode" type="button">DONE</button></div>
     <section class="building-upgrade hidden" id="building-upgrade"></section>
   </main>
 `
@@ -122,7 +123,9 @@ const buildingChronoshards = document.querySelector('#building-chronoshards')
 const buildingSlots = document.querySelector('#building-slots')
 const enterBuildModeButton = document.querySelector('#enter-build-mode')
 const buildBar = document.querySelector('#build-bar')
+const buildStatus = document.querySelector('#build-status')
 const buildOptions = document.querySelector('#build-options')
+const buildGridUi = document.querySelector('#build-grid-ui')
 const exitBuildModeButton = document.querySelector('#exit-build-mode')
 const buildingUpgrade = document.querySelector('#building-upgrade')
 const closeLabButton = document.querySelector('#close-lab-button')
@@ -374,10 +377,19 @@ function formatDuration(milliseconds) {
   return `${seconds}s`
 }
 
+function formatCompactNumber(value) {
+  const absoluteValue = Math.abs(value)
+  const unit = absoluteValue >= 1e12 ? ['T', 1e12] : absoluteValue >= 1e9 ? ['B', 1e9] : absoluteValue >= 1e6 ? ['M', 1e6] : absoluteValue >= 1e3 ? ['K', 1e3] : null
+  if (!unit) return value.toLocaleString(undefined, { maximumFractionDigits: 2 })
+  const scaled = value / unit[1]
+  const decimals = Math.abs(scaled) < 10 ? 2 : 1
+  return `${scaled.toFixed(decimals)}${unit[0]}`
+}
+
 function formatCurrency(currency, amount) {
   return currency === 'cash'
-    ? `$${amount.toLocaleString(undefined, { maximumFractionDigits: 2 })}`
-    : `✦ ${amount.toLocaleString()}`
+    ? `$${formatCompactNumber(amount)}`
+    : `✦ ${formatCompactNumber(amount)}`
 }
 
 function getResearchLockReason(research) {
@@ -417,8 +429,8 @@ function setLabMessage(message = '') {
 
 function renderResearchLab() {
   completeFinishedResearches()
-  labCashElement.textContent = `$${cash.toLocaleString(undefined, { maximumFractionDigits: 2 })}`
-  labChronoshardsElement.textContent = `✦ ${chronoshards.toLocaleString()}`
+  labCashElement.textContent = `$${formatCompactNumber(cash)}`
+  labChronoshardsElement.textContent = `✦ ${formatCompactNumber(chronoshards)}`
   const now = Date.now()
   researchSlotsHeading.hidden = !RESEARCH_CONFIG.durationsEnabled
   researchSlotsElement.hidden = !RESEARCH_CONFIG.durationsEnabled
@@ -660,14 +672,14 @@ function updateBankedCells(amount = 0) {
 function updateCash(amount = 0) {
   cash = Math.round((cash + amount) * 100) / 100
   writeStoredNumber(CASH_STORAGE_KEY, cash)
-  cashElement.textContent = `$${cash.toLocaleString(undefined, { maximumFractionDigits: 2, minimumFractionDigits: cash % 1 === 0 ? 0 : 2 })}`
+  cashElement.textContent = `$${formatCompactNumber(cash)}`
   renderResearchLab()
 }
 
 function updateChronoshards(amount = 0) {
   chronoshards += amount
   writeStoredNumber(CHRONOSHARDS_STORAGE_KEY, chronoshards)
-  chronoshardsElement.textContent = `✦ ${chronoshards}`
+  chronoshardsElement.textContent = `✦ ${formatCompactNumber(chronoshards)}`
   renderResearchLab()
 }
 
@@ -971,40 +983,39 @@ camera.position.set(0, CAMERA.height, CAMERA.distance)
 camera.lookAt(0, 0, 0)
 
 function createStarfield() {
-  const positions = new Float32Array(SCENE.starCount * 3)
-  const colors = new Float32Array(SCENE.starCount * 3)
+  function createStarLayer(count, size, opacity) {
+    const positions = new Float32Array(count * 3)
+    const colors = new Float32Array(count * 3)
 
-  for (let index = 0; index < SCENE.starCount; index += 1) {
-    const radius = SCENE.starfieldRadius
-    const y = THREE.MathUtils.randFloatSpread(2)
-    const horizontal = Math.sqrt(1 - y * y)
-    const angle = Math.random() * Math.PI * 2
-    const offset = index * 3
-    positions[offset] = Math.cos(angle) * horizontal * radius
-    positions[offset + 1] = y * radius
-    positions[offset + 2] = Math.sin(angle) * horizontal * radius
+    for (let index = 0; index < count; index += 1) {
+      const radius = SCENE.starfieldRadius
+      const y = THREE.MathUtils.randFloatSpread(2)
+      const horizontal = Math.sqrt(1 - y * y)
+      const angle = Math.random() * Math.PI * 2
+      const offset = index * 3
+      positions[offset] = Math.cos(angle) * horizontal * radius
+      positions[offset + 1] = y * radius
+      positions[offset + 2] = Math.sin(angle) * horizontal * radius
 
-    const warmth = Math.random()
-    colors[offset] = 0.72 + warmth * 0.28
-    colors[offset + 1] = 0.82 + warmth * 0.18
-    colors[offset + 2] = 1
+      const warmth = Math.random()
+      colors[offset] = 0.72 + warmth * 0.28
+      colors[offset + 1] = 0.82 + warmth * 0.18
+      colors[offset + 2] = 1
+    }
+
+    const geometry = new THREE.BufferGeometry()
+    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3))
+    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3))
+    const material = new THREE.PointsMaterial({ size, sizeAttenuation: false, transparent: true, opacity, vertexColors: true, depthWrite: false, fog: false })
+    const stars = new THREE.Points(geometry, material)
+    stars.frustumCulled = false
+    return stars
   }
 
-  const geometry = new THREE.BufferGeometry()
-  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3))
-  geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3))
-  const material = new THREE.PointsMaterial({
-    size: SCENE.starSize,
-    sizeAttenuation: false,
-    transparent: true,
-    opacity: 0.62,
-    vertexColors: true,
-    depthWrite: false,
-    fog: false,
-  })
-  const stars = new THREE.Points(geometry, material)
-  stars.frustumCulled = false
-  return stars
+  const starfield = new THREE.Group()
+  starfield.add(createStarLayer(SCENE.starCount, SCENE.starSize, 0.84))
+  starfield.add(createStarLayer(SCENE.brightStarCount, SCENE.brightStarSize, 0.96))
+  return starfield
 }
 
 const starfield = createStarfield()
@@ -1019,7 +1030,7 @@ scene.add(keyLight)
 
 const floor = new THREE.Mesh(
   new THREE.CircleGeometry(GAME.arenaSize / 2, 96),
-  new THREE.MeshStandardMaterial({ color: COLORS.floor, metalness: SCENE.floorMetalness, roughness: SCENE.floorRoughness }),
+  new THREE.MeshStandardMaterial({ color: COLORS.floor, metalness: SCENE.floorMetalness, roughness: SCENE.floorRoughness, transparent: true, opacity: SCENE.floorOpacity, depthWrite: false }),
 )
 floor.rotation.x = -Math.PI / 2
 floor.receiveShadow = true
@@ -1228,32 +1239,49 @@ function createBuildingMesh(building) {
 }
 function syncBuildings() { for (const mesh of buildingMeshes.values()) scene.remove(mesh); buildingMeshes.clear(); buildingRuntime.clear(); for (const building of buildingState.placed) createBuildingMesh(building) }
 function buildingCost(type) { const config = BUILDING_CONFIG.types[type]; return Math.ceil(config.baseCost * config.costMultiplier ** buildingState.placed.filter((b) => b.type === type).length) }
-function setBuildingPreview(type) {
-  if (buildingPreview) scene.remove(buildingPreview)
-  buildingPreview = null
-  if (!type) return
-  const config = BUILDING_CONFIG.types[type]
-  const preview = new THREE.Group()
-  const material = new THREE.MeshStandardMaterial({ color: '#26374a', emissive: config.color, emissiveIntensity: 0.45, metalness: 0.65, roughness: 0.2 })
-  const accent = new THREE.MeshStandardMaterial({ color: type === 'autocannon' ? '#ffd36f' : type === 'gapGenerator' ? '#63f5cd' : '#a6a2ff', emissive: config.color, emissiveIntensity: 1.4, metalness: 0.5, roughness: 0.18 })
-  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.72, 0.9, 0.32, 8), material)
-  preview.add(base)
-  if (type === 'chronoGenerator') { const core = new THREE.Mesh(new THREE.IcosahedronGeometry(0.46, 1), accent); core.position.y = 0.62; preview.add(core) }
-  if (type === 'gapGenerator') { const core = new THREE.Mesh(new THREE.TorusGeometry(0.43, 0.11, 8, 20), accent); core.rotation.x = Math.PI / 2; core.position.y = 0.55; preview.add(core) }
-  if (type === 'autocannon') { const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.18, 1.1, 8), accent); barrel.rotation.x = Math.PI / 2; barrel.position.set(0, 0.48, 0.38); preview.add(barrel) }
-  preview.scale.setScalar(0.58)
-  preview.renderOrder = 5
-  scene.add(preview)
-  buildingPreview = preview
+function setBuildingPreview() { if (buildingPreview) scene.remove(buildingPreview); buildingPreview = null }
+function getBuildSites() {
+  const sites = []
+  for (let x = -10; x <= 10; x += 2) for (let z = -10; z <= 10; z += 2) if (Math.hypot(x, z) <= BUILDING_CONFIG.placementRadius && Math.hypot(x, z) >= BUILDING_CONFIG.spawnClearance) sites.push({ x, z })
+  return sites
+}
+function renderBuildGrid() {
+  if (!buildMode) { buildGridUi.replaceChildren(); buildGridUi.classList.add('hidden'); return }
+  const cost = selectedBuildingType ? buildingCost(selectedBuildingType) : 0
+  buildGridUi.innerHTML = getBuildSites().map(({ x, z }) => {
+    const existing = buildingState.placed.find((entry) => entry.x === x && entry.z === z)
+    return `<button class="build-site ${existing ? 'occupied' : ''}" data-build-x="${x}" data-build-z="${z}" type="button">${existing ? 'UPGRADE' : `$${cost}`}</button>`
+  }).join('')
+  buildGridUi.classList.remove('hidden')
+}
+function updateBuildGridPositions() {
+  if (!buildMode) return
+  for (const button of buildGridUi.querySelectorAll('.build-site')) {
+    const point = new THREE.Vector3(Number(button.dataset.buildX), 0.08, Number(button.dataset.buildZ)).project(camera)
+    button.style.left = `${(point.x * 0.5 + 0.5) * window.innerWidth}px`
+    const verticalOffset = button.classList.contains('occupied') ? 38 : 0
+    button.style.top = `${(-point.y * 0.5 + 0.5) * window.innerHeight + verticalOffset}px`
+  }
+}
+function placeBuildingAt(x, z) {
+  const existing = buildingState.placed.find((entry) => entry.x === x && entry.z === z)
+  if (existing) { openBuildingUpgrade(existing); return }
+  const cost = buildingCost(selectedBuildingType)
+  if (buildingState.placed.length >= getBuildingSlotLimit() || cash < cost) return
+  updateCash(-cost)
+  const building = { id: crypto.randomUUID(), type: selectedBuildingType, x, z, upgrades: {}, spent: cost }
+  buildingState.placed.push(building); saveBuildings(); createBuildingMesh(building); renderBuildings()
 }
 function renderBuildings() {
-  buildingCash.textContent = `$${cash.toLocaleString()}`; buildingChronoshards.textContent = `✦ ${chronoshards}`; buildingSlots.textContent = `${buildingState.placed.length}/${getBuildingSlotLimit()}`
+  buildingCash.textContent = `$${formatCompactNumber(cash)}`; buildingChronoshards.textContent = `✦ ${formatCompactNumber(chronoshards)}`; buildingSlots.textContent = `${buildingState.placed.length}/${getBuildingSlotLimit()}`
   buildingList.innerHTML = Object.entries(BUILDING_CONFIG.types).map(([type, config]) => { const unlocked = buildingState.unlocked.includes(type); return `<article class="building-card"><strong>${config.name}</strong><small>${unlocked ? `Build cost: $${buildingCost(type)}` : `Unlock: ✦ ${config.unlockCost}`}</small><button data-unlock-building="${type}" ${unlocked ? 'disabled' : ''}>${unlocked ? 'UNLOCKED' : 'UNLOCK'}</button></article>` }).join('')
   buildOptions.innerHTML = buildingState.unlocked.map((type) => `<button data-select-building="${type}" class="${selectedBuildingType === type ? 'selected' : ''}">${BUILDING_CONFIG.types[type].name}<small>$${buildingCost(type)}</small></button>`).join('')
+  buildStatus.textContent = `BUILD MODE · SLOTS ${buildingState.placed.length}/${getBuildingSlotLimit()}`
+  renderBuildGrid()
 }
-function enterBuildMode() { if (!buildingState.unlocked.length) return; buildMode = true; selectedBuildingType = buildingState.unlocked[0]; setBuildingPreview(selectedBuildingType); overlay.classList.add('hidden'); buildBar.classList.remove('hidden'); renderBuildings() }
-function exitBuildMode() { buildMode = false; selectedBuildingType = null; setBuildingPreview(null); buildBar.classList.add('hidden'); overlay.classList.remove('hidden'); buildingUpgrade.classList.add('hidden') }
-function openBuildingUpgrade(building) { const config = BUILDING_CONFIG.types[building.type]; buildingUpgrade.innerHTML = `<h3>${config.name}</h3><div>${Object.entries(config.upgrades).map(([key]) => { const level = building.upgrades[key] ?? 0; const cost = getBuildingUpgradeCost(building, key); return `<button data-upgrade-building="${building.id}" data-upgrade-key="${key}">${key.toUpperCase()} Lv.${level} · $${cost}</button>` }).join('')}</div><button data-destroy-building="${building.id}" class="secondary-button">DEMOLISH · REFUND $${getBuildingRefund(building)}</button><button data-close-building-upgrade="1">CLOSE</button>`; buildingUpgrade.classList.remove('hidden') }
+function enterBuildMode() { if (!buildingState.unlocked.length) return; buildMode = true; selectedBuildingType = buildingState.unlocked[0]; setBuildingPreview(); overlay.classList.add('hidden'); buildBar.classList.remove('hidden'); renderBuildings() }
+function exitBuildMode() { buildMode = false; selectedBuildingType = null; setBuildingPreview(); buildGridUi.classList.add('hidden'); buildBar.classList.add('hidden'); overlay.classList.remove('hidden'); buildingUpgrade.classList.add('hidden') }
+function openBuildingUpgrade(building) { const config = BUILDING_CONFIG.types[building.type]; buildingUpgrade.innerHTML = `<button class="upgrade-close" data-close-building-upgrade="1" type="button" aria-label="Close upgrade panel">×</button><p class="eyebrow">INSTALLED DEFENSE</p><h3>${config.name}</h3><p class="building-upgrade-summary">Choose an upgrade for this structure.</p><div class="upgrade-grid">${Object.entries(config.upgrades).map(([key]) => { const level = building.upgrades[key] ?? 0; const cost = getBuildingUpgradeCost(building, key); return `<button data-upgrade-building="${building.id}" data-upgrade-key="${key}" type="button"><span>${key.toUpperCase()}</span><strong>LV. ${level} → ${level + 1}</strong><small>$${formatCompactNumber(cost)}</small></button>` }).join('')}</div><button data-destroy-building="${building.id}" class="demolish-button" type="button">DEMOLISH · REFUND $${formatCompactNumber(getBuildingRefund(building))}</button>`; buildingUpgrade.classList.remove('hidden') }
 function buildingValue(building, key) { const config = BUILDING_CONFIG.types[building.type]; const directUpgrade = (config.upgrades[key]?.step ?? 0) * (building.upgrades[key] ?? 0); const effectivenessUpgrade = key === 'slow' ? (config.upgrades.effectiveness?.step ?? 0) * (building.upgrades.effectiveness ?? 0) : 0; return config.effect[key] + directUpgrade + effectivenessUpgrade }
 function updateBuildings(delta, total) {
   for (let index = autocannonProjectiles.length - 1; index >= 0; index -= 1) {
@@ -2449,8 +2477,14 @@ function animate() {
   const total = timer.getElapsed()
   if (started && !paused) updateGame(delta, total)
   updatePlayerDeathEffects(delta)
-  camera.position.set(player.position.x, CAMERA.height, player.position.z + getCameraDistance())
-  camera.lookAt(player.position.x, 0, player.position.z)
+  if (buildMode) {
+    camera.position.set(0, 28, 0.01)
+    camera.lookAt(0, 0, 0)
+    updateBuildGridPositions()
+  } else {
+    camera.position.set(player.position.x, CAMERA.height, player.position.z + getCameraDistance())
+    camera.lookAt(player.position.x, 0, player.position.z)
+  }
   starfield.position.copy(camera.position)
   if (buildingPreview) {
     const viewDirection = new THREE.Vector3()
@@ -2489,7 +2523,7 @@ closeLabButton.addEventListener('click', () => {
   menuContent.classList.remove('hidden')
 })
 overlay.addEventListener('click', (event) => {
-  if (labPanel.classList.contains('hidden') || labPanel.contains(event.target)) return
+  if (labPanel.classList.contains('hidden') || event.composedPath().includes(labPanel)) return
   labPanel.classList.add('hidden')
   menuContent.classList.remove('hidden')
 })
@@ -2498,8 +2532,9 @@ closeBuildingButton.addEventListener('click', () => { buildingPanel.classList.ad
 enterBuildModeButton.addEventListener('click', enterBuildMode)
 exitBuildModeButton.addEventListener('click', exitBuildMode)
 buildingPanel.addEventListener('click', (event) => { const button = event.target.closest('[data-unlock-building]'); if (!button) return; const type = button.dataset.unlockBuilding; const config = BUILDING_CONFIG.types[type]; if (chronoshards < config.unlockCost) return; chronoshards -= config.unlockCost; writeStoredNumber(CHRONOSHARDS_STORAGE_KEY, chronoshards); buildingState.unlocked.push(type); saveBuildings(); updateChronoshards(); renderBuildings() })
-buildBar.addEventListener('click', (event) => { const button = event.target.closest('[data-select-building]'); if (!button) return; selectedBuildingType = button.dataset.selectBuilding; setBuildingPreview(selectedBuildingType); renderBuildings() })
-buildingUpgrade.addEventListener('click', (event) => { const upgrade = event.target.closest('[data-upgrade-building]'); const destroy = event.target.closest('[data-destroy-building]'); if (event.target.closest('[data-close-building-upgrade]')) { buildingUpgrade.classList.add('hidden'); return } if (destroy) { const building = buildingState.placed.find((entry) => entry.id === destroy.dataset.destroyBuilding); if (!building) return; updateCash(getBuildingRefund(building)); buildingState.placed = buildingState.placed.filter((entry) => entry.id !== building.id); saveBuildings(); syncBuildings(); renderBuildings(); buildingUpgrade.classList.add('hidden'); return } if (upgrade) { const building = buildingState.placed.find((entry) => entry.id === upgrade.dataset.upgradeBuilding); if (!building) return; const cost = getBuildingUpgradeCost(building, upgrade.dataset.upgradeKey); if (cash < cost) return; updateCash(-cost); building.upgrades[upgrade.dataset.upgradeKey] = (building.upgrades[upgrade.dataset.upgradeKey] ?? 0) + 1; building.spent = (building.spent ?? BUILDING_CONFIG.types[building.type].baseCost) + cost; saveBuildings(); syncBuildings(); openBuildingUpgrade(building) } })
+buildBar.addEventListener('click', (event) => { const button = event.target.closest('[data-select-building]'); if (!button) return; selectedBuildingType = button.dataset.selectBuilding; renderBuildings() })
+buildGridUi.addEventListener('click', (event) => { const button = event.target.closest('[data-build-x]'); if (button) placeBuildingAt(Number(button.dataset.buildX), Number(button.dataset.buildZ)) })
+buildingUpgrade.addEventListener('click', (event) => { const upgrade = event.target.closest('[data-upgrade-building]'); const destroy = event.target.closest('[data-destroy-building]'); if (event.target.closest('[data-close-building-upgrade]')) { buildingUpgrade.classList.add('hidden'); return } if (destroy) { const building = buildingState.placed.find((entry) => entry.id === destroy.dataset.destroyBuilding); if (!building || !window.confirm(`Demolish ${BUILDING_CONFIG.types[building.type].name}? You will receive a $${formatCompactNumber(getBuildingRefund(building))} refund.`)) return; updateCash(getBuildingRefund(building)); buildingState.placed = buildingState.placed.filter((entry) => entry.id !== building.id); saveBuildings(); syncBuildings(); renderBuildings(); buildingUpgrade.classList.add('hidden'); return } if (upgrade) { const building = buildingState.placed.find((entry) => entry.id === upgrade.dataset.upgradeBuilding); if (!building) return; const cost = getBuildingUpgradeCost(building, upgrade.dataset.upgradeKey); if (cash < cost) return; updateCash(-cost); building.upgrades[upgrade.dataset.upgradeKey] = (building.upgrades[upgrade.dataset.upgradeKey] ?? 0) + 1; building.spent = (building.spent ?? BUILDING_CONFIG.types[building.type].baseCost) + cost; saveBuildings(); syncBuildings(); openBuildingUpgrade(building) } })
 
 labPanel.addEventListener('click', (event) => {
   const categoryToggle = event.target.closest('[data-toggle-research-category]')
@@ -2602,6 +2637,7 @@ function releaseJoystick(event) {
 }
 
 canvas.addEventListener('pointerdown', (event) => {
+  if (buildMode) return
   if (buildMode && selectedBuildingType) {
     const rect = canvas.getBoundingClientRect(); const pointer = new THREE.Vector2(((event.clientX - rect.left) / rect.width) * 2 - 1, -((event.clientY - rect.top) / rect.height) * 2 + 1); const raycaster = new THREE.Raycaster(); raycaster.setFromCamera(pointer, camera); const selected = raycaster.intersectObjects([...buildingMeshes.values()], true)[0]; if (selected) { let object = selected.object; while (object && !object.userData.buildingId) object = object.parent; const building = buildingState.placed.find((b) => b.id === object?.userData.buildingId); if (building) openBuildingUpgrade(building); return } const hit = raycaster.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), new THREE.Vector3()); if (!hit) return
     hit.x = Math.round(hit.x); hit.z = Math.round(hit.z); const config = BUILDING_CONFIG.types[selectedBuildingType]; const valid = buildingState.placed.length < getBuildingSlotLimit() && hit.length() <= BUILDING_CONFIG.placementRadius && hit.length() >= BUILDING_CONFIG.spawnClearance && !buildingState.placed.some((b) => Math.hypot(b.x - hit.x, b.z - hit.z) < BUILDING_CONFIG.minimumSpacing); const cost = buildingCost(selectedBuildingType); if (!valid || cash < cost) return

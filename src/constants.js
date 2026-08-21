@@ -323,9 +323,12 @@ export const SCENE = {
   fogFar: 37,
   floorMetalness: 0.5,
   floorRoughness: 0.55,
-  starCount: 240,
+  floorOpacity: 0.76,
+  starCount: 720,
+  brightStarCount: 70,
   starfieldRadius: 70,
-  starSize: 0.11,
+  starSize: 1.55,
+  brightStarSize: 3.1,
 }
 export const LIGHTING = { hemisphereSky: '#b8e8ff', hemisphereGround: '#0a1016', hemisphereIntensity: 2.2, key: '#fff4cf', keyIntensity: 3 }
 
