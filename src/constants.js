@@ -28,14 +28,20 @@ export const GAME = {
   bangerPulseStartInterval: 0.9,
   bangerPulseEndInterval: 0.1,
   bangerPulseVfxDuration: 0.55,
-  fallingBlockStartHeight: 15,
+  fallingBlockStartHeight: 16,
   obstacleGroundHeight: 0.86,
   fallingBlockGroundHeight: 0.86,
   fallingBlockDuration: 1.8,
   fallingBlockLifetime: 1.9,
   fallingBlockMinInterval: 1.8,
-  fallingBlockBaseInterval: 6,
-  fallingBlockIntervalPerCell: 0.35,
+  fallingBlockBaseInterval: 60,
+  fallingBlockIntervalPerCell: 0.1,
+  fallingRockImpactOffset: 0.8,
+  fieryRockFireDuration: 5,
+  fieryRockFireRadius: 1.7,
+  splinterPieceCount: 4,
+  splinterPieceDistance: 8,
+  splinterPieceDuration: 1,
 }
 
 export const DIFFICULTY = {
@@ -55,6 +61,10 @@ export const DIFFICULTY = {
     // If an obstacle's weight isn't specified, it defaults to 0.
     regularSpawnWeight: 0.8, // Weight for spawning regular obstacles. A higher value increases the likelihood of spawning this type.
     creeperSpawnWeight: 0.2, // Weight for spawning creeper obstacles. A higher value increases the likelihood of spawning this type.
+    availableFallingRockTypes: ['stoneRock'],
+    fallingRockSpawnIntervalOffset: 2,
+    fallingRockSpawnDecreasePerCellOffset: -0.05,
+    stoneRockSpawnWeight: 1,
   },
   tier2: {
     extraArenaPadding: 0,
@@ -70,6 +80,11 @@ export const DIFFICULTY = {
     regularSpawnWeight: 0.8,
     chaserSpawnWeight: 0.1,
     creeperSpawnWeight: 0.1,
+    availableFallingRockTypes: ['stoneRock', 'splinter'],
+    fallingRockSpawnIntervalOffset: 1,
+    fallingRockSpawnDecreasePerCellOffset: -0.02,
+    stoneRockSpawnWeight: 0.8,
+    splinterSpawnWeight: 0.2,
   },
   tier3: {
     extraArenaPadding: 0,
@@ -86,6 +101,12 @@ export const DIFFICULTY = {
     chaserSpawnWeight: 0.1,
     creeperSpawnWeight: 0.1,
     bangerSpawnWeight: 0.1,
+    availableFallingRockTypes: ['stoneRock', 'fieryRock', 'splinter'],
+    fallingRockSpawnIntervalOffset: 0,
+    fallingRockSpawnDecreasePerCellOffset: 0,
+    stoneRockSpawnWeight: 0.6,
+    fieryRockSpawnWeight: 0.2,
+    splinterSpawnWeight: 0.2,
   },
   tier4: {
     extraArenaPadding: 0,
@@ -102,6 +123,12 @@ export const DIFFICULTY = {
     chaserSpawnWeight: 0.15,
     creeperSpawnWeight: 0.15,
     bangerSpawnWeight: 0.1,
+    availableFallingRockTypes: ['stoneRock', 'fieryRock', 'splinter'],
+    fallingRockSpawnIntervalOffset: -1,
+    fallingRockSpawnDecreasePerCellOffset: 0.05,
+    stoneRockSpawnWeight: 0.4,
+    fieryRockSpawnWeight: 0.35,
+    splinterSpawnWeight: 0.25,
   },
 }
 export const COLORS = {
@@ -129,6 +156,11 @@ export const COLORS = {
   bangerEmissive: '#8f3100',
   fallingObstacle: '#66869a',
   fallingObstacleEmissive: '#152b3b',
+  fieryRock: '#ff6948',
+  fieryRockEmissive: '#b11d08',
+  splinter: '#d2c27e',
+  splinterEmissive: '#675b25',
+  fire: '#ff8a38',
   targetShadow: '#020407',
   targetRing: '#ff795f',
 }
@@ -248,4 +280,10 @@ export const OBSTACLE_TYPES = {
   chaser: { color: COLORS.chaser, emissive: COLORS.chaserEmissive, speed: GAME.playerSpeed / 2, range: ENTITIES.chaserRange },
   creeper: { color: COLORS.creeper, emissive: COLORS.creeperEmissive, speed: GAME.playerSpeed / 4, range: Infinity },
   banger: { color: COLORS.banger, emissive: COLORS.bangerEmissive, speed: 0, range: ENTITIES.chaserRange * ENTITIES.bangerRangeMultiplier },
+}
+
+export const FALLING_ROCK_TYPES = {
+  stoneRock: { name: 'Stone Rock', color: COLORS.fallingObstacle, emissive: COLORS.fallingObstacleEmissive, emissiveIntensity: ENTITIES.fallingObstacleEmissiveIntensity },
+  fieryRock: { name: 'Fiery Rock', color: COLORS.fieryRock, emissive: COLORS.fieryRockEmissive, emissiveIntensity: 2.1 },
+  splinter: { name: 'Splinter', color: COLORS.splinter, emissive: COLORS.splinterEmissive, emissiveIntensity: 1.2 },
 }

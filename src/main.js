@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { ANIMATION, CAMERA, COLORS, DIFFICULTY, ENTITIES, GAME, LIGHTING, OBSTACLE_TYPES, SCENE, SOUND } from './constants.js'
+import { ANIMATION, CAMERA, COLORS, DIFFICULTY, ENTITIES, FALLING_ROCK_TYPES, GAME, LIGHTING, OBSTACLE_TYPES, SCENE, SOUND } from './constants.js'
 import { RESEARCH_CONFIG } from './research_config.js'
 import { CHEAT_CONFIG } from './cheat_config.js'
 import './style.css'
@@ -753,6 +753,8 @@ const cells = []
 const chronoCells = []
 const obstacles = []
 const fallingObstacles = []
+const fireHazards = []
+const splinterPieces = []
 const explosions = []
 const bangerPulses = []
 const obstacleSpawnWarnings = []
@@ -893,13 +895,29 @@ function createObstacle(position, type, savedObstacle) {
 }
 
 function scheduleFallingObstacles() {
-  createFallingObstacle(player.position.clone())
+  const difficulty = getCurrentDifficulty()
+  const weightedTypes = difficulty.availableFallingRockTypes.map((type) => ({ type, weight: difficulty[`${type}SpawnWeight`] ?? 0 }))
+  const totalWeight = weightedTypes.reduce((total, entry) => total + entry.weight, 0)
+  let randomWeight = Math.random() * totalWeight
+  let type = weightedTypes[weightedTypes.length - 1].type
+  for (const entry of weightedTypes) {
+    randomWeight -= entry.weight
+    if (randomWeight <= 0) {
+      type = entry.type
+      break
+    }
+  }
+  const target = player.position.clone()
+  target.x = THREE.MathUtils.clamp(target.x + THREE.MathUtils.randFloatSpread(GAME.fallingRockImpactOffset * 2), -getArenaLimit(), getArenaLimit())
+  target.z = THREE.MathUtils.clamp(target.z + THREE.MathUtils.randFloatSpread(GAME.fallingRockImpactOffset * 2), -getArenaLimit(), getArenaLimit())
+  createFallingObstacle(target, undefined, type)
 }
 
-function createFallingObstacle(target, savedObstacle) {
+function createFallingObstacle(target, savedObstacle, type = savedObstacle?.type ?? 'stoneRock') {
+  const rockType = FALLING_ROCK_TYPES[type]
   const obstacle = new THREE.Mesh(
     obstacleGeometry,
-    new THREE.MeshStandardMaterial({ color: COLORS.fallingObstacle, emissive: COLORS.fallingObstacleEmissive, emissiveIntensity: ENTITIES.fallingObstacleEmissiveIntensity, metalness: ENTITIES.fallingObstacleMetalness, roughness: ENTITIES.fallingObstacleRoughness }),
+    new THREE.MeshStandardMaterial({ color: rockType.color, emissive: rockType.emissive, emissiveIntensity: rockType.emissiveIntensity, metalness: ENTITIES.fallingObstacleMetalness, roughness: ENTITIES.fallingObstacleRoughness }),
   )
   obstacle.position.set(target.x, GAME.fallingBlockStartHeight, target.z)
   obstacle.castShadow = true
@@ -919,8 +937,39 @@ function createFallingObstacle(target, savedObstacle) {
   targetRing.position.set(target.x, 0.03, target.z)
 
   scene.add(obstacle, shadow, targetRing)
-  fallingObstacles.push({ obstacle, shadow, targetRing, target: target.clone(), age: savedObstacle?.age ?? 0, landed: savedObstacle?.landed ?? false })
+  fallingObstacles.push({ obstacle, shadow, targetRing, target: target.clone(), type, age: savedObstacle?.age ?? 0, landed: savedObstacle?.landed ?? false, impactTriggered: savedObstacle?.impactTriggered ?? false })
   if (!savedObstacle) soundSystem.playFallingObstacle(target)
+}
+
+function createFireHazard(position, savedFire) {
+  const fire = new THREE.Mesh(
+    new THREE.CircleGeometry(GAME.fieryRockFireRadius, 48),
+    new THREE.MeshBasicMaterial({ color: COLORS.fire, transparent: true, opacity: 0.5, depthWrite: false }),
+  )
+  fire.rotation.x = -Math.PI / 2
+  fire.position.set(position.x, 0.055, position.z)
+  const light = new THREE.PointLight(COLORS.fire, 4, GAME.fieryRockFireRadius * 3)
+  light.position.set(position.x, 1.2, position.z)
+  scene.add(fire, light)
+  fireHazards.push({ fire, light, position: position.clone(), age: savedFire?.age ?? 0 })
+}
+
+function createSplinterPiece(position, direction, age = 0) {
+  const piece = new THREE.Mesh(
+    new THREE.TetrahedronGeometry(0.32),
+    new THREE.MeshStandardMaterial({ color: COLORS.splinter, emissive: COLORS.splinterEmissive, emissiveIntensity: 1.3, metalness: 0.4, roughness: 0.3 }),
+  )
+  piece.position.copy(position)
+  scene.add(piece)
+  splinterPieces.push({ piece, direction, age })
+}
+
+function createSplinterPieces(position) {
+  const startAngle = Math.random() * Math.PI * 2
+  for (let index = 0; index < GAME.splinterPieceCount; index += 1) {
+    const angle = startAngle + index * (Math.PI * 2 / GAME.splinterPieceCount) + THREE.MathUtils.randFloatSpread(0.35)
+    createSplinterPiece(new THREE.Vector3(position.x, 0.72, position.z), new THREE.Vector3(Math.cos(angle), 0, Math.sin(angle)))
+  }
 }
 
 function clearObjects(objects) {
@@ -986,6 +1035,10 @@ function resetGame(populateArena = true) {
   obstacles.length = 0
   for (const fallingObstacle of fallingObstacles) scene.remove(fallingObstacle.obstacle, fallingObstacle.shadow, fallingObstacle.targetRing)
   fallingObstacles.length = 0
+  for (const fireHazard of fireHazards) scene.remove(fireHazard.fire, fireHazard.light)
+  fireHazards.length = 0
+  for (const splinterPiece of splinterPieces) scene.remove(splinterPiece.piece)
+  splinterPieces.length = 0
   for (const explosion of explosions) scene.remove(explosion.shockwave, explosion.blast, explosion.light)
   explosions.length = 0
   for (const bangerPulse of bangerPulses) scene.remove(bangerPulse.pulse)
@@ -1026,7 +1079,7 @@ function saveCurrentRound() {
     cells: cells.map((cell) => ({ position: serializePosition(cell.position), phase: cell.userData.phase, cashValue: cell.userData.cashValue })),
     chronoCells: chronoCells.map((cell) => ({ position: serializePosition(cell.position), phase: cell.userData.phase, age: cell.userData.age })),
     obstacles: obstacles.map((obstacle) => ({ position: serializePosition(obstacle.position), type: obstacle.userData.type, age: obstacle.userData.age, speed: obstacle.userData.speed, pulseTimer: obstacle.userData.pulseTimer })),
-    fallingObstacles: fallingObstacles.map((fallingObstacle) => ({ target: serializePosition(fallingObstacle.target), age: fallingObstacle.age, landed: fallingObstacle.landed })),
+    fallingObstacles: fallingObstacles.map((fallingObstacle) => ({ target: serializePosition(fallingObstacle.target), type: fallingObstacle.type, age: fallingObstacle.age, landed: fallingObstacle.landed, impactTriggered: fallingObstacle.impactTriggered })),
     warnings: obstacleSpawnWarnings.map((warning) => ({ position: serializePosition(warning.position), type: warning.type, age: warning.age })),
   }
   persistSavedRound(savedRound)
@@ -1270,6 +1323,11 @@ function updateGame(delta, total) {
 
     if (progress === 1) {
       fallingObstacle.landed = true
+      if (!fallingObstacle.impactTriggered) {
+        fallingObstacle.impactTriggered = true
+        if (fallingObstacle.type === 'fieryRock') createFireHazard(fallingObstacle.target)
+        if (fallingObstacle.type === 'splinter') createSplinterPieces(fallingObstacle.target)
+      }
       fallingObstacle.obstacle.position.y = GAME.fallingBlockGroundHeight
       fallingObstacle.shadow.material.opacity = Math.max(0, 0.88 - (fallingObstacle.age - GAME.fallingBlockDuration) * 1.8)
       fallingObstacle.targetRing.material.opacity = Math.max(0, 0.55 - (fallingObstacle.age - GAME.fallingBlockDuration) * 1.5)
@@ -1277,6 +1335,35 @@ function updateGame(delta, total) {
         scene.remove(fallingObstacle.obstacle, fallingObstacle.shadow, fallingObstacle.targetRing)
         fallingObstacles.splice(index, 1)
       }
+    }
+  }
+
+  for (let index = fireHazards.length - 1; index >= 0; index -= 1) {
+    const fireHazard = fireHazards[index]
+    fireHazard.age += delta
+    const progress = fireHazard.age / GAME.fieryRockFireDuration
+    const pulse = 1 + Math.sin(fireHazard.age * 9) * 0.1
+    fireHazard.fire.scale.setScalar(pulse * (0.9 + progress * 0.25))
+    fireHazard.fire.material.opacity = Math.max(0, 0.55 * (1 - progress))
+    fireHazard.light.intensity = Math.max(0, 4 * (1 - progress))
+    if (planarDistance(player.position, fireHazard.position) < GAME.fieryRockFireRadius) endGame()
+    if (progress >= 1) {
+      scene.remove(fireHazard.fire, fireHazard.light)
+      fireHazards.splice(index, 1)
+    }
+  }
+
+  for (let index = splinterPieces.length - 1; index >= 0; index -= 1) {
+    const splinterPiece = splinterPieces[index]
+    splinterPiece.age += delta
+    const speed = GAME.splinterPieceDistance / GAME.splinterPieceDuration
+    splinterPiece.piece.position.addScaledVector(splinterPiece.direction, speed * delta)
+    splinterPiece.piece.rotation.x += delta * 8
+    splinterPiece.piece.rotation.z += delta * 6
+    if (splinterPiece.piece.position.distanceTo(player.position) < GAME.playerRadius * 0.7) endGame()
+    if (splinterPiece.age >= GAME.splinterPieceDuration) {
+      scene.remove(splinterPiece.piece)
+      splinterPieces.splice(index, 1)
     }
   }
 
@@ -1318,7 +1405,12 @@ function updateGame(delta, total) {
     scheduleObstacle()
     obstacleSpawnTimer = 0
   }
-  if (hazardTimer > Math.max(GAME.fallingBlockMinInterval, GAME.fallingBlockBaseInterval - score * GAME.fallingBlockIntervalPerCell)) {
+  const fallingRockSpawnInterval = Math.max(
+    GAME.fallingBlockMinInterval,
+    GAME.fallingBlockBaseInterval + difficulty.fallingRockSpawnIntervalOffset
+      - score * (GAME.fallingBlockIntervalPerCell + difficulty.fallingRockSpawnDecreasePerCellOffset),
+  )
+  if (hazardTimer > fallingRockSpawnInterval) {
     scheduleFallingObstacles()
     hazardTimer = 0
   }
