@@ -51,7 +51,7 @@ export const GAME = {
   shockwaveBaseInterval: 8,
   shockwavePushDistance: 4.5,
   shockwaveVfxDuration: 0.65,
-  shieldInvulnerabilityDuration: 0.85,
+  shieldInvulnerabilityDuration: 1,
   playerDeathVfxDuration: 0.9,
 }
 

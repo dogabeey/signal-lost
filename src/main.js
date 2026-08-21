@@ -66,7 +66,7 @@ document.querySelector('#app').innerHTML = `
         <p class="lab-balance">CASH <span id="lab-cash">$0</span> · CHRONOSHARDS <span id="lab-chronoshards">✦ 0</span></p>
         <p class="lab-message" id="lab-message" aria-live="polite"></p>
         <h3 id="research-slots-heading">ACTIVE SLOTS</h3><div class="research-slots" id="research-slots"></div>
-        <h3>AVAILABLE RESEARCH</h3><div class="research-list" id="research-list"></div>
+        <h3>AVAILABLE RESEARCH</h3><label class="research-search"><span>SEARCH</span><input id="research-search" type="search" placeholder="Search research names" autocomplete="off"></label><div class="research-list" id="research-list"></div>
       </section>
     </section>
   </main>
@@ -89,6 +89,7 @@ const labMessageElement = document.querySelector('#lab-message')
 const researchSlotsElement = document.querySelector('#research-slots')
 const researchSlotsHeading = document.querySelector('#research-slots-heading')
 const researchListElement = document.querySelector('#research-list')
+const researchSearchInput = document.querySelector('#research-search')
 const cheatConsole = document.querySelector('#cheat-console')
 const cheatInput = document.querySelector('#cheat-input')
 const cheatOutput = document.querySelector('#cheat-output')
@@ -188,6 +189,8 @@ let selectedTierIndex = Math.min(readStoredNumber(TIER_STORAGE_KEY), getUnlocked
 let cash = readStoredNumber(CASH_STORAGE_KEY)
 let chronoshards = readStoredNumber(CHRONOSHARDS_STORAGE_KEY)
 let savedRound = readSavedRound()
+let researchSearchQuery = ''
+const collapsedResearchCategories = new Set()
 
 function createDefaultResearchState() {
   return { unlockedSlots: 1, levels: {}, slots: Array(RESEARCH_CONFIG.maxSlots).fill(null) }
@@ -331,7 +334,13 @@ function renderResearchLab() {
     const category = research.category ?? 'General'
     researchesByCategory.set(category, [...(researchesByCategory.get(category) ?? []), research])
   }
-  researchListElement.innerHTML = [...researchesByCategory.entries()].map(([category, researches]) => `<section class="research-category"><h4>${category}</h4><div class="research-grid">${researches.map((research) => {
+  const normalizedSearch = researchSearchQuery.trim().toLocaleLowerCase()
+  const visibleCategories = [...researchesByCategory.entries()]
+    .map(([category, researches]) => [category, researches.filter((research) => research.name.toLocaleLowerCase().includes(normalizedSearch))])
+    .filter(([, researches]) => researches.length)
+  researchListElement.innerHTML = visibleCategories.length ? visibleCategories.map(([category, researches]) => {
+    const open = normalizedSearch || !collapsedResearchCategories.has(category)
+    return `<section class="research-category ${open ? 'open' : ''}"><button class="research-category-toggle" data-toggle-research-category="${category}" type="button" aria-expanded="${open}"><span>${category}</span><i aria-hidden="true">›</i></button><div class="research-grid">${researches.map((research) => {
     const level = getResearchLevel(research.id)
     const lockReason = getResearchLockReason(research)
     const active = RESEARCH_CONFIG.durationsEnabled && researchState.slots.some((slot) => slot?.researchId === research.id)
@@ -343,7 +352,8 @@ function renderResearchLab() {
     const disabled = lockReason || active || full || !canAfford || noAvailableSlot
     const status = full ? 'MAX LEVEL' : active ? 'IN PROGRESS' : lockReason || (freeResearch ? 'FREE RESEARCH ENABLED' : `Cost ${formatCurrency(research.cost.currency, cost)}${RESEARCH_CONFIG.durationsEnabled ? ` · ${formatDuration(duration)}` : ''}`)
     return `<article class="research-card"><div><span class="research-level">LV. ${level}/${research.maxLevel}</span><h4>${research.name}</h4><p>${research.description}</p><p class="research-effect">${formatResearchEffect(research, level)} → ${formatResearchEffect(research, Math.min(level + 1, research.maxLevel))}</p><small>${status}</small></div><button data-start-research="${research.id}" type="button" ${disabled ? 'disabled' : ''}>${full ? 'MAXED' : 'RESEARCH'}</button></article>`
-  }).join('')}</div></section>`).join('')
+    }).join('')}</div></section>`
+  }).join('') : '<p class="research-empty">No research names match your search.</p>'
 }
 
 function startResearch(researchId) {
@@ -1433,12 +1443,28 @@ function returnToMainMenu() {
   overlay.classList.remove('hidden')
 }
 
+function triggerShieldBreakExplosion() {
+  const radiusBonus = getResearchStatBonus('shieldBreakExplosionRadius')
+  if (radiusBonus <= 0) return
+  const radius = 3 + radiusBonus
+  const position = player.position.clone()
+  createExplosion(position, radius)
+  for (let index = obstacles.length - 1; index >= 0; index -= 1) {
+    const obstacle = obstacles[index]
+    if (planarDistance(obstacle.position, position) > radius) continue
+    scene.remove(obstacle, obstacle.userData.rangeIndicator)
+    clearPorterTeleportTarget(obstacle)
+    obstacles.splice(index, 1)
+  }
+}
+
 function endGame() {
   if (!started || ended) return
   if (shieldInvulnerability > 0) return
   if (shieldCharges > 0) {
     shieldCharges -= 1
-    shieldInvulnerability = GAME.shieldInvulnerabilityDuration
+    shieldInvulnerability = GAME.shieldInvulnerabilityDuration + getResearchStatBonus('shieldInvulnerabilityDuration')
+    triggerShieldBreakExplosion()
     shieldBubble.visible = shieldCharges > 0
     shieldBubble.scale.setScalar(1.7)
     return
@@ -1538,7 +1564,6 @@ function updateGame(delta, total) {
       updateBankedCells(1)
       updateCash(cell.userData.cashValue)
       showCashIndicator(cell.position, cell.userData.cashValue)
-      addCell()
     }
   }
 
@@ -1901,10 +1926,23 @@ closeLabButton.addEventListener('click', () => {
 })
 
 labPanel.addEventListener('click', (event) => {
+  const categoryToggle = event.target.closest('[data-toggle-research-category]')
   const startResearchButton = event.target.closest('[data-start-research]')
   const unlockSlotButton = event.target.closest('[data-unlock-slot]')
+  if (categoryToggle) {
+    const category = categoryToggle.dataset.toggleResearchCategory
+    if (collapsedResearchCategories.has(category)) collapsedResearchCategories.delete(category)
+    else collapsedResearchCategories.add(category)
+    renderResearchLab()
+    return
+  }
   if (startResearchButton) startResearch(startResearchButton.dataset.startResearch)
   if (unlockSlotButton) unlockResearchSlot(Number.parseInt(unlockSlotButton.dataset.unlockSlot, 10))
+})
+
+researchSearchInput.addEventListener('input', () => {
+  researchSearchQuery = researchSearchInput.value
+  renderResearchLab()
 })
 
 resetRoundButton.addEventListener('click', () => {
