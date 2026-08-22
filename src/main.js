@@ -295,6 +295,16 @@ let chronoshards = readStoredNumber(CHRONOSHARDS_STORAGE_KEY)
 let savedRound = readSavedRound()
 let featureUnlocks = (() => { try { const saved = JSON.parse(localStorage.getItem(FEATURE_UNLOCKS_STORAGE_KEY)); return { researchLab: Boolean(saved?.researchLab), buildingSystem: Boolean(saved?.buildingSystem) } } catch { return { researchLab: false, buildingSystem: false } } })()
 let buildingState = (() => { try { const saved = JSON.parse(localStorage.getItem(BUILDINGS_STORAGE_KEY)); return saved?.unlocked ? saved : { unlocked: [], placed: [] } } catch { return { unlocked: [], placed: [] } } })()
+const retiredGapGenerators = buildingState.placed.filter((building) => building.type === 'gapGenerator')
+if (retiredGapGenerators.length) {
+  cash += retiredGapGenerators.reduce((total, building) => total + (building.spent ?? 260), 0)
+  buildingState.placed = buildingState.placed.filter((building) => building.type !== 'gapGenerator')
+  buildingState.unlocked = buildingState.unlocked.filter((type) => type !== 'gapGenerator')
+  try {
+    localStorage.setItem(CASH_STORAGE_KEY, String(cash))
+    localStorage.setItem(BUILDINGS_STORAGE_KEY, JSON.stringify(buildingState))
+  } catch {}
+}
 const buildingMeshes = new Map()
 const buildingRuntime = new Map()
 let buildMode = false
@@ -934,7 +944,7 @@ function createSoundSystem() {
       const [start, end] = notes[type]
       playTone(start, end, 0.22, 0.3, position, type === 'freezer' ? 'sine' : 'triangle')
     },
-    playBuildingEffect(position, type) { const notes = { chronoGenerator: [280, 360], gapGenerator: [150, 110], autocannon: [220, 90] }; const [start, end] = notes[type]; playTone(start, end, 0.12, 0.16, position, 'sine') },
+    playBuildingEffect(position, type) { const notes = { chronoGenerator: [280, 360], autocannon: [220, 90], droneBay: [520, 760], barrierNode: [260, 440], overclockRelay: [440, 600], salvageExtractor: [180, 300] }; const [start, end] = notes[type]; playTone(start, end, 0.12, 0.16, position, 'sine') },
     playObstacleSummon(position) {
       const fallback = SOUND.fallback.obstacleSummon
       playSound('obstacleSummon', SOUND.obstacleSummonVolume, position, () => playTone(fallback.startFrequency, fallback.endFrequency, fallback.duration, SOUND.obstacleSummonVolume, position, fallback.type))
@@ -1091,6 +1101,24 @@ let playerTargetHeading = 0
 const ship = createPlayerShip({ THREE, COLORS, ENTITIES, GAME })
 const { player, playerCore, slowAuraRing, shieldBubble } = ship
 scene.add(player)
+const orbitalElectron = new THREE.Mesh(
+  new THREE.SphereGeometry(0.19, 16, 12),
+  new THREE.MeshStandardMaterial({ color: '#d9ffff', emissive: '#42eaff', emissiveIntensity: 3.2, metalness: 0.2, roughness: 0.12 }),
+)
+const orbitalElectronGlow = new THREE.Mesh(
+  new THREE.SphereGeometry(0.33, 14, 10),
+  new THREE.MeshBasicMaterial({ color: '#4eeeff', transparent: true, opacity: 0.24, depthWrite: false }),
+)
+orbitalElectron.add(orbitalElectronGlow)
+const orbitalArcGeometry = new THREE.BufferGeometry()
+orbitalArcGeometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(9 * 3), 3).setUsage(THREE.DynamicDrawUsage))
+const orbitalArc = new THREE.Line(orbitalArcGeometry, new THREE.LineBasicMaterial({ color: '#a9ffff', transparent: true, opacity: 0.8, depthWrite: false }))
+orbitalArc.frustumCulled = false
+orbitalElectron.visible = false
+orbitalArc.visible = false
+scene.add(orbitalElectron, orbitalArc)
+let orbitalElectronAngle = 0
+const orbitalElectronWorldPosition = new THREE.Vector3()
 
 const keys = new Set()
 const joystickInput = new THREE.Vector2()
@@ -1111,6 +1139,7 @@ const spores = []
 const boosters = []
 const shockwaves = []
 const shockwavePushes = []
+const droneStrikes = []
 const playerDeathEffects = []
 const obstacleSpawnWarnings = []
 const timer = new THREE.Timer()
@@ -1183,15 +1212,21 @@ function createBuildingMesh(building) {
   const config = BUILDING_CONFIG.types[building.type]
   const group = new THREE.Group()
   const material = new THREE.MeshStandardMaterial({ color: '#33465a', emissive: config.color, emissiveIntensity: 0.24, metalness: 0.92, roughness: 0.14 })
-  const accentColor = building.type === 'autocannon' ? '#ffd36f' : building.type === 'gapGenerator' ? '#63f5cd' : '#a6a2ff'
+  const accentColor = { autocannon: '#ffd36f', droneBay: '#79caff', barrierNode: '#76eaff', overclockRelay: '#ffcf76', salvageExtractor: '#8dff9c' }[building.type] ?? '#a6a2ff'
   const accent = new THREE.MeshStandardMaterial({ color: accentColor, emissive: accentColor, emissiveIntensity: 1.25, metalness: 0.78, roughness: 0.12 })
   const base = new THREE.Mesh(new THREE.CylinderGeometry(0.53, 0.64, 0.26, 8), material)
   base.position.y = 0.13; group.add(base)
   if (building.type === 'chronoGenerator') { const core = new THREE.Mesh(new THREE.IcosahedronGeometry(0.32, 1), accent); core.position.y = 0.6; group.add(core) }
-  if (building.type === 'gapGenerator') { const core = new THREE.Mesh(new THREE.TorusGeometry(0.32, 0.085, 8, 20), accent); core.rotation.x = Math.PI / 2; core.position.y = 0.54; group.add(core) }
   if (building.type === 'autocannon') { const turret = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.3, 0.22, 8), accent); turret.position.y = 0.38; group.add(turret); const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.12, 0.78, 8), accent); barrel.rotation.x = Math.PI / 2; barrel.position.set(0, 0.5, 0.27); group.add(barrel) }
-  const effectRing = new THREE.Mesh(new THREE.RingGeometry(0.985, 1.005, 48), new THREE.MeshBasicMaterial({ color: config.color, transparent: true, opacity: 0.28, side: THREE.DoubleSide, depthWrite: false })); effectRing.rotation.x = -Math.PI / 2; effectRing.position.y = 0.03; effectRing.scale.setScalar(buildingValue(building, 'range')); group.add(effectRing)
-  group.position.set(building.x, 0, building.z); group.userData.buildingId = building.id; scene.add(group); buildingMeshes.set(building.id, group); buildingRuntime.set(building.id, { timer: 0, active: 0, effectRing })
+  if (building.type === 'droneBay') { const hangar = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.38, 0.72), accent); hangar.position.y = 0.48; group.add(hangar); const hatch = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.08, 0.18), material); hatch.position.set(0, 0.72, 0.26); group.add(hatch) }
+  if (building.type === 'barrierNode') { for (let index = 0; index < 3; index += 1) { const pylon = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.92, 6), accent); const angle = index * Math.PI * 2 / 3; pylon.position.set(Math.cos(angle) * 0.34, 0.58, Math.sin(angle) * 0.34); group.add(pylon) } }
+  if (building.type === 'overclockRelay') { const relay = new THREE.Mesh(new THREE.TorusGeometry(0.31, 0.06, 8, 20), accent); relay.position.y = 0.58; relay.rotation.x = Math.PI / 2; group.add(relay) }
+  if (building.type === 'salvageExtractor') { const chamber = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.42, 0.66, 8), accent); chamber.position.y = 0.55; group.add(chamber); const claw = new THREE.Mesh(new THREE.TorusGeometry(0.36, 0.045, 6, 16), accent); claw.position.y = 0.86; claw.rotation.x = Math.PI / 2; group.add(claw) }
+  const hasRange = Number.isFinite(config.effect.range)
+  const effectRing = new THREE.Mesh(new THREE.RingGeometry(0.985, 1.005, 48), new THREE.MeshBasicMaterial({ color: config.color, transparent: true, opacity: 0.28, side: THREE.DoubleSide, depthWrite: false })); effectRing.rotation.x = -Math.PI / 2; effectRing.position.y = 0.03; effectRing.scale.setScalar(hasRange ? buildingValue(building, 'range') : 0); effectRing.visible = hasRange; group.add(effectRing)
+  let barrierField = null
+  if (building.type === 'barrierNode') { barrierField = new THREE.Group(); const wall = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 1.6, 40, 1, true), new THREE.MeshBasicMaterial({ color: config.color, transparent: true, opacity: 0.16, side: THREE.DoubleSide, depthWrite: false })); wall.position.y = 0.8; const crown = new THREE.Mesh(new THREE.TorusGeometry(1, 0.035, 6, 40), new THREE.MeshBasicMaterial({ color: '#d5ffff', transparent: true, opacity: 0.85, depthWrite: false })); crown.position.y = 1.58; crown.rotation.x = Math.PI / 2; barrierField.add(wall, crown); barrierField.visible = false; group.add(barrierField) }
+  group.position.set(building.x, 0, building.z); group.userData.buildingId = building.id; scene.add(group); buildingMeshes.set(building.id, group); buildingRuntime.set(building.id, { timer: 0, active: 0, effectRing, barrierField })
 }
 function syncBuildings() { for (const mesh of buildingMeshes.values()) scene.remove(mesh); buildingMeshes.clear(); buildingRuntime.clear(); for (const building of buildingState.placed) createBuildingMesh(building) }
 function buildingCost(type) { const config = BUILDING_CONFIG.types[type]; return Math.ceil(config.baseCost * config.costMultiplier ** buildingState.placed.filter((b) => b.type === type).length) }
@@ -1223,6 +1258,8 @@ function updateBuildGridPositions() {
 }
 function setBuildModeEntityVisibility(hidden) {
   player.visible = !hidden && !ended
+  orbitalElectron.visible = !hidden && getResearchLevel('unlock-orbital-electron') > 0 && !ended
+  orbitalArc.visible = !hidden && getResearchLevel('unlock-orbital-electron') > 0 && !ended
   for (const cell of cells) cell.visible = !hidden
   for (const chronoCell of chronoCells) chronoCell.visible = !hidden
   for (const booster of boosters) booster.visible = !hidden
@@ -1233,6 +1270,7 @@ function setBuildModeEntityVisibility(hidden) {
   }
   for (const entry of spores) entry.spore.visible = !hidden
   for (const projectile of shooterProjectiles) projectile.projectile.visible = !hidden
+  for (const drone of droneStrikes) drone.mesh.visible = !hidden
   for (const fallingObstacle of fallingObstacles) {
     fallingObstacle.obstacle.visible = !hidden
     fallingObstacle.shadow.visible = !hidden
@@ -1265,8 +1303,50 @@ function renderBuildings() {
 function enterBuildMode() { if (!buildingState.unlocked.length) return; buildMode = true; selectedBuildingType = buildingState.unlocked[0]; setBuildModeEntityVisibility(true); overlay.classList.add('hidden'); buildBar.classList.remove('hidden'); renderBuildings() }
 function exitBuildMode() { buildMode = false; selectedBuildingType = null; setBuildModeEntityVisibility(false); buildGridUi.classList.add('hidden'); buildBar.classList.add('hidden'); overlay.classList.remove('hidden'); buildingUpgrade.classList.add('hidden') }
 function openBuildingUpgrade(building) { const config = BUILDING_CONFIG.types[building.type]; buildingUpgrade.innerHTML = `<button class="upgrade-close" data-close-building-upgrade="1" type="button" aria-label="Close upgrade panel">×</button><p class="eyebrow">INSTALLED DEFENSE</p><h3>${config.name}</h3><p class="building-upgrade-summary">Choose an upgrade for this structure.</p><div class="upgrade-grid">${Object.entries(config.upgrades).map(([key]) => { const level = building.upgrades[key] ?? 0; const cost = getBuildingUpgradeCost(building, key); return `<button data-upgrade-building="${building.id}" data-upgrade-key="${key}" type="button"><span>${key.toUpperCase()}</span><strong>LV. ${level} → ${level + 1}</strong><small>$${formatCompactNumber(cost)}</small></button>` }).join('')}</div><button data-destroy-building="${building.id}" class="demolish-button" type="button">DEMOLISH · REFUND $${formatCompactNumber(getBuildingRefund(building))}</button>`; buildingUpgrade.classList.remove('hidden') }
-function buildingValue(building, key) { const config = BUILDING_CONFIG.types[building.type]; const upgradeKey = key === 'interval' ? 'frequency' : key; const directUpgrade = (config.upgrades[upgradeKey]?.step ?? 0) * (building.upgrades[upgradeKey] ?? 0); const effectivenessUpgrade = key === 'slow' ? (config.upgrades.effectiveness?.step ?? 0) * (building.upgrades.effectiveness ?? 0) : 0; return config.effect[key] + directUpgrade + effectivenessUpgrade }
+function getBaseBuildingValue(building, key) { const config = BUILDING_CONFIG.types[building.type]; const upgradeKey = key === 'interval' ? 'frequency' : key; const directUpgrade = (config.upgrades[upgradeKey]?.step ?? 0) * (building.upgrades[upgradeKey] ?? 0); const effectivenessUpgrade = key === 'slow' ? (config.upgrades.effectiveness?.step ?? 0) * (building.upgrades.effectiveness ?? 0) : 0; return (config.effect[key] ?? 0) + directUpgrade + effectivenessUpgrade }
+function getOverclockMultiplier(building, key) { if (building.type === 'overclockRelay' || key === 'count') return 1; return 1 + buildingState.placed.filter((relay) => relay.type === 'overclockRelay' && relay.id !== building.id && planarDistance(building, relay) <= getBaseBuildingValue(relay, 'range')).reduce((bonus, relay) => bonus + getBaseBuildingValue(relay, 'effectiveness'), 0) }
+function buildingValue(building, key) { const value = getBaseBuildingValue(building, key); const multiplier = getOverclockMultiplier(building, key); return key === 'interval' || key === 'period' ? value / multiplier : value * multiplier }
+function removeObstacleFromArena(obstacle) {
+  scene.remove(obstacle, obstacle.userData.rangeIndicator, obstacle.userData.magnetPulse)
+  clearPorterTeleportTarget(obstacle)
+  const index = obstacles.indexOf(obstacle)
+  if (index >= 0) obstacles.splice(index, 1)
+}
+
+function launchDroneStrike(origin, target, speed) {
+  const drone = new THREE.Mesh(new THREE.IcosahedronGeometry(0.18, 1), new THREE.MeshBasicMaterial({ color: '#9eeeff', transparent: true, opacity: 0.95, depthWrite: false }))
+  drone.position.set(origin.x, 1.2, origin.z)
+  scene.add(drone)
+  droneStrikes.push({ mesh: drone, target, speed, age: 0 })
+}
+
+function enforceBarrierNodes(obstacle) {
+  for (const barrier of buildingState.placed) {
+    if (barrier.type !== 'barrierNode' || buildingRuntime.get(barrier.id)?.active <= 0) continue
+    const radius = buildingValue(barrier, 'range') + obstacle.userData.colliderRadius + 0.08
+    const offsetX = obstacle.position.x - barrier.x
+    const offsetZ = obstacle.position.z - barrier.z
+    const distance = Math.hypot(offsetX, offsetZ)
+    if (distance >= radius) continue
+    const directionX = distance > 0.001 ? offsetX / distance : 1
+    const directionZ = distance > 0.001 ? offsetZ / distance : 0
+    obstacle.position.x = barrier.x + directionX * radius
+    obstacle.position.z = barrier.z + directionZ * radius
+    keepInsideArena(obstacle.position)
+  }
+}
+
 function updateBuildings(delta, total) {
+  for (let index = droneStrikes.length - 1; index >= 0; index -= 1) {
+    const strike = droneStrikes[index]
+    strike.age += delta
+    if (!obstacles.includes(strike.target)) { scene.remove(strike.mesh); droneStrikes.splice(index, 1); continue }
+    const direction = strike.target.position.clone().sub(strike.mesh.position)
+    const distance = direction.length()
+    if (distance > 0.001) { direction.multiplyScalar(1 / distance); strike.mesh.position.addScaledVector(direction, strike.speed * delta); strike.mesh.lookAt(strike.target.position) }
+    strike.mesh.rotation.z += delta * 9
+    if (distance < 0.48 || strike.age > 6) { if (distance < 0.48 && obstacles.includes(strike.target)) { createExplosion(strike.target.position, 0.52); removeObstacleFromArena(strike.target) } scene.remove(strike.mesh); droneStrikes.splice(index, 1) }
+  }
   for (let index = autocannonProjectiles.length - 1; index >= 0; index -= 1) {
     const shot = autocannonProjectiles[index]
     shot.age += delta
@@ -1299,9 +1379,12 @@ function updateBuildings(delta, total) {
   }
   for (const building of buildingState.placed) {
     const runtime = buildingRuntime.get(building.id); if (!runtime) continue
-    const mesh = buildingMeshes.get(building.id); runtime.timer += delta; runtime.effectRing.rotation.z += delta * 1.4
-    const range = buildingValue(building, 'range'); runtime.effectRing.scale.setScalar(range); runtime.effectRing.material.opacity = 0.12 + Math.sin(total * 3) * 0.06
-    if (building.type === 'gapGenerator') { const period = Math.max(2, buildingValue(building, 'period')); if (runtime.timer >= period) { runtime.timer = 0; runtime.active = buildingValue(building, 'duration'); soundSystem.playBuildingEffect(mesh.position, building.type) } runtime.active = Math.max(0, runtime.active - delta); runtime.effectRing.material.opacity = runtime.active > 0 ? 0.48 : 0.12 }
+    const mesh = buildingMeshes.get(building.id); const config = BUILDING_CONFIG.types[building.type]; runtime.timer += delta; runtime.effectRing.rotation.z += delta * 1.4
+    const range = config.effect.range ? buildingValue(building, 'range') : 0; runtime.effectRing.scale.setScalar(range); runtime.effectRing.material.opacity = 0.12 + Math.sin(total * 3) * 0.06
+    if (building.type === 'overclockRelay') { runtime.effectRing.material.opacity = 0.3 + Math.sin(total * 6) * 0.12; mesh.rotation.y += delta * 0.7 }
+    if (building.type === 'droneBay' && runtime.timer >= Math.max(2, buildingValue(building, 'period'))) { runtime.timer = 0; const targets = [...obstacles].sort(() => Math.random() - 0.5).slice(0, Math.floor(buildingValue(building, 'count'))); for (const target of targets) launchDroneStrike(building, target, buildingValue(building, 'droneSpeed')); if (targets.length) soundSystem.playBuildingEffect(mesh.position, building.type) }
+    if (building.type === 'barrierNode') { const period = Math.max(2, buildingValue(building, 'period')); if (runtime.timer >= period) { runtime.timer = 0; runtime.active = buildingValue(building, 'duration'); soundSystem.playBuildingEffect(mesh.position, building.type) } runtime.active = Math.max(0, runtime.active - delta); if (runtime.barrierField) { runtime.barrierField.visible = runtime.active > 0; runtime.barrierField.scale.set(range, 1, range); runtime.barrierField.rotation.y += delta * 1.8; runtime.barrierField.children[0].material.opacity = runtime.active > 0 ? 0.14 + Math.sin(total * 10) * 0.05 : 0 } runtime.effectRing.material.opacity = runtime.active > 0 ? 0.58 : 0.12 }
+    if (building.type === 'salvageExtractor' && runtime.timer >= Math.max(3, buildingValue(building, 'period'))) { runtime.timer = 0; const targets = obstacles.filter((obstacle) => planarDistance(obstacle.position, building) <= range).sort(() => Math.random() - 0.5).slice(0, Math.floor(buildingValue(building, 'count'))); for (const target of targets) { const cashValue = GAME.cellCashValue * getCurrentDifficulty().cashValueMultiplier * (1 + getResearchStatBonus('cashMultiplier')) + buildingValue(building, 'cash'); addCell({ position: { x: target.position.x, y: GAME.playerStartHeight, z: target.position.z }, cashValue }); createExplosion(target.position, 0.42); removeObstacleFromArena(target) } if (targets.length) soundSystem.playBuildingEffect(mesh.position, building.type) }
     if (building.type === 'autocannon' && runtime.timer >= Math.max(0.35, buildingValue(building, 'interval'))) { runtime.timer = 0; const target = obstacles.filter((o) => planarDistance(o.position, building) <= range).sort((a, b) => planarDistance(a.position, building) - planarDistance(b.position, building))[0]; if (target) { const direction = target.position.clone().sub(mesh.position); direction.y = 0; direction.normalize(); mesh.rotation.y = Math.atan2(direction.x, direction.z); const shot = new THREE.Mesh(new THREE.SphereGeometry(0.16, 10, 8), new THREE.MeshBasicMaterial({ color: '#fff1a6', transparent: true, opacity: 0.95 })); shot.position.copy(mesh.position).addScaledVector(direction, 0.95); shot.position.y = 0.7; scene.add(shot); autocannonProjectiles.push({ mesh: shot, direction, destination: target.position.clone().setY(0.7), target, age: 0 }); soundSystem.playBuildingEffect(mesh.position, building.type) } }
   }
 }
@@ -1405,6 +1488,34 @@ function createObstacle(position, type, savedObstacle) {
   obstacle.userData.teleportTimer = savedObstacle?.teleportTimer ?? 0
   obstacle.userData.teleportTarget = savedObstacle?.teleportTarget ? new THREE.Vector3(savedObstacle.teleportTarget.x, savedObstacle.teleportTarget.y, savedObstacle.teleportTarget.z) : null
   obstacle.userData.colliderRadius = GAME.obstacleColliderRadius
+  obstacle.userData.electronStunnedOnce = Boolean(savedObstacle?.electronStunnedOnce)
+  const stunStars = new THREE.Group()
+  const stunStarMaterial = new THREE.MeshBasicMaterial({ color: '#fff3a6', transparent: true, opacity: 0.9, depthWrite: false })
+  for (let index = 0; index < 3; index += 1) {
+    const star = new THREE.Mesh(new THREE.TetrahedronGeometry(0.13, 0), stunStarMaterial.clone())
+    const angle = index * Math.PI * 2 / 3
+    star.position.set(Math.cos(angle) * 0.42, Math.sin(index * 2.2) * 0.09, Math.sin(angle) * 0.42)
+    star.rotation.set(Math.PI / 4, angle, Math.PI / 4)
+    stunStars.add(star)
+  }
+  stunStars.position.y = 1.08
+  stunStars.visible = false
+  obstacle.add(stunStars)
+  obstacle.userData.stunStars = stunStars
+  const electronImmunityMarker = new THREE.Group()
+  const immunityMaterial = new THREE.MeshBasicMaterial({ color: '#c59cff', transparent: true, opacity: 0.76, depthWrite: false })
+  const immunityRing = new THREE.Mesh(new THREE.TorusGeometry(0.28, 0.028, 6, 18), immunityMaterial)
+  immunityRing.rotation.x = Math.PI / 2
+  electronImmunityMarker.add(immunityRing)
+  for (const angle of [Math.PI / 4, -Math.PI / 4]) {
+    const slash = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.04, 0.035), immunityMaterial.clone())
+    slash.rotation.y = angle
+    electronImmunityMarker.add(slash)
+  }
+  electronImmunityMarker.position.y = 1.08
+  electronImmunityMarker.visible = obstacle.userData.electronStunnedOnce
+  obstacle.add(electronImmunityMarker)
+  obstacle.userData.electronImmunityMarker = electronImmunityMarker
   if (type === 'chaser' || type === 'banger' || type === 'shooter' || type === 'magnet') {
     const rangeIndicator = new THREE.Mesh(
       new THREE.RingGeometry(obstacleType.range - ENTITIES.chaserRangeIndicatorWidth, obstacleType.range, ENTITIES.chaserRangeIndicatorSegments),
@@ -1658,6 +1769,46 @@ function planarDistance(first, second) {
   return Math.hypot(first.x - second.x, first.z - second.z)
 }
 
+function planarDistanceToSegment(point, start, end) {
+  const dx = end.x - start.x
+  const dz = end.z - start.z
+  const lengthSquared = dx * dx + dz * dz
+  if (lengthSquared === 0) return Math.hypot(point.x - start.x, point.z - start.z)
+  const projection = THREE.MathUtils.clamp(((point.x - start.x) * dx + (point.z - start.z) * dz) / lengthSquared, 0, 1)
+  return Math.hypot(point.x - (start.x + dx * projection), point.z - (start.z + dz * projection))
+}
+
+function updateOrbitalElectron(delta, total, effectRangeMultiplier) {
+  const enabled = getResearchLevel('unlock-orbital-electron') > 0 && !buildMode && !ended
+  orbitalElectron.visible = enabled
+  orbitalArc.visible = enabled
+  if (!enabled) return false
+
+  orbitalElectronAngle += delta * (GAME.orbitalElectronBaseSpeed + getResearchStatBonus('electronSpeed'))
+  const radius = GAME.orbitalElectronOrbitRadius * effectRangeMultiplier
+  orbitalElectron.position.set(
+    player.position.x + Math.cos(orbitalElectronAngle) * radius,
+    player.position.y + 0.12 + Math.sin(total * 9) * 0.08,
+    player.position.z + Math.sin(orbitalElectronAngle) * radius,
+  )
+  orbitalElectron.rotation.y += delta * 8
+  orbitalElectronGlow.scale.setScalar(0.9 + Math.sin(total * 12) * 0.18)
+
+  const positions = orbitalArcGeometry.attributes.position.array
+  const segments = 8
+  for (let index = 0; index <= segments; index += 1) {
+    const progress = index / segments
+    const offset = index === 0 || index === segments ? 0 : Math.sin(total * 34 + index * 4.7) * 0.12
+    positions[index * 3] = THREE.MathUtils.lerp(player.position.x, orbitalElectron.position.x, progress) + Math.sin(orbitalElectronAngle) * offset
+    positions[index * 3 + 1] = THREE.MathUtils.lerp(player.position.y, orbitalElectron.position.y, progress) + (index % 2 ? 0.08 : -0.06) + offset * 0.3
+    positions[index * 3 + 2] = THREE.MathUtils.lerp(player.position.z, orbitalElectron.position.z, progress) - Math.cos(orbitalElectronAngle) * offset
+  }
+  orbitalArcGeometry.attributes.position.needsUpdate = true
+  orbitalArc.material.opacity = 0.55 + Math.sin(total * 18) * 0.22
+  orbitalElectronWorldPosition.copy(orbitalElectron.position)
+  return true
+}
+
 function createExplosion(position, radius) {
   const shockwave = new THREE.Mesh(
     new THREE.RingGeometry(0.18, 0.42, 64),
@@ -1813,6 +1964,8 @@ function resetGame(populateArena = true) {
   shooterProjectiles.length = 0
   for (const autocannonProjectile of autocannonProjectiles) scene.remove(autocannonProjectile.mesh)
   autocannonProjectiles.length = 0
+  for (const drone of droneStrikes) scene.remove(drone.mesh)
+  droneStrikes.length = 0
   for (const shockwave of shockwaves) scene.remove(shockwave.shockwave)
   shockwaves.length = 0
   shockwavePushes.length = 0
@@ -1824,6 +1977,9 @@ function resetGame(populateArena = true) {
   player.rotation.y = 0
   playerTargetHeading = 0
   player.visible = true
+  orbitalElectronAngle = 0
+  orbitalElectron.visible = false
+  orbitalArc.visible = false
   score = 0
   elapsed = 0
   spawnTimer = 0
@@ -1873,7 +2029,7 @@ function saveCurrentRound() {
     cells: cells.map((cell) => ({ position: serializePosition(cell.position), phase: cell.userData.phase, cashValue: cell.userData.cashValue })),
     chronoCells: chronoCells.map((cell) => ({ position: serializePosition(cell.position), phase: cell.userData.phase, age: cell.userData.age })),
     boosters: boosters.map((booster) => ({ type: booster.userData.type, position: serializePosition(booster.position) })),
-    obstacles: obstacles.map((obstacle) => ({ id: obstacle.userData.id, position: serializePosition(obstacle.position), type: obstacle.userData.type, age: obstacle.userData.age, lifetimeAge: obstacle.userData.lifetimeAge, speed: obstacle.userData.speed, pulseTimer: obstacle.userData.pulseTimer, shotCooldown: obstacle.userData.shotCooldown, teleportTimer: obstacle.userData.teleportTimer, teleportTarget: obstacle.userData.teleportTarget && serializePosition(obstacle.userData.teleportTarget), magnetPulsePhase: obstacle.userData.magnetPulsePhase })),
+    obstacles: obstacles.map((obstacle) => ({ id: obstacle.userData.id, position: serializePosition(obstacle.position), type: obstacle.userData.type, age: obstacle.userData.age, lifetimeAge: obstacle.userData.lifetimeAge, speed: obstacle.userData.speed, pulseTimer: obstacle.userData.pulseTimer, shotCooldown: obstacle.userData.shotCooldown, teleportTimer: obstacle.userData.teleportTimer, teleportTarget: obstacle.userData.teleportTarget && serializePosition(obstacle.userData.teleportTarget), magnetPulsePhase: obstacle.userData.magnetPulsePhase, electronStunnedOnce: obstacle.userData.electronStunnedOnce })),
     spores: spores.map((entry) => ({ position: serializePosition(entry.spore.position), direction: serializePosition(entry.direction) })),
     shooterProjectiles: shooterProjectiles.map((projectile) => ({ position: serializePosition(projectile.projectile.position), direction: serializePosition(projectile.direction), age: projectile.age })),
     fallingObstacles: fallingObstacles.map((fallingObstacle) => ({ target: serializePosition(fallingObstacle.target), type: fallingObstacle.type, age: fallingObstacle.age, landed: fallingObstacle.landed, impactTriggered: fallingObstacle.impactTriggered })),
@@ -1999,6 +2155,8 @@ function endGame() {
   shieldBubble.visible = false
   createPlayerDeathEffect(player.position)
   player.visible = false
+  orbitalElectron.visible = false
+  orbitalArc.visible = false
   pauseMenu.classList.add('hidden')
   clearSavedRound()
   recordTierHighScore()
@@ -2066,6 +2224,7 @@ function updateGame(delta, total) {
     slowAuraRing.material.opacity = 0.22 + Math.sin(total * 3.5) * 0.08
     slowAuraRing.rotation.z += delta * 0.35
   }
+  const orbitalElectronActive = updateOrbitalElectron(delta, total, effectRangeMultiplier)
   if (shieldInvulnerability > 0) shieldInvulnerability = Math.max(0, shieldInvulnerability - delta)
   speedBoosterTime = Math.max(0, speedBoosterTime - delta)
   thornShieldTime = Math.max(0, thornShieldTime - delta)
@@ -2175,7 +2334,6 @@ function updateGame(delta, total) {
       obstacle.userData.staticCollisionSlow = Math.max(0, (obstacle.userData.staticCollisionSlow ?? 0) - delta)
     }
     const chronoSlow = buildingState.placed.filter((b) => b.type === 'chronoGenerator' && planarDistance(obstacle.position, b) <= buildingValue(b, 'range')).reduce((slow, b) => Math.max(slow, buildingValue(b, 'slow')), 0)
-    const inGapFog = buildingState.placed.some((b) => b.type === 'gapGenerator' && buildingRuntime.get(b.id)?.active > 0 && planarDistance(obstacle.position, b) <= buildingValue(b, 'range'))
     obstacle.userData.material.emissive.set(obstacleType.emissive)
     if (chronoSlow > 0) obstacle.userData.material.emissive.lerp(chronoBuildingTint, THREE.MathUtils.clamp(chronoSlow * 1.6, 0, 0.82))
     if (thornShieldTime > 0 && playerOffset.length() < GAME.playerRadius) {
@@ -2184,6 +2342,38 @@ function updateGame(delta, total) {
       obstacles.splice(index, 1)
       continue
     }
+    obstacle.userData.electronStun = Math.max(0, (obstacle.userData.electronStun ?? 0) - delta)
+    obstacle.userData.electronHitCooldown = Math.max(0, (obstacle.userData.electronHitCooldown ?? 0) - delta)
+    if (orbitalElectronActive
+      && !obstacle.userData.electronStunnedOnce
+      && obstacle.userData.electronHitCooldown === 0
+      && planarDistanceToSegment(obstacle.position, player.position, orbitalElectronWorldPosition) <= GAME.orbitalElectronHitRadius + obstacle.userData.colliderRadius) {
+      obstacle.userData.electronStun = GAME.orbitalElectronBaseStunDuration + getResearchStatBonus('electronStunDuration')
+      obstacle.userData.electronStunMax = obstacle.userData.electronStun
+      obstacle.userData.electronHitCooldown = 0.18
+      obstacle.userData.electronStunnedOnce = true
+    }
+    const immunityMarker = obstacle.userData.electronImmunityMarker
+    immunityMarker.visible = obstacle.userData.electronStunnedOnce
+    if (immunityMarker.visible) immunityMarker.rotation.y += delta * 1.8
+    if (obstacle.userData.electronStun > 0) {
+      const stunStrength = THREE.MathUtils.clamp(obstacle.userData.electronStun / (obstacle.userData.electronStunMax || 1), 0, 1)
+      const stunStars = obstacle.userData.stunStars
+      stunStars.visible = true
+      stunStars.rotation.y += delta * (5 + stunStrength * 7)
+      stunStars.scale.setScalar(0.55 + stunStrength * 0.45)
+      for (const star of stunStars.children) {
+        star.rotation.x += delta * 8
+        star.rotation.z += delta * 5
+        star.material.opacity = 0.12 + stunStrength * 0.88
+      }
+      obstacle.userData.material.emissive.set('#5eeeff')
+      obstacle.userData.material.emissiveIntensity = 2.3 + Math.sin(total * 26) * 0.9
+      obstacle.rotation.y += delta * 1.5
+      continue
+    }
+    obstacle.userData.stunStars.visible = false
+    obstacle.userData.material.emissiveIntensity = 1
     if (freezerTime > 0) continue
     const obstacleSpeedMultiplier = (slowAuraUnlocked && playerOffset.length() <= slowAuraRange ? 1 - slowAuraEffect : 1) * (1 - chronoSlow)
     const pushbackSpeed = getResearchStatBonus('pushbackSpeed')
@@ -2192,7 +2382,7 @@ function updateGame(delta, total) {
       pushDirection.y = 0
       if (pushDirection.lengthSq() > 0) obstacle.position.addScaledVector(pushDirection.normalize(), (GAME.pushbackBaseSpeed + pushbackSpeed) * delta)
     }
-    if (!inGapFog && playerOffset.length() <= effectiveRange && obstacleType.speed > 0) {
+    if (playerOffset.length() <= effectiveRange && obstacleType.speed > 0) {
       const speedMultiplier = obstacle.userData.type === 'creeper' ? Math.max(0.5, 1 - getResearchStatBonus('creeperSpeedDebuff')) : 1
       const creeperLifetimeProgress = obstacle.userData.type === 'creeper' ? Math.min(obstacle.userData.lifetimeAge / regularObstacleLifetime, 1) : 0
       const movementSpeed = obstacle.userData.type === 'creeper'
@@ -2276,6 +2466,7 @@ function updateGame(delta, total) {
       obstacle.userData.material.emissiveIntensity = 1 + (Math.sin(obstacle.userData.age * 10) + 1) * 1.3
       if (obstacle.userData.age >= ENTITIES.sporeFuseDuration) sporesToDetonate.push(obstacle)
     }
+    enforceBarrierNodes(obstacle)
     if (obstacle.position.distanceTo(player.position) < GAME.playerRadius) endGame()
   }
 
