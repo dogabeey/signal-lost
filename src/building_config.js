@@ -15,7 +15,7 @@ export const BUILDING_CONFIG = {
     },
     droneBay: {
       name: 'Drone Bay', baseCost: 460, costMultiplier: 1.48,
-      color: '#79caff', effect: { period: 14, count: 1, droneSpeed: 9 },
+      color: '#79caff', effect: { period: 14, count: 1, droneSpeed: 5 },
       upgrades: { period: { base: 540, step: -0.65 }, count: { base: 880, step: 1 } },
     },
     barrierNode: {

@@ -683,12 +683,17 @@ function runCheatCommand(rawCommand) {
     return
   }
   if (command === CHEAT_CONFIG.commands.unlockTiers) {
+    const newlyClaimed = MILESTONES.filter((milestone) => !milestoneState.claimed.includes(milestone.id))
     milestoneState.claimed = MILESTONES.map((milestone) => milestone.id)
+    const grantedCash = newlyClaimed.flatMap((milestone) => milestone.rewards).filter((reward) => reward.type === 'cash').reduce((total, reward) => total + reward.amount, 0)
+    const grantedChronoshards = newlyClaimed.flatMap((milestone) => milestone.rewards).filter((reward) => reward.type === 'chronoshards').reduce((total, reward) => total + reward.amount, 0)
+    if (grantedCash) updateCash(grantedCash)
+    if (grantedChronoshards) updateChronoshards(grantedChronoshards)
     saveMilestoneState()
     renderTierOptions()
     renderResearchLab()
     renderMilestones()
-    setCheatOutput('All difficulty tiers unlocked.')
+    setCheatOutput(`All tiers and Ascension rewards unlocked.${grantedCash || grantedChronoshards ? ` +$${formatCompactNumber(grantedCash)} · +✦ ${formatCompactNumber(grantedChronoshards)}` : ''}`)
     return
   }
   if (command === CHEAT_CONFIG.commands.clearSave) {
@@ -1344,7 +1349,8 @@ function renderBuildingDraft() {
     ? `<p class="building-draft-copy">CHOOSE 1 OF ${offers.length} · NEXT UNLOCK ✦ ${formatCompactNumber(unlockCost)}</p>${offers.map((type) => { const config = BUILDING_CONFIG.types[type]; return `<article class="building-card building-offer"><img class="asset-card-art" src="${getBuildingAsset(type)}" alt=""><strong>${config.name}</strong><small>Permanent building unlock</small><button data-building-offer="${type}" ${canAffordUnlock ? '' : 'disabled'}>UNLOCK · ✦ ${formatCompactNumber(unlockCost)}</button></article>` }).join('')}`
     : '<p class="building-draft-copy">ALL BUILDINGS UNLOCKED</p>'
 }
-function getBuildingSlotLimit() { return 1 + getResearchLevel('building-slots') }
+function getBuildingSlotLimit() { return 3 + getResearchLevel('building-slots') }
+function getBuildingTypeLevel(type) { return 1 + buildingState.placed.filter((building) => building.type === type).reduce((total, building) => total + Object.values(building.upgrades).reduce((sum, level) => sum + level, 0), 0) }
 function getBuildingUpgradeCost(building, key) { const entry = BUILDING_CONFIG.types[building.type].upgrades[key]; const level = building.upgrades[key] ?? 0; return Math.ceil(entry.base * 1.65 ** level) }
 function getBuildingRefund(building) { return Math.round((building.spent ?? BUILDING_CONFIG.types[building.type].baseCost) * 100) / 100 }
 function createBuildingMesh(building) {
@@ -1355,12 +1361,12 @@ function createBuildingMesh(building) {
   const accent = new THREE.MeshStandardMaterial({ color: accentColor, emissive: accentColor, emissiveIntensity: 1.25, metalness: 0.78, roughness: 0.12 })
   const base = new THREE.Mesh(new THREE.CylinderGeometry(0.53, 0.64, 0.26, 8), material)
   base.position.y = 0.13; group.add(base)
-  if (building.type === 'chronoGenerator') { const core = new THREE.Mesh(new THREE.IcosahedronGeometry(0.32, 1), accent); core.position.y = 0.6; group.add(core) }
-  if (building.type === 'autocannon') { const turret = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.3, 0.22, 8), accent); turret.position.y = 0.38; group.add(turret); const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.12, 0.78, 8), accent); barrel.rotation.x = Math.PI / 2; barrel.position.set(0, 0.5, 0.27); group.add(barrel) }
-  if (building.type === 'droneBay') { const hangar = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.38, 0.72), accent); hangar.position.y = 0.48; group.add(hangar); const hatch = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.08, 0.18), material); hatch.position.set(0, 0.72, 0.26); group.add(hatch) }
-  if (building.type === 'barrierNode') { for (let index = 0; index < 3; index += 1) { const pylon = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.92, 6), accent); const angle = index * Math.PI * 2 / 3; pylon.position.set(Math.cos(angle) * 0.34, 0.58, Math.sin(angle) * 0.34); group.add(pylon) } }
-  if (building.type === 'overclockRelay') { const relay = new THREE.Mesh(new THREE.TorusGeometry(0.31, 0.06, 8, 20), accent); relay.position.y = 0.58; relay.rotation.x = Math.PI / 2; group.add(relay) }
-  if (building.type === 'salvageExtractor') { const chamber = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.42, 0.66, 8), accent); chamber.position.y = 0.55; group.add(chamber); const claw = new THREE.Mesh(new THREE.TorusGeometry(0.36, 0.045, 6, 16), accent); claw.position.y = 0.86; claw.rotation.x = Math.PI / 2; group.add(claw) }
+  if (building.type === 'chronoGenerator') { const core = new THREE.Mesh(new THREE.IcosahedronGeometry(0.32, 1), accent); core.position.y = 0.67; const ringA = new THREE.Mesh(new THREE.TorusGeometry(0.46, 0.035, 8, 24), accent); ringA.position.y = 0.68; ringA.rotation.x = Math.PI / 2; const ringB = ringA.clone(); ringB.rotation.set(Math.PI / 3, 0, Math.PI / 5); group.add(core, ringA, ringB) }
+  if (building.type === 'autocannon') { const turret = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.26, 0.48), accent); turret.position.y = 0.42; group.add(turret); for (const x of [-0.14, 0.14]) { const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.1, 0.78, 8), accent); barrel.rotation.x = Math.PI / 2; barrel.position.set(x, 0.51, 0.38); group.add(barrel) } }
+  if (building.type === 'droneBay') { const hangar = new THREE.Mesh(new THREE.BoxGeometry(0.96, 0.42, 0.78), material); hangar.position.y = 0.47; const door = new THREE.Mesh(new THREE.BoxGeometry(0.56, 0.22, 0.04), accent); door.position.set(0, 0.5, 0.41); group.add(hangar, door); for (const x of [-0.26, 0.26]) { const drone = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 6), accent); drone.position.set(x, 0.82, 0.08); group.add(drone) } }
+  if (building.type === 'barrierNode') { const crystal = new THREE.Mesh(new THREE.OctahedronGeometry(0.34, 0), accent); crystal.position.y = 0.72; group.add(crystal); for (let index = 0; index < 3; index += 1) { const pylon = new THREE.Mesh(new THREE.ConeGeometry(0.13, 0.8, 6), accent); const angle = index * Math.PI * 2 / 3; pylon.position.set(Math.cos(angle) * 0.42, 0.46, Math.sin(angle) * 0.42); group.add(pylon) } const dome = new THREE.Mesh(new THREE.SphereGeometry(0.72, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshBasicMaterial({ color: '#8ceaff', transparent: true, opacity: 0.15, depthWrite: false })); dome.position.y = 0.1; group.add(dome) }
+  if (building.type === 'overclockRelay') { const dish = new THREE.Mesh(new THREE.TorusGeometry(0.34, 0.06, 8, 24), accent); dish.position.y = 0.62; dish.rotation.x = Math.PI / 2; const antenna = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.05, 0.72, 8), accent); antenna.position.y = 0.8; const tip = new THREE.Mesh(new THREE.SphereGeometry(0.1, 10, 8), accent); tip.position.y = 1.18; group.add(dish, antenna, tip) }
+  if (building.type === 'salvageExtractor') { const chamber = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.42, 0.66, 8), accent); chamber.position.y = 0.55; const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.1, 0.82, 8), material); arm.position.set(0.36, 0.82, 0); arm.rotation.z = -Math.PI / 3; const claw = new THREE.Mesh(new THREE.ConeGeometry(0.17, 0.34, 5), accent); claw.position.set(0.72, 0.55, 0); claw.rotation.z = -Math.PI / 2; group.add(chamber, arm, claw) }
   const hasRange = Number.isFinite(config.effect.range)
   const effectRing = new THREE.Mesh(new THREE.RingGeometry(0.985, 1.005, 48), new THREE.MeshBasicMaterial({ color: config.color, transparent: true, opacity: 0.28, side: THREE.DoubleSide, depthWrite: false })); effectRing.rotation.x = -Math.PI / 2; effectRing.position.y = 0.03; effectRing.scale.setScalar(hasRange ? buildingValue(building, 'range') : 0); effectRing.visible = hasRange; group.add(effectRing)
   let barrierField = null
@@ -1377,10 +1383,12 @@ function getBuildSites() {
 function renderBuildGrid() {
   if (!buildMode) { buildGridUi.replaceChildren(); buildGridUi.classList.add('hidden'); return }
   const cost = selectedBuildingType ? buildingCost(selectedBuildingType) : 0
+  const atBuildingLimit = buildingState.placed.length >= getBuildingSlotLimit()
   buildGridUi.innerHTML = getBuildSites().map(({ x, z }) => {
     const existing = buildingState.placed.find((entry) => entry.x === x && entry.z === z)
     const label = existing ? `<span class="build-name" data-build-x="${x}" data-build-z="${z}">${BUILDING_CONFIG.types[existing.type].name}</span>` : ''
-    return `<button class="build-site ${existing ? 'occupied' : ''}" data-build-x="${x}" data-build-z="${z}" type="button">${existing ? 'UPGRADE' : `$${cost}`}</button>${label}`
+    const canBuild = !existing && !atBuildingLimit
+    return `<button class="build-site ${existing ? 'occupied' : ''}" data-build-x="${x}" data-build-z="${z}" type="button" ${canBuild || existing ? '' : 'disabled'}>${existing ? 'UPGRADE' : atBuildingLimit ? 'SLOT LIMIT' : `$${cost}`}</button>${label}`
   }).join('')
   buildGridUi.classList.remove('hidden')
   requestAnimationFrame(updateBuildGridPositions)
@@ -1438,7 +1446,7 @@ function renderBuildings() {
     ? buildingState.unlocked.map((type) => `<article class="building-card"><img class="asset-card-art" src="${getBuildingAsset(type)}" alt=""><strong>${BUILDING_CONFIG.types[type].name}</strong><small>Build cost: $${formatCompactNumber(buildingCost(type))}</small><span class="building-unlocked-state">UNLOCKED</span></article>`).join('')
     : '<p class="building-draft-copy">NO BUILDINGS UNLOCKED YET</p>'
   renderBuildingDraft()
-  buildOptions.innerHTML = buildingState.unlocked.map((type) => `<button data-select-building="${type}" class="${selectedBuildingType === type ? 'selected' : ''}">${BUILDING_CONFIG.types[type].name}<small>$${buildingCost(type)}</small></button>`).join('')
+  buildOptions.innerHTML = buildingState.unlocked.map((type) => `<button data-select-building="${type}" class="${selectedBuildingType === type ? 'selected' : ''}" type="button" aria-label="${BUILDING_CONFIG.types[type].name} · Level ${getBuildingTypeLevel(type)}"><img src="${getBuildingAsset(type)}" alt=""><small>LVL. ${getBuildingTypeLevel(type)}</small></button>`).join('')
   buildStatus.textContent = `BUILD MODE · SLOTS ${buildingState.placed.length}/${getBuildingSlotLimit()}`
   renderBuildGrid()
 }
@@ -1455,11 +1463,26 @@ function removeObstacleFromArena(obstacle) {
   if (index >= 0) obstacles.splice(index, 1)
 }
 
+function createDroneMesh() {
+  const drone = new THREE.Group()
+  const bodyMaterial = new THREE.MeshStandardMaterial({ color: '#314c63', emissive: '#79caff', emissiveIntensity: 0.8, metalness: 0.9, roughness: 0.18 })
+  const glowMaterial = new THREE.MeshBasicMaterial({ color: '#baf8ff', transparent: true, opacity: 0.95, depthWrite: false })
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.14, 10, 7), bodyMaterial); body.scale.set(1.25, 0.55, 1.5); drone.add(body)
+  const rotors = []
+  for (const [x, z] of [[-0.22, -0.2], [0.22, -0.2], [-0.22, 0.2], [0.22, 0.2]]) { const arm = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.035, 0.13), bodyMaterial); arm.position.set(x, 0, z); const rotor = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.018, 12), glowMaterial); rotor.position.set(x, 0.045, z); drone.add(arm, rotor); rotors.push(rotor) }
+  const eye = new THREE.Mesh(new THREE.SphereGeometry(0.055, 8, 6), glowMaterial); eye.position.set(0, 0.015, 0.2); drone.add(eye); drone.userData.rotors = rotors
+  return drone
+}
+
 function launchDroneStrike(origin, target, speed) {
-  const drone = new THREE.Mesh(new THREE.IcosahedronGeometry(0.18, 1), new THREE.MeshBasicMaterial({ color: '#9eeeff', transparent: true, opacity: 0.95, depthWrite: false }))
-  drone.position.set(origin.x, 1.2, origin.z)
-  scene.add(drone)
-  droneStrikes.push({ mesh: drone, target, speed, age: 0 })
+  const drone = createDroneMesh()
+  const start = new THREE.Vector3(origin.x, 1.4, origin.z)
+  const end = target.position.clone().setY(0.48)
+  const flatDirection = end.clone().sub(start).setY(0).normalize()
+  const sideways = new THREE.Vector3(-flatDirection.z, 0, flatDirection.x).multiplyScalar((Math.random() - 0.5) * 2.2)
+  const control = start.clone().lerp(end, 0.48).add(sideways); control.y = 3.2 + Math.random() * 1.1
+  drone.position.copy(start); scene.add(drone)
+  droneStrikes.push({ mesh: drone, target, start, control, speed, age: 0, duration: Math.max(1.35, Math.min(4.5, start.distanceTo(end) / Math.max(speed, 1))) })
 }
 
 function enforceBarrierNodes(obstacle) {
@@ -1483,11 +1506,14 @@ function updateBuildings(delta, total) {
     const strike = droneStrikes[index]
     strike.age += delta
     if (!obstacles.includes(strike.target)) { scene.remove(strike.mesh); droneStrikes.splice(index, 1); continue }
-    const direction = strike.target.position.clone().sub(strike.mesh.position)
-    const distance = direction.length()
-    if (distance > 0.001) { direction.multiplyScalar(1 / distance); strike.mesh.position.addScaledVector(direction, strike.speed * delta); strike.mesh.lookAt(strike.target.position) }
-    strike.mesh.rotation.z += delta * 9
-    if (distance < 0.48 || strike.age > 6) { if (distance < 0.48 && obstacles.includes(strike.target)) { createExplosion(strike.target.position, 0.52); removeObstacleFromArena(strike.target) } scene.remove(strike.mesh); droneStrikes.splice(index, 1) }
+    const end = strike.target.position.clone().setY(0.48)
+    const progress = Math.min(strike.age / strike.duration, 1)
+    const inverse = 1 - progress
+    const position = strike.start.clone().multiplyScalar(inverse * inverse).addScaledVector(strike.control, 2 * inverse * progress).addScaledVector(end, progress * progress)
+    const lookAhead = Math.min(progress + 0.025, 1); const aheadInverse = 1 - lookAhead
+    const next = strike.start.clone().multiplyScalar(aheadInverse * aheadInverse).addScaledVector(strike.control, 2 * aheadInverse * lookAhead).addScaledVector(end, lookAhead * lookAhead)
+    strike.mesh.position.copy(position); strike.mesh.lookAt(next); for (const rotor of strike.mesh.userData.rotors) rotor.rotation.y += delta * 38
+    if (progress >= 1) { if (obstacles.includes(strike.target)) { createExplosion(strike.target.position, 0.52); removeObstacleFromArena(strike.target) } scene.remove(strike.mesh); droneStrikes.splice(index, 1) }
   }
   for (let index = autocannonProjectiles.length - 1; index >= 0; index -= 1) {
     const shot = autocannonProjectiles[index]
