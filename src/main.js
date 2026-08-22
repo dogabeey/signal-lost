@@ -56,7 +56,6 @@ document.querySelector('#app').innerHTML = `
     </section>
     <section class="overlay" id="overlay" aria-live="polite">
       <div class="menu-content" id="menu-content">
-        <p class="eyebrow">A Lionsfall Game</p>
         <h1 id="overlay-title">ASTEROID BELT</h1>
         <p id="overlay-copy">Collect energy cells. Avoid the enemies.</p>
         <p class="game-over-tip" id="game-over-tip" hidden></p>
@@ -2203,7 +2202,7 @@ function detonateBanger(banger) {
   }
 
   createExplosion(position, radius)
-  if (playerInRange) endGame()
+  if (playerInRange) endGame('BANGER DETONATION')
 }
 
 function resetGame(populateArena = true) {
@@ -2423,7 +2422,7 @@ function triggerShieldBreakExplosion() {
   }
 }
 
-function endGame() {
+function endGame(cause = 'SIGNAL LOST') {
   if (!started || ended) return
   if (shieldInvulnerability > 0) return
   if (shieldCharges > 0) {
@@ -2446,7 +2445,7 @@ function endGame() {
   pauseMenu.classList.add('hidden')
   clearSavedRound()
   recordTierHighScore()
-  overlayTitle.textContent = 'SIGNAL LOST'
+  overlayTitle.textContent = `You were killed by ${cause.toLocaleLowerCase()}`
   overlayCopy.textContent = `You secured ${score} energy ${score === 1 ? 'cell' : 'cells'}.`
   gameOverTip.textContent = `TIP · ${getGameOverTip()}`
   gameOverTip.hidden = false
@@ -2813,7 +2812,7 @@ function updateGame(delta, total) {
       if (obstacle.userData.age >= ENTITIES.sporeFuseDuration) sporesToDetonate.push(obstacle)
     }
     enforceBarrierNodes(obstacle)
-    if (obstacle.position.distanceTo(player.position) < GAME.playerRadius) endGame()
+    if (obstacle.position.distanceTo(player.position) < GAME.playerRadius) endGame(`${obstacle.userData.type.toUpperCase()} COLLISION`)
   }
 
   resolveObstacleCollisions()
@@ -2845,7 +2844,7 @@ function updateGame(delta, total) {
     if (shooterProjectile.projectile.position.distanceTo(player.position) < GAME.playerRadius + ENTITIES.shooterProjectileRadius) {
       scene.remove(shooterProjectile.projectile)
       shooterProjectiles.splice(index, 1)
-      endGame()
+      endGame('SHOOTER PROJECTILE')
       continue
     }
     if (shooterProjectile.age >= ENTITIES.shooterProjectileLifetime) {
@@ -2959,7 +2958,7 @@ function updateGame(delta, total) {
     const horizontalDistance = player.position.distanceTo(fallingObstacle.target)
     if (!fallingObstacle.landed && progress > 0.82 && horizontalDistance < GAME.playerRadius) {
       if (fallingObstacle.type === 'fieryRock') applyPlayerStatusDamage('fire', 'fiery-rock-impact')
-      else endGame()
+      else endGame('METEOR IMPACT')
     }
 
     if (progress === 1) {
@@ -3021,7 +3020,7 @@ function updateGame(delta, total) {
     splinterPiece.piece.position.addScaledVector(splinterPiece.direction, speed * delta)
     splinterPiece.piece.rotation.x += delta * 8
     splinterPiece.piece.rotation.z += delta * 6
-    if (splinterPiece.piece.position.distanceTo(player.position) < GAME.playerRadius * 0.7) endGame()
+    if (splinterPiece.piece.position.distanceTo(player.position) < GAME.playerRadius * 0.7) endGame('SPLINTER IMPACT')
     if (splinterPiece.age >= GAME.splinterPieceDuration) {
       scene.remove(splinterPiece.piece)
       splinterPieces.splice(index, 1)
@@ -3131,7 +3130,7 @@ function updatePlayerStatusDamage(delta, total) {
     const definition = DAMAGE_TYPES[type]
     if (definition.requiresExposure && !state.exposed) { playerDamageStates.delete(type); continue }
     state.remaining -= delta
-    if (state.remaining <= 0) { playerDamageStates.delete(type); endGame(); continue }
+    if (state.remaining <= 0) { playerDamageStates.delete(type); endGame(`${definition.label.toUpperCase()} DAMAGE`); continue }
     if (!activeState || state.remaining / state.maxDuration > activeState.remaining / activeState.maxDuration) activeState = state
   }
   if (!activeState) return null
@@ -3262,7 +3261,7 @@ resetRoundButton.addEventListener('click', () => {
 
 surrenderButton.addEventListener('click', () => {
   pauseMenu.classList.add('hidden')
-  endGame()
+  endGame('RUN ABANDONED')
 })
 
 returnMenuButton.addEventListener('click', returnToMainMenu)
