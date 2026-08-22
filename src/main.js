@@ -4,6 +4,8 @@ import { RESEARCH_CONFIG } from './research_config.js'
 import { CHEAT_CONFIG } from './cheat_config.js'
 import { BUILD_INFO } from './build_info.js'
 import { BUILDING_CONFIG } from './building_config.js'
+import { createPlayerShip } from './player_ship.js'
+import { formatCompactNumber, formatCurrency, formatDuration, formatResearchEffect } from './formatters.js'
 import { TIPS } from './tips.js'
 import { MILESTONES } from './milestones.js'
 import './style.css'
@@ -360,32 +362,7 @@ function getResearchDuration(research, level) {
   return Math.round(research.duration.baseMs * research.duration.multiplier ** level)
 }
 
-function formatResearchEffect(research, level) {
-  if (!research.effect) return level > 0 ? 'UNLOCKED' : 'LOCKED'
-  const effect = level * research.effect.perLevel
-  return research.effect.format === 'percent' ? `+${(effect * 100).toFixed(effect * 100 % 1 ? 1 : 0)}%` : String(effect)
-}
-
-function formatDuration(milliseconds) {
-  const totalSeconds = Math.max(0, Math.ceil(milliseconds / 1000))
-  const hours = Math.floor(totalSeconds / 3600)
-  const minutes = Math.floor((totalSeconds % 3600) / 60)
-  const seconds = totalSeconds % 60
-  if (hours > 0) return `${hours}h ${minutes}m`
-  if (minutes > 0) return `${minutes}m ${seconds}s`
-  return `${seconds}s`
-}
-
-function formatCompactNumber(value) {
-  const absoluteValue = Math.abs(value)
-  const unit = absoluteValue >= 1e12 ? ['T', 1e12] : absoluteValue >= 1e9 ? ['B', 1e9] : absoluteValue >= 1e6 ? ['M', 1e6] : absoluteValue >= 1e3 ? ['K', 1e3] : null
-  if (!unit) return value.toLocaleString(undefined, { maximumFractionDigits: 2 })
-  const scaled = value / unit[1]
-  const decimals = Math.abs(scaled) < 10 ? 2 : 1
-  return `${scaled.toFixed(decimals)}${unit[0]}`
-}
-
-function formatCurrency(currency, amount) {
+function legacyFormatCurrency(currency, amount) {
   return currency === 'cash'
     ? `$${formatCompactNumber(amount)}`
     : `✦ ${formatCompactNumber(amount)}`
@@ -1109,67 +1086,10 @@ function applyDifficulty() {
   arenaBoundary.computeLineDistances()
 }
 
-const player = new THREE.Group()
 const chronoBuildingTint = new THREE.Color(COLORS.slowAura)
 let playerTargetHeading = 0
-const playerCore = new THREE.Mesh(
-  new THREE.ConeGeometry(0.58, 1.45, 6),
-  new THREE.MeshStandardMaterial({ color: COLORS.player, emissive: COLORS.playerEmissive, emissiveIntensity: ENTITIES.playerCoreEmissiveIntensity, metalness: 0.78, roughness: 0.18 }),
-)
-playerCore.rotation.x = Math.PI / 2
-playerCore.position.y = 0.18
-playerCore.castShadow = true
-player.add(playerCore)
-const shipWingMaterial = new THREE.MeshStandardMaterial({ color: '#f6b05c', emissive: '#b9502d', emissiveIntensity: 0.55, metalness: 0.85, roughness: 0.16 })
-for (const side of [-1, 1]) {
-  const wing = new THREE.Mesh(new THREE.BoxGeometry(0.82, 0.08, 0.58), shipWingMaterial)
-  wing.position.set(side * 0.52, 0.12, -0.08)
-  wing.rotation.z = side * -0.16
-  wing.castShadow = true
-  player.add(wing)
-}
-const cockpit = new THREE.Mesh(
-  new THREE.SphereGeometry(0.29, 12, 8),
-  new THREE.MeshStandardMaterial({ color: '#76ddff', emissive: '#267ca0', emissiveIntensity: 1.25, metalness: 0.92, roughness: 0.08 }),
-)
-cockpit.scale.set(0.82, 0.62, 1.15)
-cockpit.position.set(0, 0.38, 0.18)
-player.add(cockpit)
-const playerRing = new THREE.Mesh(
-  new THREE.TorusGeometry(0.3, ENTITIES.playerRingTube * 0.72, ENTITIES.playerRingRadialSegments, ENTITIES.playerRingTubularSegments),
-  new THREE.MeshBasicMaterial({ color: COLORS.playerRing, transparent: true, opacity: 0.88 }),
-)
-playerRing.position.set(0, 0.17, -0.67)
-player.add(playerRing)
-const engineFlame = new THREE.Group()
-const engineFlameOuter = new THREE.Mesh(
-  new THREE.ConeGeometry(0.27, 0.82, 8),
-  new THREE.MeshBasicMaterial({ color: '#ff5c32', transparent: true, opacity: 0.74, depthWrite: false }),
-)
-const engineFlameInner = new THREE.Mesh(
-  new THREE.ConeGeometry(0.14, 0.57, 8),
-  new THREE.MeshBasicMaterial({ color: '#ffe781', transparent: true, opacity: 0.94, depthWrite: false }),
-)
-for (const flame of [engineFlameOuter, engineFlameInner]) flame.rotation.x = -Math.PI / 2
-engineFlameInner.position.z = -0.08
-engineFlame.add(engineFlameOuter, engineFlameInner)
-engineFlame.position.set(0, 0.17, -0.93)
-player.add(engineFlame)
-const slowAuraRing = new THREE.Mesh(
-  new THREE.RingGeometry(1 - ENTITIES.slowAuraRingWidth, 1, ENTITIES.slowAuraRingSegments),
-  new THREE.MeshBasicMaterial({ color: COLORS.slowAura, transparent: true, opacity: 0.35, side: THREE.DoubleSide, depthWrite: false }),
-)
-slowAuraRing.rotation.x = -Math.PI / 2
-slowAuraRing.position.y = -GAME.playerStartHeight + 0.04
-slowAuraRing.visible = false
-player.add(slowAuraRing)
-const shieldBubble = new THREE.Mesh(
-  new THREE.SphereGeometry(GAME.playerRadius * 1.15, 20, 14),
-  new THREE.MeshBasicMaterial({ color: COLORS.slowAura, transparent: true, opacity: 0.18, wireframe: true, depthWrite: false }),
-)
-shieldBubble.visible = false
-player.add(shieldBubble)
-player.position.y = GAME.playerStartHeight
+const ship = createPlayerShip({ THREE, COLORS, ENTITIES, GAME })
+const { player, playerCore, slowAuraRing, shieldBubble } = ship
 scene.add(player)
 
 const keys = new Set()
@@ -2135,11 +2055,7 @@ function updateGame(delta, total) {
   player.rotation.y += headingDifference * (1 - Math.exp(-10 * delta))
 
   keepInsideArena(player.position)
-  playerRing.rotation.z += delta * ANIMATION.playerRingSpinSpeed
-  const flamePulse = 0.9 + Math.sin(total * 20) * 0.12 + Math.sin(total * 33) * 0.06
-  engineFlame.scale.set(1, 1, flamePulse)
-  engineFlameOuter.material.opacity = 0.62 + Math.sin(total * 17) * 0.12
-  engineFlameInner.material.opacity = 0.8 + Math.sin(total * 23) * 0.14
+  ship.updateVisuals(delta, total, ANIMATION.playerRingSpinSpeed)
   const slowAuraUnlocked = getResearchLevel('unlock-slow-aura') > 0
   const effectRangeMultiplier = 1 + getResearchStatBonus('effectRange')
   const slowAuraRange = GAME.slowAuraBaseRange * effectRangeMultiplier
