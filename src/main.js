@@ -85,7 +85,8 @@ document.querySelector('#app').innerHTML = `
         <h3 id="research-slots-heading">ACTIVE SLOTS</h3><div class="research-slots" id="research-slots"></div>
         <h3>AVAILABLE RESEARCH</h3><label class="research-search"><span>SEARCH</span><input id="research-search" type="search" placeholder="Search research names" autocomplete="off"></label><div class="research-list" id="research-list"></div>
       </section>
-      <section class="building-panel hidden" id="building-panel"><div class="lab-header"><div><p class="eyebrow">PERMANENT DEFENSES</p><h2>BUILDING SYSTEM</h2></div><button class="secondary-button" id="close-building-button" type="button">BACK</button></div><p class="lab-balance">CASH <span id="building-cash"></span> · CHRONOSHARDS <span id="building-chronoshards"></span> · SLOTS <span id="building-slots"></span></p><div class="building-actions"><button id="enter-build-mode" type="button">BUILD MODE</button></div><h3>UNLOCK BUILDINGS</h3><div class="building-list" id="building-list"></div></section>
+      <section class="building-panel hidden" id="building-panel"><div class="lab-header"><div><p class="eyebrow">PERMANENT DEFENSES</p><h2>BUILDING SYSTEM</h2></div><button class="secondary-button" id="close-building-button" type="button">BACK</button></div><p class="lab-balance">CASH <span id="building-cash"></span> · CHRONOSHARDS <span id="building-chronoshards"></span> · SLOTS <span id="building-slots"></span></p><div class="building-actions"><button id="enter-build-mode" type="button">BUILD MODE</button><button id="open-building-draft" type="button">UNLOCK A BUILDING</button></div><h3>UNLOCKED BUILDINGS</h3><div class="building-list" id="building-list"></div></section>
+      <section class="building-draft-modal hidden" id="building-draft-modal" aria-label="Building Draft"><button class="upgrade-close" id="close-building-draft" type="button" aria-label="Close building draft">×</button><p class="eyebrow">PERMANENT DEFENSES</p><h2>BUILDING DRAFT</h2><p class="building-draft-balance">CHRONOSHARDS <span id="building-draft-chronoshards"></span></p><div class="building-list" id="building-draft-list"></div></section>
     </section>
     <div class="build-bar hidden" id="build-bar"><span id="build-status">SELECT A BUILDING</span><div id="build-options"></div><button id="exit-build-mode" type="button">DONE</button></div>
     <section class="building-upgrade hidden" id="building-upgrade"></section>
@@ -124,6 +125,11 @@ const buildingCash = document.querySelector('#building-cash')
 const buildingChronoshards = document.querySelector('#building-chronoshards')
 const buildingSlots = document.querySelector('#building-slots')
 const enterBuildModeButton = document.querySelector('#enter-build-mode')
+const openBuildingDraftButton = document.querySelector('#open-building-draft')
+const buildingDraftModal = document.querySelector('#building-draft-modal')
+const closeBuildingDraftButton = document.querySelector('#close-building-draft')
+const buildingDraftChronoshards = document.querySelector('#building-draft-chronoshards')
+const buildingDraftList = document.querySelector('#building-draft-list')
 const buildBar = document.querySelector('#build-bar')
 const buildStatus = document.querySelector('#build-status')
 const buildOptions = document.querySelector('#build-options')
@@ -305,6 +311,11 @@ if (retiredGapGenerators.length) {
     localStorage.setItem(BUILDINGS_STORAGE_KEY, JSON.stringify(buildingState))
   } catch {}
 }
+const availableBuildingTypes = Object.keys(BUILDING_CONFIG.types)
+buildingState.unlocked = [...new Set(buildingState.unlocked.filter((type) => availableBuildingTypes.includes(type)))]
+buildingState.placed = buildingState.placed.filter((building) => availableBuildingTypes.includes(building.type))
+buildingState.unlockCount = Number.isFinite(buildingState.unlockCount) ? buildingState.unlockCount : buildingState.unlocked.length
+buildingState.unlockOffers = Array.isArray(buildingState.unlockOffers) ? buildingState.unlockOffers.filter((type) => availableBuildingTypes.includes(type) && !buildingState.unlocked.includes(type)) : []
 const buildingMeshes = new Map()
 const buildingRuntime = new Map()
 let buildMode = false
@@ -1205,6 +1216,33 @@ function randomArenaPosition(minDistance = 0) {
 }
 
 function saveBuildings() { try { localStorage.setItem(BUILDINGS_STORAGE_KEY, JSON.stringify(buildingState)) } catch {} }
+function getBuildingUnlockCost() { return 100 + buildingState.unlockCount * 50 }
+function getBuildingUnlockOffers() {
+  const remaining = Object.keys(BUILDING_CONFIG.types).filter((type) => !buildingState.unlocked.includes(type))
+  const validOffers = buildingState.unlockOffers.filter((type) => remaining.includes(type))
+  if (validOffers.length) return validOffers
+  buildingState.unlockOffers = [...remaining].sort(() => Math.random() - 0.5).slice(0, 3)
+  saveBuildings()
+  return buildingState.unlockOffers
+}
+function unlockBuildingOffer(type) {
+  const offers = getBuildingUnlockOffers()
+  const cost = getBuildingUnlockCost()
+  if (!offers.includes(type) || chronoshards < cost) return
+  updateChronoshards(-cost)
+  buildingState.unlocked.push(type)
+  buildingState.unlockCount += 1
+  buildingState.unlockOffers = []
+  saveBuildings()
+  renderBuildings()
+}
+function renderBuildingDraft() {
+  const offers = getBuildingUnlockOffers(); const unlockCost = getBuildingUnlockCost(); const canAffordUnlock = chronoshards >= unlockCost
+  buildingDraftChronoshards.textContent = `✦ ${formatCompactNumber(chronoshards)}`
+  buildingDraftList.innerHTML = offers.length
+    ? `<p class="building-draft-copy">CHOOSE 1 OF ${offers.length} · NEXT UNLOCK ✦ ${formatCompactNumber(unlockCost)}</p>${offers.map((type) => { const config = BUILDING_CONFIG.types[type]; return `<article class="building-card building-offer"><strong>${config.name}</strong><small>Permanent building unlock</small><button data-building-offer="${type}" ${canAffordUnlock ? '' : 'disabled'}>UNLOCK · ✦ ${formatCompactNumber(unlockCost)}</button></article>` }).join('')}`
+    : '<p class="building-draft-copy">ALL BUILDINGS UNLOCKED</p>'
+}
 function getBuildingSlotLimit() { return 1 + getResearchLevel('building-slots') }
 function getBuildingUpgradeCost(building, key) { const entry = BUILDING_CONFIG.types[building.type].upgrades[key]; const level = building.upgrades[key] ?? 0; return Math.ceil(entry.base * 1.65 ** level) }
 function getBuildingRefund(building) { return Math.round((building.spent ?? BUILDING_CONFIG.types[building.type].baseCost) * 100) / 100 }
@@ -1295,7 +1333,10 @@ function placeBuildingAt(x, z) {
 }
 function renderBuildings() {
   buildingCash.textContent = `$${formatCompactNumber(cash)}`; buildingChronoshards.textContent = `✦ ${formatCompactNumber(chronoshards)}`; buildingSlots.textContent = `${buildingState.placed.length}/${getBuildingSlotLimit()}`
-  buildingList.innerHTML = Object.entries(BUILDING_CONFIG.types).map(([type, config]) => { const unlocked = buildingState.unlocked.includes(type); return `<article class="building-card"><strong>${config.name}</strong><small>${unlocked ? `Build cost: $${buildingCost(type)}` : `Unlock: ✦ ${config.unlockCost}`}</small><button data-unlock-building="${type}" ${unlocked ? 'disabled' : ''}>${unlocked ? 'UNLOCKED' : 'UNLOCK'}</button></article>` }).join('')
+  buildingList.innerHTML = buildingState.unlocked.length
+    ? buildingState.unlocked.map((type) => `<article class="building-card"><strong>${BUILDING_CONFIG.types[type].name}</strong><small>Build cost: $${formatCompactNumber(buildingCost(type))}</small><span class="building-unlocked-state">UNLOCKED</span></article>`).join('')
+    : '<p class="building-draft-copy">NO BUILDINGS UNLOCKED YET</p>'
+  renderBuildingDraft()
   buildOptions.innerHTML = buildingState.unlocked.map((type) => `<button data-select-building="${type}" class="${selectedBuildingType === type ? 'selected' : ''}">${BUILDING_CONFIG.types[type].name}<small>$${buildingCost(type)}</small></button>`).join('')
   buildStatus.textContent = `BUILD MODE · SLOTS ${buildingState.placed.length}/${getBuildingSlotLimit()}`
   renderBuildGrid()
@@ -2763,10 +2804,12 @@ overlay.addEventListener('click', (event) => {
   menuContent.classList.remove('hidden')
 })
 openBuildingButton.addEventListener('click', () => { if (!featureUnlocks.buildingSystem && !unlockFeature('buildingSystem')) return; menuContent.classList.add('hidden'); buildingPanel.classList.remove('hidden'); renderBuildings() })
-closeBuildingButton.addEventListener('click', () => { buildingPanel.classList.add('hidden'); menuContent.classList.remove('hidden') })
+closeBuildingButton.addEventListener('click', () => { buildingDraftModal.classList.add('hidden'); buildingPanel.classList.add('hidden'); menuContent.classList.remove('hidden') })
+openBuildingDraftButton.addEventListener('click', () => { renderBuildingDraft(); buildingDraftModal.classList.remove('hidden') })
+closeBuildingDraftButton.addEventListener('click', () => buildingDraftModal.classList.add('hidden'))
 enterBuildModeButton.addEventListener('click', enterBuildMode)
 exitBuildModeButton.addEventListener('click', exitBuildMode)
-buildingPanel.addEventListener('click', (event) => { const button = event.target.closest('[data-unlock-building]'); if (!button) return; const type = button.dataset.unlockBuilding; const config = BUILDING_CONFIG.types[type]; if (chronoshards < config.unlockCost) return; chronoshards -= config.unlockCost; writeStoredNumber(CHRONOSHARDS_STORAGE_KEY, chronoshards); buildingState.unlocked.push(type); saveBuildings(); updateChronoshards(); renderBuildings() })
+buildingDraftModal.addEventListener('click', (event) => { const button = event.target.closest('[data-building-offer]'); if (button) unlockBuildingOffer(button.dataset.buildingOffer) })
 buildBar.addEventListener('click', (event) => { const button = event.target.closest('[data-select-building]'); if (!button) return; selectedBuildingType = button.dataset.selectBuilding; renderBuildings() })
 buildGridUi.addEventListener('click', (event) => { const button = event.target.closest('[data-build-x]'); if (button) placeBuildingAt(Number(button.dataset.buildX), Number(button.dataset.buildZ)) })
 buildingUpgrade.addEventListener('click', (event) => { const upgrade = event.target.closest('[data-upgrade-building]'); const destroy = event.target.closest('[data-destroy-building]'); if (event.target.closest('[data-close-building-upgrade]')) { buildingUpgrade.classList.add('hidden'); return } if (destroy) { const building = buildingState.placed.find((entry) => entry.id === destroy.dataset.destroyBuilding); if (!building || !window.confirm(`Demolish ${BUILDING_CONFIG.types[building.type].name}? You will receive a $${formatCompactNumber(getBuildingRefund(building))} refund.`)) return; updateCash(getBuildingRefund(building)); buildingState.placed = buildingState.placed.filter((entry) => entry.id !== building.id); saveBuildings(); syncBuildings(); renderBuildings(); buildingUpgrade.classList.add('hidden'); return } if (upgrade) { const building = buildingState.placed.find((entry) => entry.id === upgrade.dataset.upgradeBuilding); if (!building) return; const cost = getBuildingUpgradeCost(building, upgrade.dataset.upgradeKey); if (cash < cost) return; updateCash(-cost); building.upgrades[upgrade.dataset.upgradeKey] = (building.upgrades[upgrade.dataset.upgradeKey] ?? 0) + 1; building.spent = (building.spent ?? BUILDING_CONFIG.types[building.type].baseCost) + cost; saveBuildings(); syncBuildings(); openBuildingUpgrade(building) } })
