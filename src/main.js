@@ -10,6 +10,7 @@ import { TIPS } from './tips.js'
 import { MILESTONES } from './milestones.js'
 import { WEAPON_CONFIG } from './weapons_config.js'
 import { getBuildingAsset, getWeaponAsset } from './asset_catalog.js'
+import { DAMAGE_TYPES } from './damage_types.js'
 import './style.css'
 
 document.querySelector('#app').innerHTML = `
@@ -29,7 +30,7 @@ document.querySelector('#app').innerHTML = `
       </dl><button class="pause-button" id="pause-button" type="button" aria-label="Pause game">Ⅱ</button></div>
     </header>
     <div class="weapon-hud hidden" id="weapon-hud"></div>
-    <aside class="instructions"><b>MOVE</b><span>WASD / ARROW KEYS</span></aside>
+    <aside class="instructions"><b>MOVE</b><span>WASD</span></aside>
     <footer class="build-footer" aria-label="Build information">
       <strong>${BUILD_INFO.label}</strong><span>v${BUILD_INFO.version}</span><span>BUILD ${BUILD_INFO.number}</span><span>${BUILD_INFO.date}</span>
     </footer>
@@ -282,13 +283,15 @@ function writeStoredTierHighScores() {
 function readMilestoneState() {
   try {
     const storedState = JSON.parse(window.localStorage.getItem(MILESTONES_STORAGE_KEY))
-    if (!storedState || typeof storedState !== 'object') return { version: 0, claimed: [] }
+    if (!storedState || typeof storedState !== 'object') return { version: 0, claimed: [], researchUnlocks: [], debugAscensionsGranted: false }
     return {
       version: Number(storedState.version) || 0,
       claimed: Array.isArray(storedState.claimed) ? storedState.claimed.filter((id) => MILESTONES.some((milestone) => milestone.id === id)) : [],
+      researchUnlocks: Array.isArray(storedState.researchUnlocks) ? storedState.researchUnlocks.filter((id) => MILESTONES.some((milestone) => milestone.rewards.some((reward) => reward.type === 'research' && reward.researchIds.includes(id)))) : [],
+      debugAscensionsGranted: Boolean(storedState.debugAscensionsGranted),
     }
   } catch {
-    return { version: 0, claimed: [] }
+    return { version: 0, claimed: [], researchUnlocks: [], debugAscensionsGranted: false }
   }
 }
 
@@ -312,7 +315,7 @@ function isResearchTierUnlocked(tier) {
 }
 
 function isResearchMilestoneUnlocked(researchId) {
-  return MILESTONES.some((milestone) => milestoneState.claimed.includes(milestone.id)
+  return milestoneState.researchUnlocks.includes(researchId) || MILESTONES.some((milestone) => milestoneState.claimed.includes(milestone.id)
     && milestone.rewards.some((reward) => reward.type === 'research' && reward.researchIds.includes(researchId)))
 }
 
@@ -439,7 +442,9 @@ function legacyFormatCurrency(currency, amount) {
 
 function getResearchLockReason(research) {
   const requirements = research.requirements ?? {}
-  if (requirements.minTier && !isResearchMilestoneUnlocked(research.id)) return 'Unlock this research in Ascension'
+  // Debug's unlock_tiers command must grant every Ascension-gated research even
+  // when an older save was created before explicit research reward state existed.
+  if (requirements.minTier && !milestoneState.debugAscensionsGranted && !isResearchMilestoneUnlocked(research.id)) return 'Unlock this research in Ascension'
   if (requirements.minBankedCells && bankedCells < requirements.minBankedCells) return `Requires ${requirements.minBankedCells} banked cells`
   if (requirements.researchId && getResearchLevel(requirements.researchId) < 1) return `Requires ${getResearchById(requirements.researchId).name}`
   for (const [researchId, level] of Object.entries(requirements.researchLevels ?? {})) {
@@ -596,6 +601,8 @@ function clearGameProgressSave() {
   bankedCells = 0
   selectedTierIndex = 0
   milestoneState.claimed = []
+  milestoneState.researchUnlocks = []
+  milestoneState.debugAscensionsGranted = false
   for (const tierKey of tierKeys) tierHighScores[tierKey] = 0
   writeStoredNumber(CELL_BANK_STORAGE_KEY, bankedCells)
   writeStoredNumber(TIER_STORAGE_KEY, selectedTierIndex)
@@ -609,6 +616,8 @@ function clearGameProgressSave() {
 
 function clearMilestonesSave() {
   milestoneState.claimed = []
+  milestoneState.researchUnlocks = []
+  milestoneState.debugAscensionsGranted = false
   milestoneState.version = 3
   for (const tierKey of tierKeys) tierHighScores[tierKey] = 0
   selectedTierIndex = 0
@@ -684,9 +693,12 @@ function runCheatCommand(rawCommand) {
   }
   if (command === CHEAT_CONFIG.commands.unlockTiers) {
     const newlyClaimed = MILESTONES.filter((milestone) => !milestoneState.claimed.includes(milestone.id))
+    const rewardMilestones = milestoneState.debugAscensionsGranted ? newlyClaimed : MILESTONES
     milestoneState.claimed = MILESTONES.map((milestone) => milestone.id)
-    const grantedCash = newlyClaimed.flatMap((milestone) => milestone.rewards).filter((reward) => reward.type === 'cash').reduce((total, reward) => total + reward.amount, 0)
-    const grantedChronoshards = newlyClaimed.flatMap((milestone) => milestone.rewards).filter((reward) => reward.type === 'chronoshards').reduce((total, reward) => total + reward.amount, 0)
+    milestoneState.researchUnlocks = [...new Set(MILESTONES.flatMap((milestone) => milestone.rewards.filter((reward) => reward.type === 'research').flatMap((reward) => reward.researchIds)))]
+    milestoneState.debugAscensionsGranted = true
+    const grantedCash = rewardMilestones.flatMap((milestone) => milestone.rewards).filter((reward) => reward.type === 'cash').reduce((total, reward) => total + reward.amount, 0)
+    const grantedChronoshards = rewardMilestones.flatMap((milestone) => milestone.rewards).filter((reward) => reward.type === 'chronoshards').reduce((total, reward) => total + reward.amount, 0)
     if (grantedCash) updateCash(grantedCash)
     if (grantedChronoshards) updateChronoshards(grantedChronoshards)
     saveMilestoneState()
@@ -716,6 +728,10 @@ function runCheatCommand(rawCommand) {
 
 function getCurrentDifficulty() {
   return DIFFICULTY[tierKeys[selectedTierIndex]]
+}
+
+function getActiveEnemyCapacity() {
+  return getCurrentDifficulty().maxActiveEnemies ?? Infinity
 }
 
 function updateBankedCells(amount = 0) {
@@ -829,6 +845,7 @@ function claimMilestone(milestoneId) {
   const bestCells = milestone ? tierHighScores[tierKeys[milestone.tier - 1]] ?? 0 : 0
   if (!milestone || milestoneState.claimed.includes(milestone.id) || bestCells < milestone.cells) return
   milestoneState.claimed.push(milestone.id)
+  milestoneState.researchUnlocks = [...new Set([...milestoneState.researchUnlocks, ...milestone.rewards.filter((reward) => reward.type === 'research').flatMap((reward) => reward.researchIds)])]
   for (const reward of milestone.rewards) {
     if (reward.type === 'cash') updateCash(reward.amount)
     if (reward.type === 'chronoshards') updateChronoshards(reward.amount)
@@ -1032,13 +1049,17 @@ function applyGraphicsSettings() {
 }
 
 function saveWeaponState() { try { localStorage.setItem(WEAPONRY_STORAGE_KEY, JSON.stringify(weaponState)) } catch {} }
-function getWeaponSlots() { return 1 + getResearchLevel('weaponSlots') }
+function getWeaponSlots() { return 1 + getResearchLevel('weapon-slots') }
 function getWeaponEntry(id) { return weaponState.cards[id] }
 function getWeaponRequirement(level) { return WEAPON_CONFIG.levelCopyRequirements[level - 1] ?? Infinity }
+function getWeaponEffect(id) { const entry = getWeaponEntry(id); const weapon = WEAPON_CONFIG.weapons[id]; return entry && weapon ? weapon.baseEffect + weapon.effectPerLevel * (entry.level - 1) : 0 }
+function getWeaponDurationRemaining(id) { return ({ megaMagnet: megaMagnetTime, atmosphereShield: atmosphereShieldTime, chronoFreeze: chronoFreezeTime, plasmaOrbital: plasmaOrbitalTime, cellOverdrive: cellOverdriveTime, demonMode: demonModeTime })[id] ?? 0 }
+function updateWeaponDurationIndicators() { for (const indicator of weaponHud.querySelectorAll('[data-weapon-duration]')) { const id = indicator.dataset.weaponDuration; const total = getWeaponEffect(id); indicator.style.setProperty('--weapon-progress', String(total > 0 ? THREE.MathUtils.clamp(getWeaponDurationRemaining(id) / total, 0, 1) : 0)) } }
 function renderWeaponHud() {
   const available = weaponState.loadout.filter((id) => getWeaponEntry(id))
   weaponHud.classList.toggle('hidden', !started || !available.length)
-  weaponHud.innerHTML = available.map((id, index) => `<button class="${index === weaponState.selected ? 'selected' : ''} ${usedWeaponsThisRound.has(id) ? 'spent' : ''}" data-use-weapon="${id}" type="button" ${usedWeaponsThisRound.has(id) ? 'disabled' : ''}><img class="weapon-hud-art" src="${getWeaponAsset(id)}" alt=""><b>${index + 1}</b><span>${WEAPON_CONFIG.weapons[id].name}</span><i>${usedWeaponsThisRound.has(id) ? 'USED' : 'READY'}</i></button>`).join('')
+  weaponHud.innerHTML = available.map((id, index) => `<button class="${index === weaponState.selected ? 'selected' : ''} ${usedWeaponsThisRound.has(id) ? 'spent' : ''}" data-use-weapon="${id}" type="button" ${usedWeaponsThisRound.has(id) ? 'disabled' : ''}><span class="weapon-hud-icon ${WEAPON_CONFIG.weapons[id].duration ? 'has-duration' : ''}" data-weapon-duration="${WEAPON_CONFIG.weapons[id].duration ? id : ''}"><img class="weapon-hud-art" src="${getWeaponAsset(id)}" alt=""></span><b>${index + 1}</b><span>${WEAPON_CONFIG.weapons[id].name}</span><i>${usedWeaponsThisRound.has(id) ? 'USED' : 'READY'}</i></button>`).join('')
+  updateWeaponDurationIndicators()
 }
 function renderWeaponry() {
   weaponryChronoshards.textContent = `✦ ${formatCompactNumber(chronoshards)}`
@@ -1065,13 +1086,32 @@ function toggleWeaponLoadout(id) { if (!getWeaponEntry(id)) return; const index 
 function useWeapon(id = weaponState.loadout[weaponState.selected]) {
   const entry = getWeaponEntry(id); if (!started || paused || !entry || !weaponState.loadout.includes(id)) return
   if (usedWeaponsThisRound.has(id)) return
-  const weapon = WEAPON_CONFIG.weapons[id]; const effect = weapon.baseEffect + weapon.effectPerLevel * (entry.level - 1)
-  if (id === 'nuke') { const targets = [...obstacles].sort(() => Math.random() - 0.5).slice(0, Math.ceil(obstacles.length * Math.min(effect, 0.9))); for (const target of targets) removeObstacleFromArena(target); createExplosion(player.position, 3.2) }
+  const weapon = WEAPON_CONFIG.weapons[id]; const effect = getWeaponEffect(id)
+  if (id === 'nuke') { const targets = [...obstacles].sort(() => Math.random() - 0.5).slice(0, Math.ceil(obstacles.length * Math.min(effect, 0.9))); createNukeWave(player.position, targets) }
   if (id === 'megaMagnet') megaMagnetTime = effect
   if (id === 'atmosphereShield') { atmosphereShieldTime = effect; for (const falling of fallingObstacles) scene.remove(falling.obstacle, falling.shadow, falling.targetRing); fallingObstacles.length = 0 }
+  if (id === 'phaseDash') performPhaseDash(effect)
+  if (id === 'chronoFreeze') chronoFreezeTime = effect
+  if (id === 'plasmaOrbital') plasmaOrbitalTime = effect
+  if (id === 'cellOverdrive') cellOverdriveTime = effect
+  if (id === 'demonMode') demonModeTime = effect
   usedWeaponsThisRound.add(id)
   renderWeaponHud()
   soundSystem.playBuildingEffect(player.position, 'overclockRelay')
+}
+
+function performPhaseDash(distance) {
+  const moveDirection = new THREE.Vector3(joystickInput.x, 0, joystickInput.y)
+  if (moveDirection.lengthSq() === 0) moveDirection.set(Math.sin(player.rotation.y), 0, Math.cos(player.rotation.y))
+  else moveDirection.normalize()
+  const start = player.position.clone(); const end = keepInsideArena(start.clone().addScaledVector(moveDirection, distance), GAME.playerRadius)
+  for (const obstacle of [...obstacles]) {
+    if (planarDistanceToSegment(obstacle.position, start, end) > obstacle.userData.colliderRadius + 0.8) continue
+    createExplosion(obstacle.position, 0.5); removeObstacleFromArena(obstacle)
+  }
+  const trail = new THREE.Line(new THREE.BufferGeometry().setFromPoints([start.clone().setY(0.25), end.clone().setY(0.25)]), new THREE.LineBasicMaterial({ color: '#78eaff', transparent: true, opacity: 0.95, depthWrite: false }))
+  scene.add(trail); phaseDashEffects.push({ trail, age: 0 })
+  player.position.copy(end); playerTargetHeading = Math.atan2(moveDirection.x, moveDirection.z)
 }
 applyGraphicsSettings()
 renderer.setSize(window.innerWidth, window.innerHeight)
@@ -1214,6 +1254,54 @@ let playerTargetHeading = 0
 const ship = createPlayerShip({ THREE, COLORS, ENTITIES, GAME })
 const { player, playerCore, slowAuraRing, shieldBubble } = ship
 scene.add(player)
+const atmosphereShieldVisual = new THREE.Group()
+const atmosphereShieldRing = new THREE.Mesh(
+  new THREE.TorusGeometry(1.3, 0.055, 10, 48),
+  new THREE.MeshBasicMaterial({ color: '#b59aff', transparent: true, opacity: 0.9, depthWrite: false }),
+)
+atmosphereShieldRing.rotation.x = Math.PI / 2
+const atmosphereShieldHalo = new THREE.Mesh(
+  new THREE.RingGeometry(0.95, 1.28, 48),
+  new THREE.MeshBasicMaterial({ color: '#d5c9ff', transparent: true, opacity: 0.18, side: THREE.DoubleSide, depthWrite: false }),
+)
+atmosphereShieldHalo.rotation.x = -Math.PI / 2
+const atmosphereShieldDome = new THREE.Mesh(
+  new THREE.SphereGeometry(1.42, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2),
+  new THREE.MeshBasicMaterial({ color: '#a998ff', transparent: true, opacity: 0.15, wireframe: true, depthWrite: false }),
+)
+atmosphereShieldVisual.position.y = 0.92
+atmosphereShieldVisual.add(atmosphereShieldRing, atmosphereShieldHalo, atmosphereShieldDome)
+atmosphereShieldVisual.visible = false
+player.add(atmosphereShieldVisual)
+const plasmaOrbitalVisuals = Array.from({ length: 3 }, () => {
+  const orbital = new THREE.Mesh(new THREE.SphereGeometry(0.2, 14, 10), new THREE.MeshStandardMaterial({ color: '#ffb5ff', emissive: '#ff45e9', emissiveIntensity: 3, metalness: 0.2, roughness: 0.15 }))
+  orbital.visible = false; player.add(orbital); return orbital
+})
+const demonModeAura = new THREE.Mesh(new THREE.TorusGeometry(1.25, 0.07, 8, 40), new THREE.MeshBasicMaterial({ color: '#ff465d', transparent: true, opacity: 0.8, depthWrite: false }))
+demonModeAura.rotation.x = Math.PI / 2; demonModeAura.position.y = 0.1; demonModeAura.visible = false; player.add(demonModeAura)
+const demonSpikeAura = new THREE.Group()
+for (let index = 0; index < 12; index += 1) {
+  const angle = index * Math.PI * 2 / 12
+  const spike = new THREE.Mesh(new THREE.ConeGeometry(0.12, 1.05 + (index % 3) * 0.16, 5), new THREE.MeshBasicMaterial({ color: '#ff465d', transparent: true, opacity: 0.46, depthWrite: false }))
+  const radial = new THREE.Vector3(Math.cos(angle), 0.1 + (index % 2) * 0.12, Math.sin(angle))
+  spike.position.copy(radial.clone().multiplyScalar(0.95)); spike.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), radial.normalize()); demonSpikeAura.add(spike)
+}
+demonSpikeAura.visible = false; player.add(demonSpikeAura)
+const cellOverdriveCanvas = document.createElement('canvas')
+cellOverdriveCanvas.width = 128; cellOverdriveCanvas.height = 128
+const cellOverdriveContext = cellOverdriveCanvas.getContext('2d')
+cellOverdriveContext.font = '900 108px Arial'; cellOverdriveContext.textAlign = 'center'; cellOverdriveContext.textBaseline = 'middle'; cellOverdriveContext.lineWidth = 8; cellOverdriveContext.strokeStyle = '#6b4710'; cellOverdriveContext.strokeText('$', 64, 65); cellOverdriveContext.fillStyle = '#ffd36f'; cellOverdriveContext.fillText('$', 64, 65)
+const cellOverdriveDollar = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(cellOverdriveCanvas), transparent: true, depthWrite: false }))
+cellOverdriveDollar.position.set(0, 2.2, 0); cellOverdriveDollar.scale.set(0.7, 0.7, 1); cellOverdriveDollar.visible = false; player.add(cellOverdriveDollar)
+const weaponDurationArcs = new Map()
+for (const [index, [id, weapon]] of Object.entries(WEAPON_CONFIG.weapons).filter(([, weapon]) => weapon.duration).entries()) {
+  const arc = new THREE.Mesh(
+    new THREE.RingGeometry(1.42 + index * 0.11, 1.49 + index * 0.11, 96),
+    new THREE.MeshBasicMaterial({ color: weapon.color, transparent: true, opacity: 0.9, side: THREE.DoubleSide, depthWrite: false }),
+  )
+  arc.rotation.x = -Math.PI / 2; arc.userData.height = 0.2 + index * 0.025; arc.position.y = arc.userData.height; arc.visible = false; arc.geometry.setDrawRange(0, 0)
+  scene.add(arc); weaponDurationArcs.set(id, arc)
+}
 const orbitalElectron = new THREE.Mesh(
   new THREE.SphereGeometry(0.19, 16, 12),
   new THREE.MeshStandardMaterial({ color: '#d9ffff', emissive: '#42eaff', emissiveIntensity: 3.2, metalness: 0.2, roughness: 0.12 }),
@@ -1232,6 +1320,7 @@ orbitalArc.visible = false
 scene.add(orbitalElectron, orbitalArc)
 let orbitalElectronAngle = 0
 const orbitalElectronWorldPosition = new THREE.Vector3()
+const plasmaOrbitalWorldPosition = new THREE.Vector3()
 
 const keys = new Set()
 const joystickInput = new THREE.Vector2()
@@ -1252,6 +1341,7 @@ const spores = []
 const boosters = []
 const shockwaves = []
 const shockwavePushes = []
+const nukeWaves = []
 const droneStrikes = []
 const playerDeathEffects = []
 const obstacleSpawnWarnings = []
@@ -1274,6 +1364,12 @@ let thornShieldTime = 0
 let freezerTime = 0
 let megaMagnetTime = 0
 let atmosphereShieldTime = 0
+let chronoFreezeTime = 0
+let plasmaOrbitalTime = 0
+let cellOverdriveTime = 0
+let demonModeTime = 0
+const phaseDashEffects = []
+const playerDamageStates = new Map()
 const usedWeaponsThisRound = new Set()
 
 const cellGeometry = new THREE.OctahedronGeometry(ENTITIES.cellRadius)
@@ -1430,6 +1526,8 @@ function setBuildModeEntityVisibility(hidden) {
   for (const piece of splinterPieces) piece.piece.visible = !hidden
   for (const pulse of bangerPulses) pulse.pulse.visible = !hidden
   for (const wave of shockwaves) wave.shockwave.visible = !hidden
+  for (const wave of nukeWaves) { wave.ring.visible = !hidden; wave.glow.visible = !hidden }
+  for (const arc of weaponDurationArcs.values()) if (hidden) arc.visible = false
 }
 function placeBuildingAt(x, z) {
   const existing = buildingState.placed.find((entry) => entry.x === x && entry.z === z)
@@ -2137,6 +2235,8 @@ function resetGame(populateArena = true) {
   droneStrikes.length = 0
   for (const shockwave of shockwaves) scene.remove(shockwave.shockwave)
   shockwaves.length = 0
+  for (const wave of nukeWaves) scene.remove(wave.ring, wave.glow)
+  nukeWaves.length = 0
   shockwavePushes.length = 0
   for (const deathEffect of playerDeathEffects) scene.remove(deathEffect.flash, deathEffect.blast, deathEffect.shockwave, deathEffect.innerShockwave, deathEffect.light, ...deathEffect.fragments)
   playerDeathEffects.length = 0
@@ -2164,6 +2264,19 @@ function resetGame(populateArena = true) {
   freezerTime = 0
   megaMagnetTime = 0
   atmosphereShieldTime = 0
+  chronoFreezeTime = 0
+  plasmaOrbitalTime = 0
+  cellOverdriveTime = 0
+  demonModeTime = 0
+  atmosphereShieldVisual.visible = false
+  demonModeAura.visible = false
+  demonSpikeAura.visible = false
+  cellOverdriveDollar.visible = false
+  for (const arc of weaponDurationArcs.values()) { arc.visible = false; arc.geometry.setDrawRange(0, 0) }
+  for (const orbital of plasmaOrbitalVisuals) orbital.visible = false
+  for (const effect of phaseDashEffects) scene.remove(effect.trail)
+  phaseDashEffects.length = 0
+  playerDamageStates.clear()
   usedWeaponsThisRound.clear()
   shieldBubble.visible = shieldCharges > 0
   scoreElement.textContent = '000'
@@ -2352,11 +2465,13 @@ function updateHud() {
 }
 
 function updateGame(delta, total) {
+  for (const state of playerDamageStates.values()) state.exposed = false
   const difficulty = getCurrentDifficulty()
   const tierPressure = THREE.MathUtils.lerp(0.16, 0.03, selectedTierIndex / Math.max(tierKeys.length - 1, 1))
-  const regularObstacleLifetime = (GAME.regularObstacleLifetime + difficulty.obstacleLifetimeOffset
+  const baseObstacleLifetime = (GAME.regularObstacleLifetime + difficulty.obstacleLifetimeOffset
     + score * (GAME.regularObstacleLifetimeIncreasePerCell + difficulty.obstacleLifetimeIncreasePerCellOffset)
   ) * Math.max(0.5, 1 - getResearchStatBonus('regularLifetimeDebuff'))
+  const regularObstacleLifetime = Math.max(1, baseObstacleLifetime - obstacles.length * 0.1)
   const obstacleSpawnInterval = Math.max(
     GAME.obstacleSpawnWarningDuration,
     (GAME.obstacleSpawnInterval + difficulty.obstacleSpawnIntervalOffset
@@ -2371,14 +2486,14 @@ function updateGame(delta, total) {
     ),
   )
   const direction = new THREE.Vector3(
-    (keys.has('KeyD') || keys.has('ArrowRight') ? 1 : 0) - (keys.has('KeyA') || keys.has('ArrowLeft') ? 1 : 0) + joystickInput.x,
+    (keys.has('KeyD') ? 1 : 0) - (keys.has('KeyA') ? 1 : 0) + joystickInput.x,
     0,
-    (keys.has('KeyS') || keys.has('ArrowDown') ? 1 : 0) - (keys.has('KeyW') || keys.has('ArrowUp') ? 1 : 0) + joystickInput.y,
+    (keys.has('KeyS') ? 1 : 0) - (keys.has('KeyW') ? 1 : 0) + joystickInput.y,
   )
 
   if (direction.lengthSq() > 0) {
     direction.normalize()
-    player.position.addScaledVector(direction, GAME.playerSpeed * (1 + getResearchStatBonus('playerSpeedMultiplier')) * (speedBoosterTime > 0 ? 2 : 1) * delta)
+    player.position.addScaledVector(direction, GAME.playerSpeed * (1 + getResearchStatBonus('playerSpeedMultiplier')) * (speedBoosterTime > 0 ? 2 : 1) * (demonModeTime > 0 ? 1.8 : 1) * delta)
     playerTargetHeading = Math.atan2(direction.x, direction.z)
   }
 
@@ -2404,6 +2519,48 @@ function updateGame(delta, total) {
   freezerTime = Math.max(0, freezerTime - delta)
   megaMagnetTime = Math.max(0, megaMagnetTime - delta)
   atmosphereShieldTime = Math.max(0, atmosphereShieldTime - delta)
+  chronoFreezeTime = Math.max(0, chronoFreezeTime - delta)
+  plasmaOrbitalTime = Math.max(0, plasmaOrbitalTime - delta)
+  cellOverdriveTime = Math.max(0, cellOverdriveTime - delta)
+  demonModeTime = Math.max(0, demonModeTime - delta)
+  const atmosphereShieldDuration = getWeaponEffect('atmosphereShield')
+  atmosphereShieldVisual.visible = atmosphereShieldTime > 0
+  if (atmosphereShieldTime > 0) {
+    const shieldProgress = atmosphereShieldDuration > 0 ? atmosphereShieldTime / atmosphereShieldDuration : 0
+    atmosphereShieldRing.rotation.z += delta * 2.7
+    atmosphereShieldHalo.rotation.z -= delta * 1.5
+    atmosphereShieldVisual.scale.setScalar(1 + Math.sin(total * 9) * 0.08)
+    atmosphereShieldRing.material.opacity = 0.52 + shieldProgress * 0.38
+    atmosphereShieldHalo.material.opacity = 0.08 + shieldProgress * 0.18
+    atmosphereShieldDome.material.opacity = 0.06 + shieldProgress * 0.18
+  }
+  demonModeAura.visible = demonModeTime > 0
+  demonSpikeAura.visible = demonModeTime > 0
+  if (demonModeTime > 0) { demonModeAura.rotation.z += delta * 5; demonModeAura.scale.setScalar(1 + Math.sin(total * 14) * 0.12); demonModeAura.material.opacity = 0.55 + Math.sin(total * 18) * 0.2; demonSpikeAura.rotation.y -= delta * 1.7; demonSpikeAura.scale.setScalar(1 + Math.sin(total * 16) * 0.14); for (const spike of demonSpikeAura.children) spike.material.opacity = 0.26 + Math.sin(total * 12 + spike.position.x * 4) * 0.16 }
+  cellOverdriveDollar.visible = cellOverdriveTime > 0
+  if (cellOverdriveTime > 0) { cellOverdriveDollar.material.rotation += delta * 2.8; cellOverdriveDollar.position.y = 2.2 + Math.sin(total * 5) * 0.15; cellOverdriveDollar.scale.setScalar(0.65 + Math.sin(total * 7) * 0.08) }
+  for (const [index, orbital] of plasmaOrbitalVisuals.entries()) {
+    orbital.visible = plasmaOrbitalTime > 0
+    if (!orbital.visible) continue
+    const angle = total * 5 + index * Math.PI * 2 / plasmaOrbitalVisuals.length
+    orbital.position.set(Math.cos(angle) * 2.2, 0.55 + Math.sin(angle * 2) * 0.18, Math.sin(angle) * 2.2)
+    orbital.scale.setScalar(0.9 + Math.sin(total * 12 + index) * 0.18)
+    orbital.getWorldPosition(plasmaOrbitalWorldPosition)
+    for (const obstacle of [...obstacles]) if (obstacle.position.distanceTo(plasmaOrbitalWorldPosition) <= obstacle.userData.colliderRadius + 0.3) { createExplosion(obstacle.position, 0.42); removeObstacleFromArena(obstacle) }
+  }
+  for (let index = phaseDashEffects.length - 1; index >= 0; index -= 1) { const effect = phaseDashEffects[index]; effect.age += delta; effect.trail.material.opacity = Math.max(0, 0.95 - effect.age * 2.5); if (effect.age >= 0.4) { scene.remove(effect.trail); phaseDashEffects.splice(index, 1) } }
+  for (const [id, arc] of weaponDurationArcs) {
+    const duration = getWeaponEffect(id); const remaining = getWeaponDurationRemaining(id); const progress = duration > 0 ? THREE.MathUtils.clamp(remaining / duration, 0, 1) : 0
+    arc.visible = progress > 0
+    if (!arc.visible) { arc.geometry.setDrawRange(0, 0); continue }
+    arc.position.set(player.position.x, arc.userData.height, player.position.z)
+    const count = arc.geometry.index?.count ?? 0
+    arc.geometry.setDrawRange(0, Math.max(3, Math.floor(count * progress / 3) * 3))
+    arc.rotation.z -= delta * (1.1 + progress)
+    arc.material.opacity = 0.28 + progress * 0.65
+  }
+  updateWeaponDurationIndicators()
+  playerCore.material.emissive.set(COLORS.playerEmissive)
   playerCore.material.emissiveIntensity = thornShieldTime > 0 ? 3.2 : 1.4
   if (shieldCharges > 0 || shieldInvulnerability > 0 || thornShieldTime > 0) {
     shieldBubble.visible = true
@@ -2438,10 +2595,11 @@ function updateGame(delta, total) {
       soundSystem.playCellCollect(cell.position)
       scene.remove(cell)
       cells.splice(index, 1)
-      score += 1
-      updateBankedCells(1)
-      updateCash(cell.userData.cashValue)
-      showCashIndicator(cell.position, cell.userData.cashValue)
+      const cellMultiplier = cellOverdriveTime > 0 ? 2 : 1
+      score += cellMultiplier
+      updateBankedCells(cellMultiplier)
+      updateCash(cell.userData.cashValue * cellMultiplier)
+      showCashIndicator(cell.position, cell.userData.cashValue * cellMultiplier)
     }
   }
 
@@ -2486,6 +2644,12 @@ function updateGame(delta, total) {
     const obstacle = obstacles[index]
     const obstacleType = OBSTACLE_TYPES[obstacle.userData.type]
     const effectiveRange = getEffectiveEnemyRange(obstacle.userData.type, obstacleType.range)
+    if (chronoFreezeTime > 0) {
+      obstacle.userData.material.emissive.set('#77c8ff')
+      obstacle.userData.material.emissiveIntensity = 2 + Math.sin(total * 12) * 0.5
+      obstacle.rotation.y += delta * 0.35
+      continue
+    }
     obstacle.userData.lifetimeAge += delta
     if (obstacle.userData.lifetimeAge > regularObstacleLifetime) {
       scene.remove(obstacle, obstacle.userData.rangeIndicator, obstacle.userData.magnetPulse)
@@ -2517,6 +2681,11 @@ function updateGame(delta, total) {
       scene.remove(obstacle, obstacle.userData.rangeIndicator, obstacle.userData.magnetPulse)
       clearPorterTeleportTarget(obstacle)
       obstacles.splice(index, 1)
+      continue
+    }
+    if (demonModeTime > 0 && playerOffset.length() < GAME.playerRadius + 0.3) {
+      createExplosion(obstacle.position, 0.5)
+      removeObstacleFromArena(obstacle)
       continue
     }
     obstacle.userData.electronStun = Math.max(0, (obstacle.userData.electronStun ?? 0) - delta)
@@ -2736,6 +2905,29 @@ function updateGame(delta, total) {
     }
   }
 
+  for (let index = nukeWaves.length - 1; index >= 0; index -= 1) {
+    const wave = nukeWaves[index]
+    wave.age += delta
+    const progress = Math.min(wave.age / wave.duration, 1)
+    const waveRadius = wave.radius * progress
+    wave.ring.scale.setScalar(THREE.MathUtils.lerp(0.2, wave.radius / 0.58, progress))
+    wave.glow.scale.setScalar(THREE.MathUtils.lerp(0.08, wave.radius, progress))
+    wave.ring.material.opacity = 0.98 * (1 - progress * 0.38)
+    wave.glow.material.opacity = 0.24 * (1 - progress)
+    for (const target of wave.targets) {
+      if (wave.hit.has(target) || !obstacles.includes(target)) continue
+      const distance = Math.hypot(target.position.x - wave.origin.x, target.position.z - wave.origin.z)
+      if (distance > waveRadius) continue
+      wave.hit.add(target)
+      createExplosion(target.position, 0.82)
+      removeObstacleFromArena(target)
+    }
+    if (progress === 1) {
+      scene.remove(wave.ring, wave.glow)
+      nukeWaves.splice(index, 1)
+    }
+  }
+
   for (let index = shockwavePushes.length - 1; index >= 0; index -= 1) {
     const push = shockwavePushes[index]
     if (!obstacles.includes(push.obstacle)) {
@@ -2765,7 +2957,10 @@ function updateGame(delta, total) {
     fallingObstacle.targetRing.material.opacity = ANIMATION.targetRingBaseOpacity - progress * ANIMATION.targetRingOpacityFade
 
     const horizontalDistance = player.position.distanceTo(fallingObstacle.target)
-    if (!fallingObstacle.landed && progress > 0.82 && horizontalDistance < GAME.playerRadius) endGame()
+    if (!fallingObstacle.landed && progress > 0.82 && horizontalDistance < GAME.playerRadius) {
+      if (fallingObstacle.type === 'fieryRock') applyPlayerStatusDamage('fire', 'fiery-rock-impact')
+      else endGame()
+    }
 
     if (progress === 1) {
       fallingObstacle.landed = true
@@ -2806,11 +3001,17 @@ function updateGame(delta, total) {
       ember.scale.setScalar(0.6 + (1 - emberAge) * 0.7)
     }
     fireHazard.light.intensity = Math.max(0, (5.5 + Math.sin(fireHazard.age * 14)) * fade)
-    if (planarDistance(player.position, fireHazard.position) < GAME.fieryRockFireRadius) endGame()
+    if (planarDistance(player.position, fireHazard.position) < GAME.fieryRockFireRadius) applyPlayerStatusDamage('fire', 'fiery-rock')
     if (progress >= 1) {
       scene.remove(fireHazard.visual, fireHazard.light)
       fireHazards.splice(index, 1)
     }
+  }
+
+  const activeStatusDamage = updatePlayerStatusDamage(delta, total)
+  if (activeStatusDamage) {
+    playerCore.material.emissive.set(activeStatusDamage.color)
+    playerCore.material.emissiveIntensity = 2.6 + Math.sin(total * 22) * 0.9
   }
 
   for (let index = splinterPieces.length - 1; index >= 0; index -= 1) {
@@ -2843,7 +3044,7 @@ function updateGame(delta, total) {
     warning.beam.rotation.y += delta * 1.6
 
     if (progress >= 1) {
-      createObstacle(warning.position, warning.type)
+      if (obstacles.length < getActiveEnemyCapacity()) createObstacle(warning.position, warning.type)
       scene.remove(warning.ring, warning.glow, warning.beam)
       obstacleSpawnWarnings.splice(index, 1)
     }
@@ -2873,7 +3074,8 @@ function updateGame(delta, total) {
     chronoCellTimer = 0
   }
   if (obstacleSpawnTimer > obstacleSpawnInterval) {
-    for (let index = 0; index < obstacleSpawnCount; index += 1) scheduleObstacle()
+    const availableSlots = Math.max(0, getActiveEnemyCapacity() - obstacles.length - obstacleSpawnWarnings.length)
+    for (let index = 0; index < Math.min(obstacleSpawnCount, availableSlots); index += 1) scheduleObstacle()
     obstacleSpawnTimer = 0
   }
   const fallingRockSpawnInterval = Math.max(
@@ -2906,6 +3108,53 @@ function animate() {
   }
   starfield.position.copy(camera.position)
   renderer.render(scene, camera)
+}
+
+function applyPlayerStatusDamage(type, source = 'unknown') {
+  const definition = DAMAGE_TYPES[type]
+  if (!definition || !started || ended || shieldInvulnerability > 0) return false
+  if (definition.immunityResearchId && getResearchLevel(definition.immunityResearchId) > 0) return false
+  if (shieldCharges > 0) { endGame(); return false }
+  const existing = playerDamageStates.get(type)
+  if (existing) {
+    existing.exposed = true
+    if (!definition.requiresExposure && definition.refreshOnReapply) existing.remaining = definition.duration
+    return true
+  }
+  playerDamageStates.set(type, { type, source, remaining: definition.duration, maxDuration: definition.duration, exposed: true })
+  return true
+}
+
+function updatePlayerStatusDamage(delta, total) {
+  let activeState = null
+  for (const [type, state] of playerDamageStates) {
+    const definition = DAMAGE_TYPES[type]
+    if (definition.requiresExposure && !state.exposed) { playerDamageStates.delete(type); continue }
+    state.remaining -= delta
+    if (state.remaining <= 0) { playerDamageStates.delete(type); endGame(); continue }
+    if (!activeState || state.remaining / state.maxDuration > activeState.remaining / activeState.maxDuration) activeState = state
+  }
+  if (!activeState) return null
+  const definition = DAMAGE_TYPES[activeState.type]
+  return definition
+}
+
+function createNukeWave(origin, targets) {
+  const ring = new THREE.Mesh(
+    new THREE.RingGeometry(0.2, 0.58, 96),
+    new THREE.MeshBasicMaterial({ color: '#ff795f', transparent: true, opacity: 1, side: THREE.DoubleSide, depthWrite: false }),
+  )
+  ring.rotation.x = -Math.PI / 2
+  ring.position.set(origin.x, 0.1, origin.z)
+  const glow = new THREE.Mesh(
+    new THREE.RingGeometry(0.01, 1, 96),
+    new THREE.MeshBasicMaterial({ color: '#ffbe75', transparent: true, opacity: 0.22, side: THREE.DoubleSide, depthWrite: false }),
+  )
+  glow.rotation.x = -Math.PI / 2
+  glow.position.set(origin.x, 0.075, origin.z)
+  scene.add(ring, glow)
+  nukeWaves.push({ origin: origin.clone(), ring, glow, radius: getArenaLimit() * 1.1, age: 0, duration: 2.2, targets: new Set(targets), hit: new Set() })
+  createExplosion(origin, 2.1)
 }
 
 function renderSettings() {
@@ -3045,8 +3294,8 @@ window.addEventListener('keydown', (event) => {
     toggleCheatConsole()
     return
   }
-  if (started && !paused && event.code === 'ArrowLeft') { event.preventDefault(); weaponState.selected = (weaponState.selected - 1 + Math.max(weaponState.loadout.length, 1)) % Math.max(weaponState.loadout.length, 1); renderWeaponHud(); return }
-  if (started && !paused && event.code === 'ArrowRight') { event.preventDefault(); weaponState.selected = (weaponState.selected + 1) % Math.max(weaponState.loadout.length, 1); renderWeaponHud(); return }
+  if (started && !paused && event.code === 'ArrowUp') { event.preventDefault(); weaponState.selected = (weaponState.selected - 1 + Math.max(weaponState.loadout.length, 1)) % Math.max(weaponState.loadout.length, 1); renderWeaponHud(); return }
+  if (started && !paused && event.code === 'ArrowDown') { event.preventDefault(); weaponState.selected = (weaponState.selected + 1) % Math.max(weaponState.loadout.length, 1); renderWeaponHud(); return }
   if (started && !paused && event.code === 'Space') { event.preventDefault(); useWeapon(); return }
   if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.code)) event.preventDefault()
   keys.add(event.code)

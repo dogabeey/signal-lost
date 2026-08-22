@@ -24,7 +24,7 @@ export const RESEARCH_CONFIG = {
   ],
   researches: [
     {
-      id: 'weapon-slots', category: 'Weapons', name: 'Weapon Slot', description: 'Adds one weapon slot to your round loadout.', maxLevel: 2,
+      id: 'weapon-slots', category: 'Weapons', name: 'Weapon Slot', description: 'Adds one weapon slot to your round loadout.', maxLevel: 4,
       effect: { stat: 'weaponSlots', perLevel: 1, format: 'flat' }, cost: { currency: 'cash', base: 25_000, multiplier: 1.8, jerk: 1.02 }, duration: { baseMs: 180_000, multiplier: 1.25 }, requirements: { minTier: 3 },
     },
     {
