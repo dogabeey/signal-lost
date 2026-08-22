@@ -82,6 +82,7 @@ export const DIFFICULTY = {
 
     availableObstacleTypes: ['regular', 'creeper'],
     maxActiveEnemies: 10,
+    maxActiveEnemiesIncrementPerCell: 0.03, // Increment applied to the maxActiveEnemies value for each cell collected by the player. A positive value increases the maxActiveEnemies, while a negative value decreases it.
     obstacleSpawnCountOffset: 0,
     obstacleSpawnCountIncreasePerCell: 0.035,
     obstacleSpawnIntervalOffset: 1.8,
@@ -108,6 +109,7 @@ export const DIFFICULTY = {
 
     availableObstacleTypes: ['regular', 'chaser', 'creeper'],
     maxActiveEnemies: 11,
+    maxActiveEnemiesIncrementPerCell: 0.04,
     obstacleSpawnCountOffset: 1,
     obstacleSpawnCountIncreasePerCell: 0.047,
     obstacleSpawnIntervalOffset: 0.6,
@@ -133,6 +135,7 @@ export const DIFFICULTY = {
 
     availableObstacleTypes: ['regular', 'chaser', 'creeper', 'banger', 'shooter'],
     maxActiveEnemies: 13,
+    maxActiveEnemiesIncrementPerCell: 0.05,
     obstacleSpawnCountOffset: 2,
     obstacleSpawnCountIncreasePerCell: 0.06,
     obstacleSpawnIntervalOffset: -0.4,
@@ -161,6 +164,7 @@ export const DIFFICULTY = {
 
     availableObstacleTypes: ['regular', 'chaser', 'creeper', 'banger', 'shooter'],
     maxActiveEnemies: 14,
+    maxActiveEnemiesIncrementPerCell: 0.06,
     obstacleSpawnCountOffset: 3,
     obstacleSpawnCountIncreasePerCell: 0.072,
     obstacleSpawnIntervalOffset: -0.9,
@@ -187,6 +191,7 @@ export const DIFFICULTY = {
     cashValueMultiplier: 16,
     availableObstacleTypes: ['regular', 'chaser', 'creeper', 'banger', 'shooter', 'porter'],
     maxActiveEnemies: 16,
+    maxActiveEnemiesIncrementPerCell: 0.07,
     obstacleSpawnCountOffset: 5,
     obstacleSpawnCountIncreasePerCell: 0.085,
     obstacleSpawnIntervalOffset: -1.9,
@@ -212,6 +217,7 @@ export const DIFFICULTY = {
     cashValueMultiplier: 32,
     availableObstacleTypes: ['regular', 'chaser', 'creeper', 'banger', 'shooter', 'porter', 'magnet'],
     maxActiveEnemies: 17,
+    maxActiveEnemiesIncrementPerCell: 0.08,
     obstacleSpawnCountOffset: 6,
     obstacleSpawnCountIncreasePerCell: 0.097,
     obstacleSpawnIntervalOffset: -2.8,
@@ -238,6 +244,7 @@ export const DIFFICULTY = {
     cashValueMultiplier: 64,
     availableObstacleTypes: ['regular', 'chaser', 'creeper', 'banger', 'shooter', 'porter', 'magnet', 'spore'],
     maxActiveEnemies: 19,
+    maxActiveEnemiesIncrementPerCell: 0.09,
     obstacleSpawnCountOffset: 7,
     obstacleSpawnCountIncreasePerCell: 0.11,
     obstacleSpawnIntervalOffset: -3.7,
@@ -265,6 +272,7 @@ export const DIFFICULTY = {
     cashValueMultiplier: 128,
     availableObstacleTypes: ['regular', 'chaser', 'creeper', 'banger', 'shooter', 'porter', 'magnet', 'spore'],
     maxActiveEnemies: 20,
+    maxActiveEnemiesIncrementPerCell: 0.1,
     obstacleSpawnCountOffset: 8,
     obstacleSpawnCountIncreasePerCell: 0.123,
     obstacleSpawnIntervalOffset: -4.6,

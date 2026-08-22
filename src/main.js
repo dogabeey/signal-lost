@@ -730,7 +730,11 @@ function getCurrentDifficulty() {
 }
 
 function getActiveEnemyCapacity() {
-  return getCurrentDifficulty().maxActiveEnemies ?? Infinity
+  const difficulty = getCurrentDifficulty()
+  if (difficulty.maxActiveEnemies === undefined) return Infinity
+  return Math.max(0, Math.floor(
+    difficulty.maxActiveEnemies + score * (difficulty.maxActiveEnemiesIncrementPerCell ?? 0),
+  ))
 }
 
 function updateBankedCells(amount = 0) {
@@ -2400,6 +2404,7 @@ function returnToMainMenu() {
   started = false
   pauseMenu.classList.add('hidden')
   overlayTitle.textContent = 'ASTEROID BELT'
+  overlayTitle.classList.remove('death-title')
   overlayCopy.textContent = 'Round saved. Continue when you are ready.'
   gameOverTip.hidden = true
   menuContent.classList.remove('hidden')
@@ -2445,7 +2450,9 @@ function endGame(cause = 'SIGNAL LOST') {
   pauseMenu.classList.add('hidden')
   clearSavedRound()
   recordTierHighScore()
-  overlayTitle.textContent = `You were killed by ${cause.toLocaleLowerCase()}`
+  const shortCause = cause.toLocaleLowerCase().replace(/\s+(collision|detonation|projectile|impact|damage)$/, '')
+  overlayTitle.textContent = `You were killed by ${shortCause}`
+  overlayTitle.classList.add('death-title')
   overlayCopy.textContent = `You secured ${score} energy ${score === 1 ? 'cell' : 'cells'}.`
   gameOverTip.textContent = `TIP · ${getGameOverTip()}`
   gameOverTip.hidden = false
@@ -3180,6 +3187,7 @@ startButton.addEventListener('click', async () => {
   started = true
   ended = false
   paused = false
+  overlayTitle.classList.remove('death-title')
   labPanel.classList.add('hidden')
   menuContent.classList.remove('hidden')
   overlay.classList.add('hidden')
