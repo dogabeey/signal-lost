@@ -13,6 +13,7 @@ export const RESEARCH_CONFIG = {
   featureUnlocks: {
     researchLab: { minTier: 2, chronoshardCost: 10 },
     buildingSystem: { minTier: 4, chronoshardCost: 75 },
+    weaponry: { minTier: 3, chronoshardCost: 50 },
   },
   maxSlots: 3,
   slotUnlocks: [
@@ -22,6 +23,10 @@ export const RESEARCH_CONFIG = {
     { slot: 5, cost: { currency: 'chronoshards', amount: 5000 }, requirements: { minTier: 4 } },
   ],
   researches: [
+    {
+      id: 'weapon-slots', category: 'Weapons', name: 'Weapon Slot', description: 'Adds one weapon slot to your round loadout.', maxLevel: 2,
+      effect: { stat: 'weaponSlots', perLevel: 1, format: 'flat' }, cost: { currency: 'cash', base: 25_000, multiplier: 1.8, jerk: 1.02 }, duration: { baseMs: 180_000, multiplier: 1.25 }, requirements: { minTier: 3 },
+    },
     {
       id: 'player-speed-multiplier',
       category: 'Player Enhancements',

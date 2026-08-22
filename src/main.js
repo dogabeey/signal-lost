@@ -8,6 +8,8 @@ import { createPlayerShip } from './player_ship.js'
 import { formatCompactNumber, formatCurrency, formatDuration, formatResearchEffect } from './formatters.js'
 import { TIPS } from './tips.js'
 import { MILESTONES } from './milestones.js'
+import { WEAPON_CONFIG } from './weapons_config.js'
+import { getBuildingAsset, getWeaponAsset } from './asset_catalog.js'
 import './style.css'
 
 document.querySelector('#app').innerHTML = `
@@ -26,6 +28,7 @@ document.querySelector('#app').innerHTML = `
         <div><dt>TIME</dt><dd id="time">00:00</dd></div>
       </dl><button class="pause-button" id="pause-button" type="button" aria-label="Pause game">Ⅱ</button></div>
     </header>
+    <div class="weapon-hud hidden" id="weapon-hud"></div>
     <aside class="instructions"><b>MOVE</b><span>WASD / ARROW KEYS</span></aside>
     <footer class="build-footer" aria-label="Build information">
       <strong>${BUILD_INFO.label}</strong><span>v${BUILD_INFO.version}</span><span>BUILD ${BUILD_INFO.number}</span><span>${BUILD_INFO.date}</span>
@@ -71,6 +74,7 @@ document.querySelector('#app').innerHTML = `
           <button class="menu-start-button" id="start-button" type="button">START RUN</button>
           <button class="menu-system-button" id="open-lab-button" type="button">RESEARCH LAB</button>
           <button class="menu-system-button" id="open-building-button" type="button">BUILDING SYSTEM</button>
+          <button class="menu-system-button" id="open-weaponry-button" type="button">WEAPONRY</button>
           <button class="menu-system-button" id="open-settings-button" type="button">SETTINGS</button>
         </div>
       </div>
@@ -88,6 +92,7 @@ document.querySelector('#app').innerHTML = `
       </section>
       <section class="building-panel hidden" id="building-panel"><div class="lab-header"><div><p class="eyebrow">PERMANENT DEFENSES</p><h2>BUILDING SYSTEM</h2></div><button class="secondary-button" id="close-building-button" type="button">BACK</button></div><p class="lab-balance">CASH <span id="building-cash"></span> · CHRONOSHARDS <span id="building-chronoshards"></span> · SLOTS <span id="building-slots"></span></p><div class="building-actions"><button id="enter-build-mode" type="button">BUILD MODE</button><button id="open-building-draft" type="button">UNLOCK A BUILDING</button></div><h3>UNLOCKED BUILDINGS</h3><div class="building-list" id="building-list"></div></section>
       <section class="building-draft-modal hidden" id="building-draft-modal" aria-label="Building Draft"><button class="upgrade-close" id="close-building-draft" type="button" aria-label="Close building draft">×</button><p class="eyebrow">PERMANENT DEFENSES</p><h2>BUILDING DRAFT</h2><p class="building-draft-balance">CHRONOSHARDS <span id="building-draft-chronoshards"></span></p><div class="building-list" id="building-draft-list"></div></section>
+      <section class="weaponry-panel hidden" id="weaponry-panel" aria-label="Weaponry"><div class="lab-header"><div><p class="eyebrow">ACTIVE ARSENAL</p><h2>WEAPONRY</h2></div><button class="secondary-button" id="close-weaponry-button" type="button">BACK</button></div><p class="lab-balance">CHRONOSHARDS <span id="weaponry-chronoshards"></span></p><button class="weapon-buy-button" id="buy-weapons-button" type="button">BUY WEAPONS · ✦ 35</button><p class="weapon-result" id="weapon-purchase-result"></p><h3>ROUND LOADOUT <span id="weapon-slot-count"></span></h3><div class="weapon-loadout" id="weapon-loadout"></div><h3>WEAPON CARDS</h3><div class="weapon-card-list" id="weapon-card-list"></div></section>
       <section class="settings-panel hidden" id="settings-panel" aria-label="Settings"><div class="lab-header"><div><p class="eyebrow">PREFERENCES</p><h2>SETTINGS</h2></div><button class="secondary-button" id="close-settings-button" type="button">BACK</button></div><div class="settings-section"><h3>GRAPHICS</h3><div class="settings-row"><div><strong>Quality</strong><small>Changes render resolution and shadows.</small></div><div class="settings-options" id="graphics-quality-options"></div></div><label class="settings-row settings-toggle"><span><strong>Shadows</strong><small>Show dynamic object shadows.</small></span><input id="setting-shadows" type="checkbox"></label></div><div class="settings-section"><h3>GAMEPLAY</h3><label class="settings-row"><span><strong>Camera Distance</strong><small>Adjusts how far the camera sits from your ship.</small></span><output id="camera-distance-value"></output><input id="setting-camera-distance" type="range" min="80" max="130" step="5"></label><label class="settings-row settings-toggle"><span><strong>Auto Pause</strong><small>Pause the run when the game loses focus.</small></span><input id="setting-auto-pause" type="checkbox"></label><label class="settings-row settings-toggle"><span><strong>High Contrast HUD</strong><small>Improves HUD readability.</small></span><input id="setting-high-contrast" type="checkbox"></label></div><div class="settings-section"><h3>SOUND</h3><label class="settings-row"><span><strong>Master Volume</strong><small>Controls all game sound effects.</small></span><output id="master-volume-value"></output><input id="setting-master-volume" type="range" min="0" max="100" step="1"></label><label class="settings-row settings-toggle"><span><strong>Mute All</strong><small>Instantly silence all sound effects.</small></span><input id="setting-muted" type="checkbox"></label><label class="settings-row settings-toggle"><span><strong>Spatial Audio</strong><small>Pan sounds based on their world position.</small></span><input id="setting-spatial-audio" type="checkbox"></label></div></section>
     </section>
     <div class="build-bar hidden" id="build-bar"><span id="build-status">SELECT A BUILDING</span><div id="build-options"></div><button id="exit-build-mode" type="button">DONE</button></div>
@@ -120,6 +125,16 @@ const milestoneTierLabel = document.querySelector('#milestone-tier-label')
 const labPanel = document.querySelector('#lab-panel')
 const openLabButton = document.querySelector('#open-lab-button')
 const openBuildingButton = document.querySelector('#open-building-button')
+const openWeaponryButton = document.querySelector('#open-weaponry-button')
+const weaponryPanel = document.querySelector('#weaponry-panel')
+const closeWeaponryButton = document.querySelector('#close-weaponry-button')
+const weaponryChronoshards = document.querySelector('#weaponry-chronoshards')
+const buyWeaponsButton = document.querySelector('#buy-weapons-button')
+const weaponPurchaseResult = document.querySelector('#weapon-purchase-result')
+const weaponSlotCount = document.querySelector('#weapon-slot-count')
+const weaponLoadout = document.querySelector('#weapon-loadout')
+const weaponCardList = document.querySelector('#weapon-card-list')
+const weaponHud = document.querySelector('#weapon-hud')
 const openSettingsButton = document.querySelector('#open-settings-button')
 const settingsPanel = document.querySelector('#settings-panel')
 const closeSettingsButton = document.querySelector('#close-settings-button')
@@ -197,6 +212,7 @@ const BUILDINGS_STORAGE_KEY = 'asteroid-belt-buildings'
 const FEATURE_UNLOCKS_STORAGE_KEY = 'asteroid-belt-feature-unlocks'
 const MILESTONES_STORAGE_KEY = 'asteroid-belt-milestones'
 const SETTINGS_STORAGE_KEY = 'asteroid-belt-settings'
+const WEAPONRY_STORAGE_KEY = 'asteroid-belt-weaponry'
 const LEGACY_STORAGE_KEYS = [
   ['astroid-belt-banked-cells', CELL_BANK_STORAGE_KEY], ['astroid-belt-selected-tier', TIER_STORAGE_KEY], ['astroid-belt-tier-high-scores', TIER_HIGH_SCORES_STORAGE_KEY],
   ['astroid-belt-cash', CASH_STORAGE_KEY], ['astroid-belt-chronoshards', CHRONOSHARDS_STORAGE_KEY], ['astroid-belt-research-lab', RESEARCH_LAB_STORAGE_KEY],
@@ -315,7 +331,8 @@ let milestoneTierIndex = selectedTierIndex
 let cash = readStoredNumber(CASH_STORAGE_KEY)
 let chronoshards = readStoredNumber(CHRONOSHARDS_STORAGE_KEY)
 let savedRound = readSavedRound()
-let featureUnlocks = (() => { try { const saved = JSON.parse(localStorage.getItem(FEATURE_UNLOCKS_STORAGE_KEY)); return { researchLab: Boolean(saved?.researchLab), buildingSystem: Boolean(saved?.buildingSystem) } } catch { return { researchLab: false, buildingSystem: false } } })()
+let featureUnlocks = (() => { try { const saved = JSON.parse(localStorage.getItem(FEATURE_UNLOCKS_STORAGE_KEY)); return { researchLab: Boolean(saved?.researchLab), buildingSystem: Boolean(saved?.buildingSystem), weaponry: Boolean(saved?.weaponry) } } catch { return { researchLab: false, buildingSystem: false, weaponry: false } } })()
+let weaponState = (() => { try { const saved = JSON.parse(localStorage.getItem(WEAPONRY_STORAGE_KEY)); return { cards: saved?.cards ?? {}, loadout: Array.isArray(saved?.loadout) ? saved.loadout : [], selected: saved?.selected ?? 0 } } catch { return { cards: {}, loadout: [], selected: 0 } } })()
 let buildingState = (() => { try { const saved = JSON.parse(localStorage.getItem(BUILDINGS_STORAGE_KEY)); return saved?.unlocked ? saved : { unlocked: [], placed: [] } } catch { return { unlocked: [], placed: [] } } })()
 const retiredGapGenerators = buildingState.placed.filter((building) => building.type === 'gapGenerator')
 if (retiredGapGenerators.length) {
@@ -615,13 +632,13 @@ function clearResearchSave() {
 }
 
 function saveFeatureUnlocks() { try { localStorage.setItem(FEATURE_UNLOCKS_STORAGE_KEY, JSON.stringify(featureUnlocks)) } catch {} }
-function clearFeatureUnlocks() { featureUnlocks = { researchLab: false, buildingSystem: false }; saveFeatureUnlocks(); renderFeatureUnlockButtons() }
+function clearFeatureUnlocks() { featureUnlocks = { researchLab: false, buildingSystem: false, weaponry: false }; saveFeatureUnlocks(); renderFeatureUnlockButtons() }
 function renderFeatureUnlockButtons() {
-  for (const [feature, button] of [['researchLab', openLabButton], ['buildingSystem', openBuildingButton]]) {
+  for (const [feature, button] of [['researchLab', openLabButton], ['buildingSystem', openBuildingButton], ['weaponry', openWeaponryButton]]) {
     const unlock = RESEARCH_CONFIG.featureUnlocks[feature]
     const unlocked = featureUnlocks[feature]
     const tierReady = getUnlockedTierIndex() + 1 >= unlock.minTier
-    const name = feature === 'researchLab' ? 'RESEARCH LAB' : 'BUILDING SYSTEM'
+    const name = feature === 'researchLab' ? 'RESEARCH LAB' : feature === 'buildingSystem' ? 'BUILDING SYSTEM' : 'WEAPONRY'
     button.className = `menu-system-button ${unlocked ? 'is-unlocked' : tierReady ? 'is-unlockable' : 'is-locked'}`
     button.disabled = !unlocked && !tierReady
     button.textContent = unlocked ? name : tierReady ? `UNLOCK ${name} · ✦ ${unlock.chronoshardCost}` : `${name} · TIER ${unlock.minTier}`
@@ -638,7 +655,7 @@ function unlockFeature(feature) {
 }
 
 function clearBuildingsSave() {
-  buildingState = { unlocked: [], placed: [] }
+  buildingState = { unlocked: [], placed: [], unlockCount: 0, unlockOffers: [] }
   selectedBuildingType = null
   saveBuildings()
   syncBuildings()
@@ -684,6 +701,7 @@ function runCheatCommand(rawCommand) {
     if (argument === 'milestones' || argument === 'all') clearMilestonesSave()
     if (argument === 'research' || argument === 'all') clearResearchSave()
     if (argument === 'buildings' || argument === 'all') clearBuildingsSave()
+    if (argument === 'weapons' || argument === 'all') clearWeaponrySave()
     if (argument === 'all') clearFeatureUnlocks()
     setCheatOutput(`Cleared ${argument.replace('_', ' ')} save data.`)
     return
@@ -1007,6 +1025,49 @@ function applyGraphicsSettings() {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, pixelRatioCap))
   renderer.shadowMap.enabled = settings.graphics.shadows && settings.graphics.quality !== 'low'
 }
+
+function saveWeaponState() { try { localStorage.setItem(WEAPONRY_STORAGE_KEY, JSON.stringify(weaponState)) } catch {} }
+function getWeaponSlots() { return 1 + getResearchLevel('weaponSlots') }
+function getWeaponEntry(id) { return weaponState.cards[id] }
+function getWeaponRequirement(level) { return WEAPON_CONFIG.levelCopyRequirements[level - 1] ?? Infinity }
+function renderWeaponHud() {
+  const available = weaponState.loadout.filter((id) => getWeaponEntry(id))
+  weaponHud.classList.toggle('hidden', !started || !available.length)
+  weaponHud.innerHTML = available.map((id, index) => `<button class="${index === weaponState.selected ? 'selected' : ''} ${usedWeaponsThisRound.has(id) ? 'spent' : ''}" data-use-weapon="${id}" type="button" ${usedWeaponsThisRound.has(id) ? 'disabled' : ''}><img class="weapon-hud-art" src="${getWeaponAsset(id)}" alt=""><b>${index + 1}</b><span>${WEAPON_CONFIG.weapons[id].name}</span><i>${usedWeaponsThisRound.has(id) ? 'USED' : 'READY'}</i></button>`).join('')
+}
+function renderWeaponry() {
+  weaponryChronoshards.textContent = `✦ ${formatCompactNumber(chronoshards)}`
+  buyWeaponsButton.disabled = chronoshards < WEAPON_CONFIG.purchaseCost
+  weaponSlotCount.textContent = `${weaponState.loadout.length}/${getWeaponSlots()}`
+  weaponLoadout.innerHTML = Array.from({ length: getWeaponSlots() }, (_, index) => { const id = weaponState.loadout[index]; return `<button data-select-weapon-slot="${index}" type="button" class="${index === weaponState.selected ? 'selected' : ''}">${id ? WEAPON_CONFIG.weapons[id].name : 'EMPTY SLOT'}</button>` }).join('')
+  weaponCardList.innerHTML = Object.entries(WEAPON_CONFIG.weapons).map(([id, weapon]) => { const entry = getWeaponEntry(id); const art = `<img class="asset-card-art" src="${getWeaponAsset(id)}" alt="">`; if (!entry) return `<article class="weapon-card locked">${art}<strong>${weapon.name}</strong><small>Not collected yet</small></article>`; const required = getWeaponRequirement(entry.level); return `<article class="weapon-card">${art}<strong>${weapon.name} · LV. ${entry.level}</strong><small>${weapon.description}</small><em>${entry.level >= 5 ? 'MAX LEVEL' : `${entry.copies}/${required} copies to Lv. ${entry.level + 1}`}</em><button data-toggle-weapon="${id}" type="button">${weaponState.loadout.includes(id) ? 'REMOVE FROM LOADOUT' : 'ADD TO LOADOUT'}</button></article>` }).join('')
+  renderWeaponHud()
+}
+function buyWeapons() {
+  if (chronoshards < WEAPON_CONFIG.purchaseCost) return
+  updateChronoshards(-WEAPON_CONFIG.purchaseCost)
+  const results = []
+  for (let draw = 0; draw < 3; draw += 1) {
+    const id = Object.keys(WEAPON_CONFIG.weapons)[Math.floor(Math.random() * Object.keys(WEAPON_CONFIG.weapons).length)]
+    const weapon = WEAPON_CONFIG.weapons[id]; let entry = getWeaponEntry(id)
+    if (!entry) { entry = { level: 1, copies: 0 }; weaponState.cards[id] = entry; results.push(`${weapon.name} unlocked · Lv. 1`) }
+    else { entry.copies += 1; const requirement = getWeaponRequirement(entry.level); if (entry.copies >= requirement && entry.level < 5) { entry.copies -= requirement; entry.level += 1; results.push(`${weapon.name} upgraded · Lv. ${entry.level}`) } else results.push(`${weapon.name} copy · ${entry.copies}/${requirement}`) }
+  }
+  weaponPurchaseResult.textContent = results.join('  •  ')
+  saveWeaponState(); renderWeaponry()
+}
+function toggleWeaponLoadout(id) { if (!getWeaponEntry(id)) return; const index = weaponState.loadout.indexOf(id); if (index >= 0) weaponState.loadout.splice(index, 1); else if (weaponState.loadout.length < getWeaponSlots()) weaponState.loadout.push(id); weaponState.selected = Math.min(weaponState.selected, Math.max(weaponState.loadout.length - 1, 0)); saveWeaponState(); renderWeaponry() }
+function useWeapon(id = weaponState.loadout[weaponState.selected]) {
+  const entry = getWeaponEntry(id); if (!started || paused || !entry || !weaponState.loadout.includes(id)) return
+  if (usedWeaponsThisRound.has(id)) return
+  const weapon = WEAPON_CONFIG.weapons[id]; const effect = weapon.baseEffect + weapon.effectPerLevel * (entry.level - 1)
+  if (id === 'nuke') { const targets = [...obstacles].sort(() => Math.random() - 0.5).slice(0, Math.ceil(obstacles.length * Math.min(effect, 0.9))); for (const target of targets) removeObstacleFromArena(target); createExplosion(player.position, 3.2) }
+  if (id === 'megaMagnet') megaMagnetTime = effect
+  if (id === 'atmosphereShield') { atmosphereShieldTime = effect; for (const falling of fallingObstacles) scene.remove(falling.obstacle, falling.shadow, falling.targetRing); fallingObstacles.length = 0 }
+  usedWeaponsThisRound.add(id)
+  renderWeaponHud()
+  soundSystem.playBuildingEffect(player.position, 'overclockRelay')
+}
 applyGraphicsSettings()
 renderer.setSize(window.innerWidth, window.innerHeight)
 renderer.outputColorSpace = THREE.SRGBColorSpace
@@ -1206,6 +1267,9 @@ let boosterTimer = 0
 let speedBoosterTime = 0
 let thornShieldTime = 0
 let freezerTime = 0
+let megaMagnetTime = 0
+let atmosphereShieldTime = 0
+const usedWeaponsThisRound = new Set()
 
 const cellGeometry = new THREE.OctahedronGeometry(ENTITIES.cellRadius)
 const chronoCellGeometry = new THREE.IcosahedronGeometry(ENTITIES.chronoCellRadius, 1)
@@ -1272,11 +1336,12 @@ function unlockBuildingOffer(type) {
   saveBuildings()
   renderBuildings()
 }
+function clearWeaponrySave() { weaponState = { cards: {}, loadout: [], selected: 0 }; saveWeaponState(); weaponPurchaseResult.textContent = ''; renderWeaponry() }
 function renderBuildingDraft() {
   const offers = getBuildingUnlockOffers(); const unlockCost = getBuildingUnlockCost(); const canAffordUnlock = chronoshards >= unlockCost
   buildingDraftChronoshards.textContent = `✦ ${formatCompactNumber(chronoshards)}`
   buildingDraftList.innerHTML = offers.length
-    ? `<p class="building-draft-copy">CHOOSE 1 OF ${offers.length} · NEXT UNLOCK ✦ ${formatCompactNumber(unlockCost)}</p>${offers.map((type) => { const config = BUILDING_CONFIG.types[type]; return `<article class="building-card building-offer"><strong>${config.name}</strong><small>Permanent building unlock</small><button data-building-offer="${type}" ${canAffordUnlock ? '' : 'disabled'}>UNLOCK · ✦ ${formatCompactNumber(unlockCost)}</button></article>` }).join('')}`
+    ? `<p class="building-draft-copy">CHOOSE 1 OF ${offers.length} · NEXT UNLOCK ✦ ${formatCompactNumber(unlockCost)}</p>${offers.map((type) => { const config = BUILDING_CONFIG.types[type]; return `<article class="building-card building-offer"><img class="asset-card-art" src="${getBuildingAsset(type)}" alt=""><strong>${config.name}</strong><small>Permanent building unlock</small><button data-building-offer="${type}" ${canAffordUnlock ? '' : 'disabled'}>UNLOCK · ✦ ${formatCompactNumber(unlockCost)}</button></article>` }).join('')}`
     : '<p class="building-draft-copy">ALL BUILDINGS UNLOCKED</p>'
 }
 function getBuildingSlotLimit() { return 1 + getResearchLevel('building-slots') }
@@ -1370,7 +1435,7 @@ function placeBuildingAt(x, z) {
 function renderBuildings() {
   buildingCash.textContent = `$${formatCompactNumber(cash)}`; buildingChronoshards.textContent = `✦ ${formatCompactNumber(chronoshards)}`; buildingSlots.textContent = `${buildingState.placed.length}/${getBuildingSlotLimit()}`
   buildingList.innerHTML = buildingState.unlocked.length
-    ? buildingState.unlocked.map((type) => `<article class="building-card"><strong>${BUILDING_CONFIG.types[type].name}</strong><small>Build cost: $${formatCompactNumber(buildingCost(type))}</small><span class="building-unlocked-state">UNLOCKED</span></article>`).join('')
+    ? buildingState.unlocked.map((type) => `<article class="building-card"><img class="asset-card-art" src="${getBuildingAsset(type)}" alt=""><strong>${BUILDING_CONFIG.types[type].name}</strong><small>Build cost: $${formatCompactNumber(buildingCost(type))}</small><span class="building-unlocked-state">UNLOCKED</span></article>`).join('')
     : '<p class="building-draft-copy">NO BUILDINGS UNLOCKED YET</p>'
   renderBuildingDraft()
   buildOptions.innerHTML = buildingState.unlocked.map((type) => `<button data-select-building="${type}" class="${selectedBuildingType === type ? 'selected' : ''}">${BUILDING_CONFIG.types[type].name}<small>$${buildingCost(type)}</small></button>`).join('')
@@ -1724,6 +1789,7 @@ function resolveObstacleCollisions() {
 }
 
 function scheduleFallingObstacles() {
+  if (atmosphereShieldTime > 0) return
   const difficulty = getCurrentDifficulty()
   const weightedTypes = difficulty.availableFallingRockTypes.map((type) => ({ type, weight: difficulty[`${type}SpawnWeight`] ?? 0 }))
   const totalWeight = weightedTypes.reduce((total, entry) => total + entry.weight, 0)
@@ -2070,6 +2136,9 @@ function resetGame(populateArena = true) {
   speedBoosterTime = 0
   thornShieldTime = 0
   freezerTime = 0
+  megaMagnetTime = 0
+  atmosphereShieldTime = 0
+  usedWeaponsThisRound.clear()
   shieldBubble.visible = shieldCharges > 0
   scoreElement.textContent = '000'
   timeElement.textContent = '00:00'
@@ -2234,6 +2303,7 @@ function endGame() {
   player.visible = false
   orbitalElectron.visible = false
   orbitalArc.visible = false
+  weaponHud.classList.add('hidden')
   pauseMenu.classList.add('hidden')
   clearSavedRound()
   recordTierHighScore()
@@ -2306,6 +2376,8 @@ function updateGame(delta, total) {
   speedBoosterTime = Math.max(0, speedBoosterTime - delta)
   thornShieldTime = Math.max(0, thornShieldTime - delta)
   freezerTime = Math.max(0, freezerTime - delta)
+  megaMagnetTime = Math.max(0, megaMagnetTime - delta)
+  atmosphereShieldTime = Math.max(0, atmosphereShieldTime - delta)
   playerCore.material.emissiveIntensity = thornShieldTime > 0 ? 3.2 : 1.4
   if (shieldCharges > 0 || shieldInvulnerability > 0 || thornShieldTime > 0) {
     shieldBubble.visible = true
@@ -2331,7 +2403,9 @@ function updateGame(delta, total) {
     const cellMagnetSpeed = getResearchStatBonus('cellMagnetSpeed')
     const cellOffset = player.position.clone().sub(cell.position)
     cellOffset.y = 0
-    if (cellMagnetSpeed > 0 && cellOffset.length() <= GAME.cellMagnetRange * effectRangeMultiplier) {
+    if (megaMagnetTime > 0) {
+      if (cellOffset.lengthSq() > 0) cell.position.addScaledVector(cellOffset.normalize(), 22 * delta)
+    } else if (cellMagnetSpeed > 0 && cellOffset.length() <= GAME.cellMagnetRange * effectRangeMultiplier) {
       cell.position.addScaledVector(cellOffset.normalize(), (GAME.cellMagnetBaseSpeed + cellMagnetSpeed) * delta)
     }
     if (cell.position.distanceTo(player.position) < GAME.cellPickupRadius) {
@@ -2835,6 +2909,7 @@ startButton.addEventListener('click', async () => {
   labPanel.classList.add('hidden')
   menuContent.classList.remove('hidden')
   overlay.classList.add('hidden')
+  renderWeaponHud()
 })
 
 openLabButton.addEventListener('click', (event) => {
@@ -2866,6 +2941,12 @@ overlay.addEventListener('click', (event) => {
   menuContent.classList.remove('hidden')
 })
 openBuildingButton.addEventListener('click', () => { if (!featureUnlocks.buildingSystem && !unlockFeature('buildingSystem')) return; menuContent.classList.add('hidden'); buildingPanel.classList.remove('hidden'); renderBuildings() })
+openWeaponryButton.addEventListener('click', () => { if (!featureUnlocks.weaponry && !unlockFeature('weaponry')) return; menuContent.classList.add('hidden'); weaponryPanel.classList.remove('hidden'); renderWeaponry() })
+closeWeaponryButton.addEventListener('click', () => { weaponryPanel.classList.add('hidden'); menuContent.classList.remove('hidden') })
+buyWeaponsButton.addEventListener('click', buyWeapons)
+weaponCardList.addEventListener('click', (event) => { const button = event.target.closest('[data-toggle-weapon]'); if (button) toggleWeaponLoadout(button.dataset.toggleWeapon) })
+weaponLoadout.addEventListener('click', (event) => { const button = event.target.closest('[data-select-weapon-slot]'); if (!button) return; weaponState.selected = Number(button.dataset.selectWeaponSlot); saveWeaponState(); renderWeaponry() })
+weaponHud.addEventListener('click', (event) => { const button = event.target.closest('[data-use-weapon]'); if (button) useWeapon(button.dataset.useWeapon) })
 closeBuildingButton.addEventListener('click', () => { buildingDraftModal.classList.add('hidden'); buildingPanel.classList.add('hidden'); menuContent.classList.remove('hidden') })
 openBuildingDraftButton.addEventListener('click', () => { renderBuildingDraft(); buildingDraftModal.classList.remove('hidden') })
 closeBuildingDraftButton.addEventListener('click', () => buildingDraftModal.classList.add('hidden'))
@@ -2938,6 +3019,9 @@ window.addEventListener('keydown', (event) => {
     toggleCheatConsole()
     return
   }
+  if (started && !paused && event.code === 'ArrowLeft') { event.preventDefault(); weaponState.selected = (weaponState.selected - 1 + Math.max(weaponState.loadout.length, 1)) % Math.max(weaponState.loadout.length, 1); renderWeaponHud(); return }
+  if (started && !paused && event.code === 'ArrowRight') { event.preventDefault(); weaponState.selected = (weaponState.selected + 1) % Math.max(weaponState.loadout.length, 1); renderWeaponHud(); return }
+  if (started && !paused && event.code === 'Space') { event.preventDefault(); useWeapon(); return }
   if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.code)) event.preventDefault()
   keys.add(event.code)
 })
