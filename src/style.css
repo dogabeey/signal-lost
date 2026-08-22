@@ -202,6 +202,21 @@ button:focus-visible { outline: 2px solid #fff4d2; outline-offset: 4px; }
 .building-panel .lab-header .secondary-button { position: absolute; right: 0; top: 0; }
 .building-panel .lab-balance, .building-card, .building-draft-copy { text-align: center; }
 .building-actions { justify-content: center; }
+.settings-panel { background: rgba(20, 25, 56, 0.98); border: 2px solid #6d67bb; box-shadow: 0 0 0 4px rgba(14, 17, 43, 0.85); color: #e7f0ec; max-height: min(84svh, 760px); max-width: 720px; overflow: auto; padding: 24px; text-align: left; width: min(100%, 720px); }
+.settings-panel.hidden { display: none; }
+.settings-section { border-top: 1px solid #484f89; margin-top: 18px; padding-top: 16px; }
+.settings-section h3 { color: #b8b1ff; font: 800 12px 'Trebuchet MS', Arial, sans-serif; letter-spacing: .12em; margin: 0 0 10px; }
+.settings-row { align-items: center; background: #202755; border: 1px solid #484f89; display: grid; gap: 12px; grid-template-columns: minmax(0, 1fr) auto; margin-top: 8px; padding: 13px; }
+.settings-row strong { color: #fff4d2; display: block; font: 700 14px 'Trebuchet MS', Arial, sans-serif; }
+.settings-row small { color: #9ab6b8; display: block; font-size: 11px; margin-top: 3px; }
+.settings-row output { color: #63f5cd; font: 800 12px 'Trebuchet MS', Arial, sans-serif; }
+.settings-row input[type='range'] { accent-color: #63f5cd; grid-column: 1 / -1; width: 100%; }
+.settings-toggle input { accent-color: #63f5cd; height: 20px; width: 20px; }
+.settings-options { display: flex; gap: 5px; }
+.settings-options button { background: #33465a; box-shadow: none; color: #c7d3cd; font-size: 10px; padding: 8px 10px; }
+.settings-options button.selected { background: #63f5cd; color: #10232b; }
+.high-contrast-hud .hud { background: rgba(5, 10, 22, 0.92); border-bottom: 2px solid #fff4d2; }
+.high-contrast-hud .hud .stats dd, .high-contrast-hud .cash-balance span { color: #fff; text-shadow: 0 0 8px #63f5cd; }
 
 @media (max-width: 580px), (hover: none) and (pointer: coarse) {
   .hud { padding: 22px; }
@@ -243,6 +258,11 @@ button:focus-visible { outline: 2px solid #fff4d2; outline-offset: 4px; }
   .building-list { grid-template-columns: 1fr; }
   .building-actions { flex-direction: column; }
   .building-actions button { width: 100%; }
+  .settings-panel { max-height: 88svh; padding: 17px; width: min(calc(100% - 28px), 720px); }
+  .settings-row { grid-template-columns: 1fr; }
+  .settings-options { display: grid; grid-template-columns: repeat(3, 1fr); width: 100%; }
+  .settings-options button { width: 100%; }
+  .settings-toggle { grid-template-columns: 1fr auto; }
 }
 
 @media (hover: none) and (pointer: coarse) and (orientation: landscape) {

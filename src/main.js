@@ -71,6 +71,7 @@ document.querySelector('#app').innerHTML = `
           <button class="menu-start-button" id="start-button" type="button">START RUN</button>
           <button class="menu-system-button" id="open-lab-button" type="button">RESEARCH LAB</button>
           <button class="menu-system-button" id="open-building-button" type="button">BUILDING SYSTEM</button>
+          <button class="menu-system-button" id="open-settings-button" type="button">SETTINGS</button>
         </div>
       </div>
       <section class="milestones-panel hidden" id="milestones-panel" aria-label="Ascension">
@@ -87,6 +88,7 @@ document.querySelector('#app').innerHTML = `
       </section>
       <section class="building-panel hidden" id="building-panel"><div class="lab-header"><div><p class="eyebrow">PERMANENT DEFENSES</p><h2>BUILDING SYSTEM</h2></div><button class="secondary-button" id="close-building-button" type="button">BACK</button></div><p class="lab-balance">CASH <span id="building-cash"></span> · CHRONOSHARDS <span id="building-chronoshards"></span> · SLOTS <span id="building-slots"></span></p><div class="building-actions"><button id="enter-build-mode" type="button">BUILD MODE</button><button id="open-building-draft" type="button">UNLOCK A BUILDING</button></div><h3>UNLOCKED BUILDINGS</h3><div class="building-list" id="building-list"></div></section>
       <section class="building-draft-modal hidden" id="building-draft-modal" aria-label="Building Draft"><button class="upgrade-close" id="close-building-draft" type="button" aria-label="Close building draft">×</button><p class="eyebrow">PERMANENT DEFENSES</p><h2>BUILDING DRAFT</h2><p class="building-draft-balance">CHRONOSHARDS <span id="building-draft-chronoshards"></span></p><div class="building-list" id="building-draft-list"></div></section>
+      <section class="settings-panel hidden" id="settings-panel" aria-label="Settings"><div class="lab-header"><div><p class="eyebrow">PREFERENCES</p><h2>SETTINGS</h2></div><button class="secondary-button" id="close-settings-button" type="button">BACK</button></div><div class="settings-section"><h3>GRAPHICS</h3><div class="settings-row"><div><strong>Quality</strong><small>Changes render resolution and shadows.</small></div><div class="settings-options" id="graphics-quality-options"></div></div><label class="settings-row settings-toggle"><span><strong>Shadows</strong><small>Show dynamic object shadows.</small></span><input id="setting-shadows" type="checkbox"></label></div><div class="settings-section"><h3>GAMEPLAY</h3><label class="settings-row"><span><strong>Camera Distance</strong><small>Adjusts how far the camera sits from your ship.</small></span><output id="camera-distance-value"></output><input id="setting-camera-distance" type="range" min="80" max="130" step="5"></label><label class="settings-row settings-toggle"><span><strong>Auto Pause</strong><small>Pause the run when the game loses focus.</small></span><input id="setting-auto-pause" type="checkbox"></label><label class="settings-row settings-toggle"><span><strong>High Contrast HUD</strong><small>Improves HUD readability.</small></span><input id="setting-high-contrast" type="checkbox"></label></div><div class="settings-section"><h3>SOUND</h3><label class="settings-row"><span><strong>Master Volume</strong><small>Controls all game sound effects.</small></span><output id="master-volume-value"></output><input id="setting-master-volume" type="range" min="0" max="100" step="1"></label><label class="settings-row settings-toggle"><span><strong>Mute All</strong><small>Instantly silence all sound effects.</small></span><input id="setting-muted" type="checkbox"></label><label class="settings-row settings-toggle"><span><strong>Spatial Audio</strong><small>Pan sounds based on their world position.</small></span><input id="setting-spatial-audio" type="checkbox"></label></div></section>
     </section>
     <div class="build-bar hidden" id="build-bar"><span id="build-status">SELECT A BUILDING</span><div id="build-options"></div><button id="exit-build-mode" type="button">DONE</button></div>
     <section class="building-upgrade hidden" id="building-upgrade"></section>
@@ -118,6 +120,19 @@ const milestoneTierLabel = document.querySelector('#milestone-tier-label')
 const labPanel = document.querySelector('#lab-panel')
 const openLabButton = document.querySelector('#open-lab-button')
 const openBuildingButton = document.querySelector('#open-building-button')
+const openSettingsButton = document.querySelector('#open-settings-button')
+const settingsPanel = document.querySelector('#settings-panel')
+const closeSettingsButton = document.querySelector('#close-settings-button')
+const graphicsQualityOptions = document.querySelector('#graphics-quality-options')
+const shadowsSetting = document.querySelector('#setting-shadows')
+const cameraDistanceSetting = document.querySelector('#setting-camera-distance')
+const cameraDistanceValue = document.querySelector('#camera-distance-value')
+const autoPauseSetting = document.querySelector('#setting-auto-pause')
+const highContrastSetting = document.querySelector('#setting-high-contrast')
+const masterVolumeSetting = document.querySelector('#setting-master-volume')
+const masterVolumeValue = document.querySelector('#master-volume-value')
+const mutedSetting = document.querySelector('#setting-muted')
+const spatialAudioSetting = document.querySelector('#setting-spatial-audio')
 const buildingPanel = document.querySelector('#building-panel')
 const closeBuildingButton = document.querySelector('#close-building-button')
 const buildingList = document.querySelector('#building-list')
@@ -181,6 +196,7 @@ const SAVED_ROUND_STORAGE_KEY = 'asteroid-belt-saved-round'
 const BUILDINGS_STORAGE_KEY = 'asteroid-belt-buildings'
 const FEATURE_UNLOCKS_STORAGE_KEY = 'asteroid-belt-feature-unlocks'
 const MILESTONES_STORAGE_KEY = 'asteroid-belt-milestones'
+const SETTINGS_STORAGE_KEY = 'asteroid-belt-settings'
 const LEGACY_STORAGE_KEYS = [
   ['astroid-belt-banked-cells', CELL_BANK_STORAGE_KEY], ['astroid-belt-selected-tier', TIER_STORAGE_KEY], ['astroid-belt-tier-high-scores', TIER_HIGH_SCORES_STORAGE_KEY],
   ['astroid-belt-cash', CASH_STORAGE_KEY], ['astroid-belt-chronoshards', CHRONOSHARDS_STORAGE_KEY], ['astroid-belt-research-lab', RESEARCH_LAB_STORAGE_KEY],
@@ -311,6 +327,21 @@ if (retiredGapGenerators.length) {
     localStorage.setItem(BUILDINGS_STORAGE_KEY, JSON.stringify(buildingState))
   } catch {}
 }
+
+function readSettings() {
+  const defaults = { graphics: { quality: 'high', shadows: true }, gameplay: { cameraDistance: 100, autoPause: true, highContrastHud: false }, sound: { masterVolume: 100, muted: false, spatialAudio: true } }
+  try {
+    const saved = JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEY))
+    return {
+      graphics: { ...defaults.graphics, ...saved?.graphics },
+      gameplay: { ...defaults.gameplay, ...saved?.gameplay },
+      sound: { ...defaults.sound, ...saved?.sound },
+    }
+  } catch { return defaults }
+}
+
+const settings = readSettings()
+function saveSettings() { try { localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings)) } catch {} }
 const availableBuildingTypes = Object.keys(BUILDING_CONFIG.types)
 buildingState.unlocked = [...new Set(buildingState.unlocked.filter((type) => availableBuildingTypes.includes(type)))]
 buildingState.placed = buildingState.placed.filter((building) => availableBuildingTypes.includes(building.type))
@@ -842,7 +873,7 @@ function createSoundSystem() {
       if (!AudioContext) return Promise.resolve()
       context = new AudioContext()
       masterGain = context.createGain()
-      masterGain.gain.value = SOUND.masterVolume
+      masterGain.gain.value = SOUND.masterVolume * (settings.sound.muted ? 0 : settings.sound.masterVolume / 100)
       masterGain.connect(context.destination)
       soundLoadPromise = Promise.all(Object.entries(SOUND.assets).map(([name, url]) => loadSound(name, url)))
     }
@@ -872,7 +903,7 @@ function createSoundSystem() {
     const spatialGain = context.createGain()
     const stereoPanner = context.createStereoPanner?.()
     const now = context.currentTime
-    const { attenuation, pan } = getSpatialMix(sourcePosition)
+    const { attenuation, pan } = settings.sound.spatialAudio ? getSpatialMix(sourcePosition) : { attenuation: 1, pan: 0 }
     gain.gain.setValueAtTime(volume, now)
     spatialGain.gain.setValueAtTime(attenuation, now)
     source.connect(gain)
@@ -937,6 +968,7 @@ function createSoundSystem() {
 
   return {
     initialize,
+    setMasterVolume() { if (masterGain && context) masterGain.gain.setTargetAtTime(SOUND.masterVolume * (settings.sound.muted ? 0 : settings.sound.masterVolume / 100), context.currentTime, 0.03) },
     playBangerPulse(progress, position) {
       const fallback = SOUND.fallback.bangerPulse
       const frequency = THREE.MathUtils.lerp(fallback.startFrequency, fallback.endFrequency, progress)
@@ -970,9 +1002,13 @@ function createSoundSystem() {
 const soundSystem = createSoundSystem()
 
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true })
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, GAME.maxPixelRatio))
+function applyGraphicsSettings() {
+  const pixelRatioCap = { low: 1, medium: 1.5, high: GAME.maxPixelRatio }[settings.graphics.quality] ?? GAME.maxPixelRatio
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, pixelRatioCap))
+  renderer.shadowMap.enabled = settings.graphics.shadows && settings.graphics.quality !== 'low'
+}
+applyGraphicsSettings()
 renderer.setSize(window.innerWidth, window.innerHeight)
-renderer.shadowMap.enabled = true
 renderer.outputColorSpace = THREE.SRGBColorSpace
 
 const scene = new THREE.Scene()
@@ -2772,6 +2808,22 @@ function animate() {
   renderer.render(scene, camera)
 }
 
+function renderSettings() {
+  graphicsQualityOptions.innerHTML = ['low', 'medium', 'high'].map((quality) => `<button data-graphics-quality="${quality}" class="${settings.graphics.quality === quality ? 'selected' : ''}" type="button">${quality.toUpperCase()}</button>`).join('')
+  shadowsSetting.checked = settings.graphics.shadows
+  cameraDistanceSetting.value = settings.gameplay.cameraDistance
+  cameraDistanceValue.value = `${settings.gameplay.cameraDistance}%`
+  autoPauseSetting.checked = settings.gameplay.autoPause
+  highContrastSetting.checked = settings.gameplay.highContrastHud
+  masterVolumeSetting.value = settings.sound.masterVolume
+  masterVolumeValue.value = `${settings.sound.masterVolume}%`
+  mutedSetting.checked = settings.sound.muted
+  spatialAudioSetting.checked = settings.sound.spatialAudio
+  document.querySelector('.game-shell').classList.toggle('high-contrast-hud', settings.gameplay.highContrastHud)
+}
+
+function persistSettings() { saveSettings(); soundSystem.setMasterVolume(); renderSettings() }
+
 startButton.addEventListener('click', async () => {
   await soundSystem.initialize()
   soundSystem.playButtonClick()
@@ -2793,6 +2845,16 @@ openLabButton.addEventListener('click', (event) => {
   setLabMessage()
   renderResearchLab()
 })
+openSettingsButton.addEventListener('click', () => { menuContent.classList.add('hidden'); settingsPanel.classList.remove('hidden'); renderSettings() })
+closeSettingsButton.addEventListener('click', () => { settingsPanel.classList.add('hidden'); menuContent.classList.remove('hidden') })
+settingsPanel.addEventListener('click', (event) => { const button = event.target.closest('[data-graphics-quality]'); if (!button) return; settings.graphics.quality = button.dataset.graphicsQuality; applyGraphicsSettings(); persistSettings() })
+shadowsSetting.addEventListener('change', () => { settings.graphics.shadows = shadowsSetting.checked; applyGraphicsSettings(); persistSettings() })
+cameraDistanceSetting.addEventListener('input', () => { settings.gameplay.cameraDistance = Number(cameraDistanceSetting.value); persistSettings() })
+autoPauseSetting.addEventListener('change', () => { settings.gameplay.autoPause = autoPauseSetting.checked; persistSettings() })
+highContrastSetting.addEventListener('change', () => { settings.gameplay.highContrastHud = highContrastSetting.checked; persistSettings() })
+masterVolumeSetting.addEventListener('input', () => { settings.sound.masterVolume = Number(masterVolumeSetting.value); persistSettings() })
+mutedSetting.addEventListener('change', () => { settings.sound.muted = mutedSetting.checked; persistSettings() })
+spatialAudioSetting.addEventListener('change', () => { settings.sound.spatialAudio = spatialAudioSetting.checked; persistSettings() })
 
 closeLabButton.addEventListener('click', () => {
   labPanel.classList.add('hidden')
@@ -2887,7 +2949,7 @@ function isMobileInputMode() {
 
 function getCameraDistance() {
   const isPortraitMobile = window.matchMedia('(hover: none) and (pointer: coarse) and (orientation: portrait)').matches
-  return CAMERA.distance * (isPortraitMobile ? CAMERA.portraitDistanceMultiplier : 1)
+  return CAMERA.distance * (settings.gameplay.cameraDistance / 100) * (isPortraitMobile ? CAMERA.portraitDistanceMultiplier : 1)
 }
 
 function updateJoystick(event) {
@@ -2940,6 +3002,11 @@ window.addEventListener('blur', () => {
   keys.clear()
   releaseJoystick()
 })
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden || !settings.gameplay.autoPause || !started || paused) return
+  paused = true
+  pauseMenu.classList.remove('hidden')
+})
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight
   camera.updateProjectionMatrix()
@@ -2955,6 +3022,7 @@ updateCash()
 updateChronoshards()
 renderMilestones()
 renderResearchLab()
+renderSettings()
 updateStartButton()
 resetGame()
 animate()
