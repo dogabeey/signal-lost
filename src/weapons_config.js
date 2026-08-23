@@ -1,5 +1,5 @@
 export const WEAPON_CONFIG = {
-  purchaseCost: 35,
+  purchaseCost: 20,
   levelCopyRequirements: [3, 5, 10, 25],
   weapons: {
     nuke: { name: 'Nuke', key: '1', color: '#ff795f', description: 'Destroys a percentage of enemies in the arena.', baseEffect: 0.3, effectPerLevel: 0.1 },

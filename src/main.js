@@ -18,7 +18,6 @@ document.querySelector('#app').innerHTML = `
     <canvas id="game" aria-label="Asteroid Belt game canvas"></canvas>
     <header class="hud">
       <div class="hud-left">
-        <div class="brand"><span class="brand-mark"></span>ASTEROID BELT</div>
         <div class="cash-balance">CASH <span id="cash">$000</span></div>
         <div class="chronoshard-balance">CHRONOSHARDS <span id="chronoshards">✦ 0</span></div>
       </div>
@@ -30,7 +29,7 @@ document.querySelector('#app').innerHTML = `
       </dl><button class="pause-button" id="pause-button" type="button" aria-label="Pause game">Ⅱ</button></div>
     </header>
     <div class="weapon-hud hidden" id="weapon-hud"></div>
-    <aside class="instructions"><b>MOVE</b><span>WASD</span></aside>
+    <aside class="instructions" aria-label="Game controls"><span class="controls-desktop"><b>MOVE</b> WASD <i>·</i> <b>NAVIGATE</b> ↑↓ <i>·</i> <b>USE WEAPON</b> SPACE</span><span class="controls-mobile"><b>MOVE</b> JOYSTICK <i>·</i> <b>SELECT / USE WEAPON</b> TAP A CARD</span></aside>
     <footer class="build-footer" aria-label="Build information">
       <strong>${BUILD_INFO.label}</strong><span>v${BUILD_INFO.version}</span><span>BUILD ${BUILD_INFO.number}</span><span>${BUILD_INFO.date}</span>
     </footer>
@@ -92,7 +91,8 @@ document.querySelector('#app').innerHTML = `
       </section>
       <section class="building-panel hidden" id="building-panel"><div class="lab-header"><div><p class="eyebrow">PERMANENT DEFENSES</p><h2>BUILDING SYSTEM</h2></div><button class="secondary-button" id="close-building-button" type="button">BACK</button></div><p class="lab-balance">CASH <span id="building-cash"></span> · CHRONOSHARDS <span id="building-chronoshards"></span> · SLOTS <span id="building-slots"></span></p><div class="building-actions"><button id="enter-build-mode" type="button">BUILD MODE</button><button id="open-building-draft" type="button">UNLOCK A BUILDING</button></div><h3>UNLOCKED BUILDINGS</h3><div class="building-list" id="building-list"></div></section>
       <section class="building-draft-modal hidden" id="building-draft-modal" aria-label="Building Draft"><button class="upgrade-close" id="close-building-draft" type="button" aria-label="Close building draft">×</button><p class="eyebrow">PERMANENT DEFENSES</p><h2>BUILDING DRAFT</h2><p class="building-draft-balance">CHRONOSHARDS <span id="building-draft-chronoshards"></span></p><div class="building-list" id="building-draft-list"></div></section>
-      <section class="weaponry-panel hidden" id="weaponry-panel" aria-label="Weaponry"><div class="lab-header"><div><p class="eyebrow">ACTIVE ARSENAL</p><h2>WEAPONRY</h2></div><button class="secondary-button" id="close-weaponry-button" type="button">BACK</button></div><p class="lab-balance">CHRONOSHARDS <span id="weaponry-chronoshards"></span></p><button class="weapon-buy-button" id="buy-weapons-button" type="button">BUY WEAPONS · ✦ 35</button><p class="weapon-result" id="weapon-purchase-result"></p><h3>ROUND LOADOUT <span id="weapon-slot-count"></span></h3><div class="weapon-loadout" id="weapon-loadout"></div><h3>WEAPON CARDS</h3><div class="weapon-card-list" id="weapon-card-list"></div></section>
+      <section class="weaponry-panel hidden" id="weaponry-panel" aria-label="Weaponry"><div class="lab-header"><div><p class="eyebrow">ACTIVE ARSENAL</p><h2>WEAPONRY</h2></div><button class="secondary-button" id="close-weaponry-button" type="button">BACK</button></div><p class="lab-balance">CHRONOSHARDS <span id="weaponry-chronoshards"></span></p><div class="weapon-buy-actions"><button class="weapon-buy-button" id="buy-weapon-button" type="button">BUY WEAPON · ✦ 35</button><button class="weapon-buy-button" id="buy-weapons-five-button" type="button">BUY WEAPON x5 · ✦ 175</button></div><h3>ROUND LOADOUT <span id="weapon-slot-count"></span></h3><div class="weapon-loadout" id="weapon-loadout"></div><h3>WEAPON CARDS</h3><div class="weapon-card-list" id="weapon-card-list"></div></section>
+      <section class="weapon-reveal-modal hidden" id="weapon-reveal-modal" aria-label="Weapon purchase result" aria-live="polite"><div class="weapon-reveal-card"><p class="eyebrow" id="weapon-reveal-count"></p><p class="weapon-reveal-status" id="weapon-reveal-status"></p><img class="asset-card-art" id="weapon-reveal-art" alt=""><h2 id="weapon-reveal-name"></h2><p id="weapon-reveal-detail"></p><button id="weapon-reveal-continue" type="button">CLAIM</button></div></section>
       <section class="settings-panel hidden" id="settings-panel" aria-label="Settings"><div class="lab-header"><div><p class="eyebrow">PREFERENCES</p><h2>SETTINGS</h2></div><button class="secondary-button" id="close-settings-button" type="button">BACK</button></div><div class="settings-section"><h3>GRAPHICS</h3><div class="settings-row"><div><strong>Quality</strong><small>Changes render resolution and shadows.</small></div><div class="settings-options" id="graphics-quality-options"></div></div><label class="settings-row settings-toggle"><span><strong>Shadows</strong><small>Show dynamic object shadows.</small></span><input id="setting-shadows" type="checkbox"></label></div><div class="settings-section"><h3>GAMEPLAY</h3><label class="settings-row"><span><strong>Camera Distance</strong><small>Adjusts how far the camera sits from your ship.</small></span><output id="camera-distance-value"></output><input id="setting-camera-distance" type="range" min="80" max="130" step="5"></label><label class="settings-row settings-toggle"><span><strong>Auto Pause</strong><small>Pause the run when the game loses focus.</small></span><input id="setting-auto-pause" type="checkbox"></label><label class="settings-row settings-toggle"><span><strong>High Contrast HUD</strong><small>Improves HUD readability.</small></span><input id="setting-high-contrast" type="checkbox"></label></div><div class="settings-section"><h3>SOUND</h3><label class="settings-row"><span><strong>Master Volume</strong><small>Controls all game sound effects.</small></span><output id="master-volume-value"></output><input id="setting-master-volume" type="range" min="0" max="100" step="1"></label><label class="settings-row settings-toggle"><span><strong>Mute All</strong><small>Instantly silence all sound effects.</small></span><input id="setting-muted" type="checkbox"></label><label class="settings-row settings-toggle"><span><strong>Spatial Audio</strong><small>Pan sounds based on their world position.</small></span><input id="setting-spatial-audio" type="checkbox"></label></div></section>
     </section>
     <div class="build-bar hidden" id="build-bar"><span id="build-status">SELECT A BUILDING</span><div id="build-options"></div><button id="exit-build-mode" type="button">DONE</button></div>
@@ -129,8 +129,15 @@ const openWeaponryButton = document.querySelector('#open-weaponry-button')
 const weaponryPanel = document.querySelector('#weaponry-panel')
 const closeWeaponryButton = document.querySelector('#close-weaponry-button')
 const weaponryChronoshards = document.querySelector('#weaponry-chronoshards')
-const buyWeaponsButton = document.querySelector('#buy-weapons-button')
-const weaponPurchaseResult = document.querySelector('#weapon-purchase-result')
+const buyWeaponButton = document.querySelector('#buy-weapon-button')
+const buyWeaponsFiveButton = document.querySelector('#buy-weapons-five-button')
+const weaponRevealModal = document.querySelector('#weapon-reveal-modal')
+const weaponRevealCount = document.querySelector('#weapon-reveal-count')
+const weaponRevealStatus = document.querySelector('#weapon-reveal-status')
+const weaponRevealArt = document.querySelector('#weapon-reveal-art')
+const weaponRevealName = document.querySelector('#weapon-reveal-name')
+const weaponRevealDetail = document.querySelector('#weapon-reveal-detail')
+const weaponRevealContinueButton = document.querySelector('#weapon-reveal-continue')
 const weaponSlotCount = document.querySelector('#weapon-slot-count')
 const weaponLoadout = document.querySelector('#weapon-loadout')
 const weaponCardList = document.querySelector('#weapon-card-list')
@@ -337,6 +344,8 @@ let chronoshards = readStoredNumber(CHRONOSHARDS_STORAGE_KEY)
 let savedRound = readSavedRound()
 let featureUnlocks = (() => { try { const saved = JSON.parse(localStorage.getItem(FEATURE_UNLOCKS_STORAGE_KEY)); return { researchLab: Boolean(saved?.researchLab), buildingSystem: Boolean(saved?.buildingSystem), weaponry: Boolean(saved?.weaponry) } } catch { return { researchLab: false, buildingSystem: false, weaponry: false } } })()
 let weaponState = (() => { try { const saved = JSON.parse(localStorage.getItem(WEAPONRY_STORAGE_KEY)); return { cards: saved?.cards ?? {}, loadout: Array.isArray(saved?.loadout) ? saved.loadout : [], selected: saved?.selected ?? 0 } } catch { return { cards: {}, loadout: [], selected: 0 } } })()
+let weaponRevealQueue = []
+let weaponRevealIndex = 0
 let buildingState = (() => { try { const saved = JSON.parse(localStorage.getItem(BUILDINGS_STORAGE_KEY)); return saved?.unlocked ? saved : { unlocked: [], placed: [] } } catch { return { unlocked: [], placed: [] } } })()
 const retiredGapGenerators = buildingState.placed.filter((building) => building.type === 'gapGenerator')
 if (retiredGapGenerators.length) {
@@ -1090,6 +1099,13 @@ function applyGraphicsSettings() {
 function saveWeaponState() { try { localStorage.setItem(WEAPONRY_STORAGE_KEY, JSON.stringify(weaponState)) } catch {} }
 function getWeaponSlots() { return 1 + getResearchLevel('weapon-slots') }
 function getWeaponEntry(id) { return weaponState.cards[id] }
+function getWeaponLoadoutActionLabel(id) {
+  if (weaponState.loadout.includes(id)) return 'REMOVE FROM LOADOUT'
+  if (weaponState.loadout.length < getWeaponSlots()) return 'ADD TO LOADOUT'
+  const replacedWeaponId = weaponState.loadout[weaponState.selected]
+  const replacedWeapon = WEAPON_CONFIG.weapons[replacedWeaponId]
+  return replacedWeapon ? `REPLACE WITH ${replacedWeapon.name.toUpperCase()}` : 'REPLACE SELECTED WEAPON'
+}
 function getWeaponRequirement(level) { return WEAPON_CONFIG.levelCopyRequirements[level - 1] ?? Infinity }
 function getWeaponEffect(id) { const entry = getWeaponEntry(id); const weapon = WEAPON_CONFIG.weapons[id]; return entry && weapon ? weapon.baseEffect + weapon.effectPerLevel * (entry.level - 1) : 0 }
 function getWeaponDurationRemaining(id) { return ({ megaMagnet: megaMagnetTime, atmosphereShield: atmosphereShieldTime, chronoFreeze: chronoFreezeTime, plasmaOrbital: plasmaOrbitalTime, cellOverdrive: cellOverdriveTime, demonMode: demonModeTime })[id] ?? 0 }
@@ -1102,26 +1118,91 @@ function renderWeaponHud() {
 }
 function renderWeaponry() {
   weaponryChronoshards.textContent = `✦ ${formatCompactNumber(chronoshards)}`
-  buyWeaponsButton.disabled = chronoshards < WEAPON_CONFIG.purchaseCost
+  buyWeaponButton.textContent = `BUY WEAPON · ✦ ${formatCompactNumber(WEAPON_CONFIG.purchaseCost)}`
+  buyWeaponsFiveButton.textContent = `BUY WEAPON x5 · ✦ ${formatCompactNumber(WEAPON_CONFIG.purchaseCost * 5)}`
+  buyWeaponButton.disabled = chronoshards < WEAPON_CONFIG.purchaseCost
+  buyWeaponsFiveButton.disabled = chronoshards < WEAPON_CONFIG.purchaseCost * 5
   weaponSlotCount.textContent = `${weaponState.loadout.length}/${getWeaponSlots()}`
   weaponLoadout.innerHTML = Array.from({ length: getWeaponSlots() }, (_, index) => { const id = weaponState.loadout[index]; return `<button data-select-weapon-slot="${index}" type="button" class="${index === weaponState.selected ? 'selected' : ''}">${id ? WEAPON_CONFIG.weapons[id].name : 'EMPTY SLOT'}</button>` }).join('')
-  weaponCardList.innerHTML = Object.entries(WEAPON_CONFIG.weapons).map(([id, weapon]) => { const entry = getWeaponEntry(id); const art = `<img class="asset-card-art" src="${getWeaponAsset(id)}" alt="">`; if (!entry) return `<article class="weapon-card locked">${art}<strong>${weapon.name}</strong><small>Not collected yet</small></article>`; const required = getWeaponRequirement(entry.level); return `<article class="weapon-card">${art}<strong>${weapon.name} · LV. ${entry.level}</strong><small>${weapon.description}</small><em>${entry.level >= 5 ? 'MAX LEVEL' : `${entry.copies}/${required} copies to Lv. ${entry.level + 1}`}</em><button data-toggle-weapon="${id}" type="button">${weaponState.loadout.includes(id) ? 'REMOVE FROM LOADOUT' : 'ADD TO LOADOUT'}</button></article>` }).join('')
+  weaponCardList.innerHTML = Object.entries(WEAPON_CONFIG.weapons).map(([id, weapon]) => { const entry = getWeaponEntry(id); const art = `<img class="asset-card-art" src="${getWeaponAsset(id)}" alt="">`; if (!entry) return `<article class="weapon-card locked">${art}<strong>${weapon.name}</strong><small>Not collected yet</small></article>`; const required = getWeaponRequirement(entry.level); return `<article class="weapon-card ${weaponState.loadout.includes(id) ? 'selected' : ''}">${art}<strong>${weapon.name} · LV. ${entry.level}</strong><small>${weapon.description}</small><em>${entry.level >= 5 ? 'MAX LEVEL' : `${entry.copies}/${required} copies to Lv. ${entry.level + 1}`}</em><button data-toggle-weapon="${id}" type="button">${getWeaponLoadoutActionLabel(id)}</button></article>` }).join('')
   renderWeaponHud()
 }
-function buyWeapons() {
-  if (chronoshards < WEAPON_CONFIG.purchaseCost) return
-  updateChronoshards(-WEAPON_CONFIG.purchaseCost)
+function renderWeaponReveal() {
+  const result = weaponRevealQueue[weaponRevealIndex]
+  if (!result) return
+  weaponRevealModal.dataset.revealType = result.type
+  weaponRevealCount.textContent = `WEAPON ${weaponRevealIndex + 1} / ${weaponRevealQueue.length}`
+  weaponRevealStatus.textContent = result.status
+  weaponRevealArt.src = getWeaponAsset(result.id)
+  weaponRevealArt.alt = result.name
+  weaponRevealName.textContent = result.name
+  weaponRevealDetail.textContent = result.detail
+  weaponRevealContinueButton.textContent = weaponRevealIndex === weaponRevealQueue.length - 1 ? 'CLAIM' : 'NEXT'
+  weaponRevealModal.classList.remove('hidden')
+  weaponRevealModal.classList.remove('is-revealing')
+  void weaponRevealModal.offsetWidth
+  weaponRevealModal.classList.add('is-revealing')
+}
+function buyWeapons(quantity) {
+  const cost = WEAPON_CONFIG.purchaseCost * quantity
+  if (chronoshards < cost) return
+  updateChronoshards(-cost)
   const results = []
-  for (let draw = 0; draw < 3; draw += 1) {
+  for (let draw = 0; draw < quantity; draw += 1) {
     const id = Object.keys(WEAPON_CONFIG.weapons)[Math.floor(Math.random() * Object.keys(WEAPON_CONFIG.weapons).length)]
     const weapon = WEAPON_CONFIG.weapons[id]; let entry = getWeaponEntry(id)
-    if (!entry) { entry = { level: 1, copies: 0 }; weaponState.cards[id] = entry; results.push(`${weapon.name} unlocked · Lv. 1`) }
-    else { entry.copies += 1; const requirement = getWeaponRequirement(entry.level); if (entry.copies >= requirement && entry.level < 5) { entry.copies -= requirement; entry.level += 1; results.push(`${weapon.name} upgraded · Lv. ${entry.level}`) } else results.push(`${weapon.name} copy · ${entry.copies}/${requirement}`) }
+    if (!entry) {
+      entry = { level: 1, copies: 0 }
+      weaponState.cards[id] = entry
+      results.push({ id, name: weapon.name, type: 'unlock', status: 'UNLOCKED', detail: 'Unlocked at Level 1.' })
+      continue
+    }
+    entry.copies += 1
+    const requirement = getWeaponRequirement(entry.level)
+    if (entry.copies >= requirement && entry.level < 5) {
+      entry.copies -= requirement
+      entry.level += 1
+      results.push({ id, name: weapon.name, type: 'level-up', status: `LEVEL UP · LV. ${entry.level}`, detail: `Upgraded to Level ${entry.level}.` })
+    } else if (entry.level >= 5) {
+      results.push({ id, name: weapon.name, type: 'max-copy', status: 'MAX LEVEL COPY', detail: 'This weapon is already at maximum level.' })
+    } else {
+      results.push({ id, name: weapon.name, type: 'copy', status: `COPY · LV. ${entry.level}`, detail: `${entry.copies}/${requirement} copies toward Level ${entry.level + 1}.` })
+    }
   }
-  weaponPurchaseResult.textContent = results.join('  •  ')
-  saveWeaponState(); renderWeaponry()
+  weaponRevealQueue = results
+  weaponRevealIndex = 0
+  saveWeaponState()
+  renderWeaponry()
+  renderWeaponReveal()
 }
-function toggleWeaponLoadout(id) { if (!getWeaponEntry(id)) return; const index = weaponState.loadout.indexOf(id); if (index >= 0) weaponState.loadout.splice(index, 1); else if (weaponState.loadout.length < getWeaponSlots()) weaponState.loadout.push(id); weaponState.selected = Math.min(weaponState.selected, Math.max(weaponState.loadout.length - 1, 0)); saveWeaponState(); renderWeaponry() }
+function continueWeaponReveal() {
+  if (weaponRevealIndex < weaponRevealQueue.length - 1) {
+    weaponRevealIndex += 1
+    renderWeaponReveal()
+    return
+  }
+  weaponRevealQueue = []
+  weaponRevealIndex = 0
+  delete weaponRevealModal.dataset.revealType
+  weaponRevealModal.classList.remove('is-revealing')
+  weaponRevealModal.classList.add('hidden')
+  renderWeaponry()
+}
+function toggleWeaponLoadout(id) {
+  if (!getWeaponEntry(id)) return
+  const index = weaponState.loadout.indexOf(id)
+  if (index >= 0) {
+    weaponState.loadout.splice(index, 1)
+  } else if (weaponState.loadout.length < getWeaponSlots()) {
+    weaponState.loadout.push(id)
+    weaponState.selected = weaponState.loadout.length - 1
+  } else {
+    weaponState.loadout[weaponState.selected] = id
+  }
+  weaponState.selected = Math.min(weaponState.selected, Math.max(weaponState.loadout.length - 1, 0))
+  saveWeaponState()
+  renderWeaponry()
+}
 function useWeapon(id = weaponState.loadout[weaponState.selected]) {
   const entry = getWeaponEntry(id); if (!started || paused || !entry || !weaponState.loadout.includes(id)) return
   if (usedWeaponsThisRound.has(id)) return
@@ -1476,7 +1557,7 @@ function unlockBuildingOffer(type) {
   saveBuildings()
   renderBuildings()
 }
-function clearWeaponrySave() { weaponState = { cards: {}, loadout: [], selected: 0 }; saveWeaponState(); weaponPurchaseResult.textContent = ''; renderWeaponry() }
+function clearWeaponrySave() { weaponState = { cards: {}, loadout: [], selected: 0 }; weaponRevealQueue = []; weaponRevealIndex = 0; weaponRevealModal.classList.add('hidden'); saveWeaponState(); renderWeaponry() }
 function renderBuildingDraft() {
   const offers = getBuildingUnlockOffers(); const unlockCost = getBuildingUnlockCost(); const canAffordUnlock = chronoshards >= unlockCost
   buildingDraftChronoshards.textContent = `✦ ${formatCompactNumber(chronoshards)}`
@@ -3261,7 +3342,9 @@ overlay.addEventListener('click', (event) => {
 openBuildingButton.addEventListener('click', () => { if (!featureUnlocks.buildingSystem && !unlockFeature('buildingSystem')) return; menuContent.classList.add('hidden'); buildingPanel.classList.remove('hidden'); renderBuildings() })
 openWeaponryButton.addEventListener('click', () => { if (!featureUnlocks.weaponry && !unlockFeature('weaponry')) return; menuContent.classList.add('hidden'); weaponryPanel.classList.remove('hidden'); renderWeaponry() })
 closeWeaponryButton.addEventListener('click', () => { weaponryPanel.classList.add('hidden'); menuContent.classList.remove('hidden') })
-buyWeaponsButton.addEventListener('click', buyWeapons)
+buyWeaponButton.addEventListener('click', () => buyWeapons(1))
+buyWeaponsFiveButton.addEventListener('click', () => buyWeapons(5))
+weaponRevealContinueButton.addEventListener('click', continueWeaponReveal)
 weaponCardList.addEventListener('click', (event) => { const button = event.target.closest('[data-toggle-weapon]'); if (button) toggleWeaponLoadout(button.dataset.toggleWeapon) })
 weaponLoadout.addEventListener('click', (event) => { const button = event.target.closest('[data-select-weapon-slot]'); if (!button) return; weaponState.selected = Number(button.dataset.selectWeaponSlot); saveWeaponState(); renderWeaponry() })
 weaponHud.addEventListener('click', (event) => { const button = event.target.closest('[data-use-weapon]'); if (button) useWeapon(button.dataset.useWeapon) })
