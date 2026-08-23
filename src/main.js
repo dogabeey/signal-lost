@@ -58,7 +58,7 @@ document.querySelector('#app').innerHTML = `
     <section class="overlay" id="overlay" aria-live="polite">
       <div class="menu-content" id="menu-content">
         <h1 id="overlay-title">ASTEROID BELT</h1>
-        <p id="overlay-copy">Collect energy cells. Avoid the enemies.</p>
+        <p id="overlay-copy"></p>
         <p class="game-over-tip" id="game-over-tip" hidden></p>
         <div class="tier-selection" aria-label="Difficulty tier selection">
           <div class="tier-heading">Difficulty</div>
