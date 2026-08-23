@@ -13,6 +13,8 @@ import { getBuildingAsset, getWeaponAsset } from './asset_catalog.js'
 import { DAMAGE_TYPES } from './damage_types.js'
 import './style.css'
 
+const IS_STEAM_BUILD = import.meta.env.VITE_STEAM_BUILD === 'true'
+
 document.querySelector('#app').innerHTML = `
   <main class="game-shell">
     <canvas id="game" aria-label="Asteroid Belt game canvas"></canvas>
@@ -75,6 +77,7 @@ document.querySelector('#app').innerHTML = `
           <button class="menu-system-button" id="open-building-button" type="button">BUILDING SYSTEM</button>
           <button class="menu-system-button" id="open-weaponry-button" type="button">WEAPONRY</button>
           <button class="menu-system-button" id="open-settings-button" type="button">SETTINGS</button>
+          ${IS_STEAM_BUILD ? '<button class="menu-exit-button" id="exit-game-button" type="button">EXIT GAME</button>' : ''}
         </div>
       </div>
       <section class="milestones-panel hidden" id="milestones-panel" aria-label="Ascension">
@@ -143,6 +146,7 @@ const weaponLoadout = document.querySelector('#weapon-loadout')
 const weaponCardList = document.querySelector('#weapon-card-list')
 const weaponHud = document.querySelector('#weapon-hud')
 const openSettingsButton = document.querySelector('#open-settings-button')
+const exitGameButton = document.querySelector('#exit-game-button')
 const settingsPanel = document.querySelector('#settings-panel')
 const closeSettingsButton = document.querySelector('#close-settings-button')
 const graphicsQualityOptions = document.querySelector('#graphics-quality-options')
@@ -3320,6 +3324,14 @@ openLabButton.addEventListener('click', (event) => {
   renderResearchLab()
 })
 openSettingsButton.addEventListener('click', () => { menuContent.classList.add('hidden'); settingsPanel.classList.remove('hidden'); renderSettings() })
+exitGameButton?.addEventListener('click', () => {
+  window.dispatchEvent(new Event('asteroid-belt:exit-requested'))
+  if (window.steamShell?.quit) {
+    window.steamShell.quit()
+    return
+  }
+  window.close()
+})
 closeSettingsButton.addEventListener('click', () => { settingsPanel.classList.add('hidden'); menuContent.classList.remove('hidden') })
 settingsPanel.addEventListener('click', (event) => { const button = event.target.closest('[data-graphics-quality]'); if (!button) return; settings.graphics.quality = button.dataset.graphicsQuality; applyGraphicsSettings(); persistSettings() })
 shadowsSetting.addEventListener('change', () => { settings.graphics.shadows = shadowsSetting.checked; applyGraphicsSettings(); persistSettings() })

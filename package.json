@@ -3,14 +3,42 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "main": "electron/main.js",
   "scripts": {
     "dev": "vite",
     "build": "vite build && powershell -NoProfile -Command \"Remove-Item -LiteralPath 'dist.zip' -Force -ErrorAction SilentlyContinue; tar.exe -a -c -f dist.zip -C dist .\"",
+    "build:steam:web": "powershell -NoProfile -Command \"$env:VITE_STEAM_BUILD='true'; vite build\"",
+    "build:steam": "npm run build:steam:web && electron-builder --win --x64 --dir",
     "deploy": "butler push dist.zip dogabeey/asteroid-belt:universal",
     "release": "npm run build && npm run deploy",
     "preview": "vite preview"
   },
+  "build": {
+    "appId": "com.dogabeey.asteroidbelt",
+    "productName": "Asteroid Belt",
+    "asar": true,
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "dir",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    }
+  },
   "devDependencies": {
+    "electron": "^40.6.1",
+    "electron-builder": "^26.0.12",
     "playwright": "^1.62.1",
     "vite": "^8.2.0"
   },

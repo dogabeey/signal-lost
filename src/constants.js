@@ -90,7 +90,7 @@ export const DIFFICULTY = {
     obstacleLifetimeOffset: -7,
     obstacleLifetimeIncreasePerCellOffset: -0.03,
     // These weights are used to determine the probability of spawning each obstacle type. The sum isn't normalized, so the actual probability 
-    // is calculated by dividing each weight by the sum of all weights. If an obstacle type is not included in the availableObstacleTypes array, its weight is ignored.
+    // is calculated by  dividing each weight by the sum of all weights. If an obstacle type is not included in the availableObstacleTypes array, its weight is ignored.
     // If an obstacle's weight isn't specified, it defaults to 0.
     regularSpawnWeight: 0.7,
     creeperSpawnWeight: 0.3,
