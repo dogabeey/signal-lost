@@ -88,7 +88,7 @@ document.querySelector('#app').innerHTML = `
         <p class="lab-balance">CASH <span id="lab-cash">$0</span> · CHRONOSHARDS <span id="lab-chronoshards">✦ 0</span></p>
         <p class="lab-message" id="lab-message" aria-live="polite"></p>
         <h3 id="research-slots-heading">ACTIVE SLOTS</h3><div class="research-slots" id="research-slots"></div>
-        <h3>AVAILABLE RESEARCH</h3><label class="research-search"><span>SEARCH</span><input id="research-search" type="search" placeholder="Search research names" autocomplete="off"></label><div class="research-list" id="research-list"></div>
+        <h3>AVAILABLE RESEARCH</h3><label class="research-search"><span>SEARCH</span><input id="research-search" type="search" placeholder="Search research names" autocomplete="off"></label><div class="research-filters"><label><input id="hide-completed-researches" type="checkbox"> <span>Hide Completed Researches</span></label><label><input id="hide-locked-researches" type="checkbox"> <span>Hide Locked Researches</span></label></div><div class="research-list" id="research-list"></div>
       </section>
       <section class="building-panel hidden" id="building-panel"><div class="lab-header"><div><p class="eyebrow">PERMANENT DEFENSES</p><h2>BUILDING SYSTEM</h2></div><button class="secondary-button" id="close-building-button" type="button">BACK</button></div><p class="lab-balance">CASH <span id="building-cash"></span> · CHRONOSHARDS <span id="building-chronoshards"></span> · SLOTS <span id="building-slots"></span></p><div class="building-actions"><button id="enter-build-mode" type="button">BUILD MODE</button><button id="open-building-draft" type="button">UNLOCK A BUILDING</button></div><h3>UNLOCKED BUILDINGS</h3><div class="building-list" id="building-list"></div></section>
       <section class="building-draft-modal hidden" id="building-draft-modal" aria-label="Building Draft"><button class="upgrade-close" id="close-building-draft" type="button" aria-label="Close building draft">×</button><p class="eyebrow">PERMANENT DEFENSES</p><h2>BUILDING DRAFT</h2><p class="building-draft-balance">CHRONOSHARDS <span id="building-draft-chronoshards"></span></p><div class="building-list" id="building-draft-list"></div></section>
@@ -174,6 +174,8 @@ const researchSlotsElement = document.querySelector('#research-slots')
 const researchSlotsHeading = document.querySelector('#research-slots-heading')
 const researchListElement = document.querySelector('#research-list')
 const researchSearchInput = document.querySelector('#research-search')
+const hideCompletedResearchesInput = document.querySelector('#hide-completed-researches')
+const hideLockedResearchesInput = document.querySelector('#hide-locked-researches')
 const cheatConsole = document.querySelector('#cheat-console')
 const cheatInput = document.querySelector('#cheat-input')
 const cheatOutput = document.querySelector('#cheat-output')
@@ -371,6 +373,8 @@ const buildingRuntime = new Map()
 let buildMode = false
 let selectedBuildingType = null
 let researchSearchQuery = ''
+let hideCompletedResearches = false
+let hideLockedResearches = false
 const collapsedResearchCategories = new Set()
 
 function createDefaultResearchState() {
@@ -457,6 +461,36 @@ function isResearchVisible(research) {
   return !visibleWhen?.anyResearch || visibleWhen.anyResearch.some((researchId) => getResearchLevel(researchId) > 0)
 }
 
+// Keep the lab's progression readable: a research always appears after the
+// research(es) that unlock it, even when their names would sort differently.
+function getResearchProgressionOrder(research, visited = new Set()) {
+  if (visited.has(research.id)) return { tier: research.requirements?.minTier ?? 0, depth: 0 }
+
+  const nextVisited = new Set(visited).add(research.id)
+  const requirements = research.requirements ?? {}
+  const prerequisiteIds = [
+    ...(requirements.researchId ? [requirements.researchId] : []),
+    ...Object.keys(requirements.researchLevels ?? {}),
+  ]
+  const prerequisiteOrders = prerequisiteIds
+    .map((researchId) => getResearchById(researchId))
+    .filter(Boolean)
+    .map((prerequisite) => getResearchProgressionOrder(prerequisite, nextVisited))
+
+  return {
+    tier: Math.max(requirements.minTier ?? 0, ...prerequisiteOrders.map((order) => order.tier)),
+    depth: prerequisiteOrders.length ? Math.max(...prerequisiteOrders.map((order) => order.depth)) + 1 : 0,
+  }
+}
+
+function compareResearchProgression(first, second) {
+  const firstOrder = getResearchProgressionOrder(first)
+  const secondOrder = getResearchProgressionOrder(second)
+  return firstOrder.tier - secondOrder.tier
+    || firstOrder.depth - secondOrder.depth
+    || first.name.localeCompare(second.name)
+}
+
 function completeFinishedResearches() {
   const now = Date.now()
   let changed = false
@@ -510,13 +544,12 @@ function renderResearchLab() {
   const visibleCategories = [...researchesByCategory.entries()]
     .map(([category, researches]) => [category, researches
       .filter((research) => `${research.name} ${research.description}`.toLocaleLowerCase().includes(normalizedSearch))
-      .sort((first, second) => {
-        const priority = (research) => getResearchLevel(research.id) >= research.maxLevel ? 2 : getResearchLockReason(research) ? 1 : 0
-        return priority(first) - priority(second) || first.name.localeCompare(second.name)
-      })])
+      .filter((research) => !hideCompletedResearches || getResearchLevel(research.id) < research.maxLevel)
+      .filter((research) => !hideLockedResearches || !getResearchLockReason(research))
+      .sort(compareResearchProgression)])
     .filter(([, researches]) => researches.length)
   researchListElement.innerHTML = visibleCategories.length ? visibleCategories.map(([category, researches]) => {
-    const open = normalizedSearch || !collapsedResearchCategories.has(category)
+    const open = normalizedSearch || collapsedResearchCategories.has(category)
     return `<section class="research-category ${open ? 'open' : ''}"><button class="research-category-toggle" data-toggle-research-category="${category}" type="button" aria-expanded="${open}"><span>${category}</span><i aria-hidden="true">›</i></button><div class="research-grid">${researches.map((research) => {
     const level = getResearchLevel(research.id)
     const lockReason = getResearchLockReason(research)
@@ -527,8 +560,11 @@ function renderResearchLab() {
     const canAfford = freeResearch || (research.cost.currency === 'cash' ? cash >= cost : chronoshards >= cost)
     const noAvailableSlot = RESEARCH_CONFIG.durationsEnabled && !researchState.slots.slice(0, researchState.unlockedSlots).some((slot) => !slot)
     const disabled = lockReason || active || full || !canAfford || noAvailableSlot
+    const buttonState = lockReason || active || full || noAvailableSlot
+      ? 'research-locked'
+      : canAfford ? 'research-affordable' : 'research-unaffordable'
     const status = full ? 'MAX LEVEL' : active ? 'IN PROGRESS' : lockReason || (freeResearch ? 'FREE RESEARCH ENABLED' : `Cost ${formatCurrency(research.cost.currency, cost)}${RESEARCH_CONFIG.durationsEnabled ? ` · ${formatDuration(duration)}` : ''}`)
-    return `<article class="research-card"><div><span class="research-level">LV. ${level}/${research.maxLevel}</span><h4>${research.name}</h4><p>${research.description}</p><p class="research-effect">${formatResearchEffect(research, level)} → ${formatResearchEffect(research, Math.min(level + 1, research.maxLevel))}</p><small>${status}</small></div><button data-start-research="${research.id}" type="button" ${disabled ? 'disabled' : ''}>${full ? 'MAXED' : 'RESEARCH'}</button></article>`
+    return `<article class="research-card"><div><span class="research-level">LV. ${level}/${research.maxLevel}</span><h4>${research.name}</h4><p>${research.description}</p><p class="research-effect">${formatResearchEffect(research, level)} → ${formatResearchEffect(research, Math.min(level + 1, research.maxLevel))}</p><small>${status}</small></div><button class="${buttonState}" data-start-research="${research.id}" type="button" ${disabled ? 'disabled' : ''}>${full ? 'MAXED' : 'RESEARCH'}</button></article>`
     }).join('')}</div></section>`
   }).join('') : '<p class="research-empty">No research names match your search.</p>'
 }
@@ -3256,6 +3292,14 @@ labPanel.addEventListener('click', (event) => {
 
 researchSearchInput.addEventListener('input', () => {
   researchSearchQuery = researchSearchInput.value
+  renderResearchLab()
+})
+hideCompletedResearchesInput.addEventListener('change', () => {
+  hideCompletedResearches = hideCompletedResearchesInput.checked
+  renderResearchLab()
+})
+hideLockedResearchesInput.addEventListener('change', () => {
+  hideLockedResearches = hideLockedResearchesInput.checked
   renderResearchLab()
 })
 
