@@ -1,4 +1,5 @@
 import { defineServer } from 'colyseus'
+import './posthog.js'
 
 const port = Number(process.env.PORT ?? 2567)
 
