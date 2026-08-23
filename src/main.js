@@ -3,6 +3,7 @@ import { ANIMATION, CAMERA, COLORS, DIFFICULTY, ENEMY_TYPES as OBSTACLE_TYPES, E
 import { RESEARCH_CONFIG } from './research_config.js'
 import { CHEAT_CONFIG } from './cheat_config.js'
 import { BUILD_INFO } from './build_info.js'
+import { trackTierStarted } from './analytics.js'
 import { BUILDING_CONFIG } from './building_config.js'
 import { createPlayerShip } from './player_ship.js'
 import { formatCompactNumber, formatCurrency, formatDuration, formatResearchEffect } from './formatters.js'
@@ -3303,7 +3304,8 @@ function persistSettings() { saveSettings(); soundSystem.setMasterVolume(); rend
 startButton.addEventListener('click', async () => {
   await soundSystem.initialize()
   soundSystem.playButtonClick()
-  if (savedRound) restoreSavedRound()
+  const continuingRun = Boolean(savedRound)
+  if (continuingRun) restoreSavedRound()
   else resetGame()
   started = true
   ended = false
@@ -3313,6 +3315,11 @@ startButton.addEventListener('click', async () => {
   menuContent.classList.remove('hidden')
   overlay.classList.add('hidden')
   renderWeaponHud()
+  if (!continuingRun) trackTierStarted({
+    tier: selectedTierIndex + 1,
+    buildVersion: BUILD_INFO.version,
+    platform: window.steamShell ? 'steam' : 'web',
+  })
 })
 
 openLabButton.addEventListener('click', (event) => {
