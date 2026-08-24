@@ -11,18 +11,34 @@
 export const RESEARCH_CONFIG = {
   durationsEnabled: false,
   featureUnlocks: {
-    researchLab: { minTier: 2, chronoshardCost: 10 },
-    buildingSystem: { minTier: 4, chronoshardCost: 75 },
-    weaponry: { minTier: 5, chronoshardCost: 100 },
+    researchLab: { minTier: 2, chronoshardCost: 5 },
+    buildingSystem: { minTier: 4, chronoshardCost: 50 },
+    weaponry: { minTier: 5, chronoshardCost: 75 },
   },
   maxSlots: 3,
   slotUnlocks: [
-    { slot: 2, cost: { currency: 'chronoshards', amount: 100 }, requirements: { minTier: 2 } },
-    { slot: 3, cost: { currency: 'chronoshards', amount: 500 }, requirements: { minTier: 3 } },
-    { slot: 4, cost: { currency: 'chronoshards', amount: 1000 }, requirements: { minTier: 4 } },
-    { slot: 5, cost: { currency: 'chronoshards', amount: 5000 }, requirements: { minTier: 4 } },
+    { slot: 2, cost: { currency: 'chronoshards', amount: 50 }, requirements: { minTier: 2 } },
+    { slot: 3, cost: { currency: 'chronoshards', amount: 200 }, requirements: { minTier: 3 } },
+    { slot: 4, cost: { currency: 'chronoshards', amount: 500 }, requirements: { minTier: 4 } },
+    { slot: 5, cost: { currency: 'chronoshards', amount: 1500 }, requirements: { minTier: 4 } },
   ],
   researches: [
+    {
+      id: 'lucky-find', category: 'Weapons', name: 'Lucky Find', description: 'Weapon cards have a chance to become Lucky Finds and grant 2 cards instead of 1.', maxLevel: 10,
+      effect: { stat: 'luckyFindChance', perLevel: 0.02, format: 'percent' }, cost: { currency: 'cash', base: 28_000, multiplier: 1.32, jerk: 1.003 }, duration: { baseMs: 150_000, multiplier: 1.16 }, requirements: { minTier: 5 },
+    },
+    {
+      id: 'weapon-recharge', category: 'Weapons', name: 'Weapon Recharge', description: 'Recharges one charge for each equipped weapon every 8 minutes.', maxLevel: 1,
+      cost: { currency: 'cash', base: 40_000, multiplier: 1, jerk: 1 }, duration: { baseMs: 180_000, multiplier: 1 }, requirements: { minTier: 5 },
+    },
+    {
+      id: 'weapon-recharge-rate', category: 'Weapons', name: 'Weapon Recharge Rate', description: 'Reduces weapon recharge time by 30 seconds per level, down to 3 minutes.', maxLevel: 10,
+      effect: { stat: 'weaponRechargeReductionSeconds', perLevel: 30, format: 'flat' }, cost: { currency: 'cash', base: 12_000, multiplier: 1.25, jerk: 1.002 }, duration: { baseMs: 150_000, multiplier: 1.18 }, requirements: { minTier: 5, researchId: 'weapon-recharge' },
+    },
+    {
+      id: 'weapon-charge-capacity', category: 'Weapons', name: 'Weapon Charge Capacity', description: 'Increases the maximum stored charges for each equipped weapon by 1.', maxLevel: 4,
+      effect: { stat: 'weaponChargeCapacity', perLevel: 1, format: 'flat' }, cost: { currency: 'cash', base: 30_000, multiplier: 1.35, jerk: 1.003 }, duration: { baseMs: 180_000, multiplier: 1.2 }, requirements: { minTier: 5, researchId: 'weapon-recharge' },
+    },
     {
       id: 'weapon-slots', category: 'Weapons', name: 'Weapon Slot', description: 'Adds one weapon slot to your round loadout.', maxLevel: 4,
       effect: { stat: 'weaponSlots', perLevel: 1, format: 'flat' }, cost: { currency: 'cash', base: 25_000, multiplier: 1.8, jerk: 1.004 }, duration: { baseMs: 180_000, multiplier: 1.25 }, requirements: { minTier: 3 },

@@ -95,8 +95,8 @@ document.querySelector('#app').innerHTML = `
       </section>
       <section class="building-panel hidden" id="building-panel"><div class="lab-header"><div><p class="eyebrow">PERMANENT DEFENSES</p><h2>BUILDING SYSTEM</h2></div><button class="secondary-button" id="close-building-button" type="button">BACK</button></div><p class="lab-balance">CASH <span id="building-cash"></span> · CHRONOSHARDS <span id="building-chronoshards"></span> · SLOTS <span id="building-slots"></span></p><div class="building-actions"><button id="enter-build-mode" type="button">BUILD MODE</button><button id="open-building-draft" type="button">UNLOCK A BUILDING</button></div><h3>UNLOCKED BUILDINGS</h3><div class="building-list" id="building-list"></div></section>
       <section class="building-draft-modal hidden" id="building-draft-modal" aria-label="Building Draft"><button class="upgrade-close" id="close-building-draft" type="button" aria-label="Close building draft">×</button><p class="eyebrow">PERMANENT DEFENSES</p><h2>BUILDING DRAFT</h2><p class="building-draft-balance">CHRONOSHARDS <span id="building-draft-chronoshards"></span></p><div class="building-list" id="building-draft-list"></div></section>
-      <section class="weaponry-panel hidden" id="weaponry-panel" aria-label="Weaponry"><div class="lab-header"><div><p class="eyebrow">ACTIVE ARSENAL</p><h2>WEAPONRY</h2></div><button class="secondary-button" id="close-weaponry-button" type="button">BACK</button></div><p class="lab-balance">CHRONOSHARDS <span id="weaponry-chronoshards"></span></p><div class="weapon-buy-actions"><button class="weapon-buy-button" id="buy-weapon-button" type="button">BUY WEAPON · ✦ 35</button><button class="weapon-buy-button" id="buy-weapons-five-button" type="button">BUY WEAPON x5 · ✦ 175</button></div><h3>ROUND LOADOUT <span id="weapon-slot-count"></span></h3><div class="weapon-loadout" id="weapon-loadout"></div><h3>WEAPON CARDS</h3><div class="weapon-card-list" id="weapon-card-list"></div></section>
-      <section class="weapon-reveal-modal hidden" id="weapon-reveal-modal" aria-label="Weapon purchase result" aria-live="polite"><div class="weapon-reveal-card"><p class="eyebrow" id="weapon-reveal-count"></p><p class="weapon-reveal-status" id="weapon-reveal-status"></p><img class="asset-card-art" id="weapon-reveal-art" alt=""><h2 id="weapon-reveal-name"></h2><p id="weapon-reveal-detail"></p><button id="weapon-reveal-continue" type="button">CLAIM</button></div></section>
+      <section class="weaponry-panel hidden" id="weaponry-panel" aria-label="Weaponry"><div class="lab-header"><div><p class="eyebrow">ACTIVE ARSENAL</p><h2>WEAPONRY</h2></div><button class="secondary-button" id="close-weaponry-button" type="button">BACK</button></div><p class="lab-balance">CHRONOSHARDS <span id="weaponry-chronoshards"></span></p><div class="weapon-buy-actions"><button class="weapon-buy-button" id="buy-weapon-button" type="button">BUY WEAPON · ✦ 35</button><button class="weapon-buy-button" id="buy-weapons-five-button" type="button">BUY WEAPON x5 · ✦ 175</button></div><p class="weapon-lucky-find-chance" id="weapon-lucky-find-chance" hidden>LUCKY FIND · 0% · 2 CARDS</p><h3>ROUND LOADOUT <span id="weapon-slot-count"></span></h3><div class="weapon-loadout" id="weapon-loadout"></div><h3>WEAPON CARDS</h3><div class="weapon-card-list" id="weapon-card-list"></div></section>
+      <section class="weapon-reveal-modal hidden" id="weapon-reveal-modal" aria-label="Weapon purchase result" aria-live="polite"><div class="weapon-reveal-card"><p class="eyebrow" id="weapon-reveal-count"></p><p class="weapon-lucky-find-badge" aria-hidden="true">✦ LUCKY FIND · DOUBLE CARD ✦</p><p class="weapon-reveal-status" id="weapon-reveal-status"></p><img class="asset-card-art" id="weapon-reveal-art" alt=""><h2 id="weapon-reveal-name"></h2><p id="weapon-reveal-detail"></p><button id="weapon-reveal-continue" type="button">CLAIM</button></div></section>
       <section class="settings-panel hidden" id="settings-panel" aria-label="Settings"><div class="lab-header"><div><p class="eyebrow">PREFERENCES</p><h2>SETTINGS</h2></div><button class="secondary-button" id="close-settings-button" type="button">BACK</button></div><div class="settings-section"><h3>GRAPHICS</h3><div class="settings-row"><div><strong>Quality</strong><small>Changes render resolution and shadows.</small></div><div class="settings-options" id="graphics-quality-options"></div></div><label class="settings-row settings-toggle"><span><strong>Shadows</strong><small>Show dynamic object shadows.</small></span><input id="setting-shadows" type="checkbox"></label></div><div class="settings-section"><h3>GAMEPLAY</h3><label class="settings-row"><span><strong>Camera Distance</strong><small>Adjusts how far the camera sits from your ship.</small></span><output id="camera-distance-value"></output><input id="setting-camera-distance" type="range" min="80" max="130" step="5"></label><label class="settings-row settings-toggle"><span><strong>Auto Pause</strong><small>Pause the run when the game loses focus.</small></span><input id="setting-auto-pause" type="checkbox"></label><label class="settings-row settings-toggle"><span><strong>High Contrast HUD</strong><small>Improves HUD readability.</small></span><input id="setting-high-contrast" type="checkbox"></label></div><div class="settings-section"><h3>SOUND</h3><label class="settings-row"><span><strong>Master Volume</strong><small>Controls all game sound effects.</small></span><output id="master-volume-value"></output><input id="setting-master-volume" type="range" min="0" max="100" step="1"></label><label class="settings-row settings-toggle"><span><strong>Mute All</strong><small>Instantly silence all sound effects.</small></span><input id="setting-muted" type="checkbox"></label><label class="settings-row settings-toggle"><span><strong>Spatial Audio</strong><small>Pan sounds based on their world position.</small></span><input id="setting-spatial-audio" type="checkbox"></label></div></section>
     </section>
     <div class="build-bar hidden" id="build-bar"><span id="build-status">SELECT A BUILDING</span><div id="build-options"></div><button id="exit-build-mode" type="button">DONE</button></div>
@@ -135,6 +135,7 @@ const closeWeaponryButton = document.querySelector('#close-weaponry-button')
 const weaponryChronoshards = document.querySelector('#weaponry-chronoshards')
 const buyWeaponButton = document.querySelector('#buy-weapon-button')
 const buyWeaponsFiveButton = document.querySelector('#buy-weapons-five-button')
+const weaponLuckyFindChance = document.querySelector('#weapon-lucky-find-chance')
 const weaponRevealModal = document.querySelector('#weapon-reveal-modal')
 const weaponRevealCount = document.querySelector('#weapon-reveal-count')
 const weaponRevealStatus = document.querySelector('#weapon-reveal-status')
@@ -1104,6 +1105,46 @@ function applyGraphicsSettings() {
 function saveWeaponState() { try { localStorage.setItem(WEAPONRY_STORAGE_KEY, JSON.stringify(weaponState)) } catch {} }
 function getWeaponSlots() { return 1 + getResearchLevel('weapon-slots') }
 function getWeaponEntry(id) { return weaponState.cards[id] }
+const WEAPON_RECHARGE_BASE_SECONDS = 8 * 60
+const WEAPON_RECHARGE_REDUCTION_PER_LEVEL = 30
+const WEAPON_RECHARGE_MIN_SECONDS = 3 * 60
+function hasWeaponRecharge() { return getResearchLevel('weapon-recharge') > 0 }
+function getWeaponMaxCharges() { return hasWeaponRecharge() ? 1 + getResearchLevel('weapon-charge-capacity') : 1 }
+function getWeaponRechargeInterval() {
+  return Math.max(WEAPON_RECHARGE_MIN_SECONDS, WEAPON_RECHARGE_BASE_SECONDS - getResearchLevel('weapon-recharge-rate') * WEAPON_RECHARGE_REDUCTION_PER_LEVEL)
+}
+function getWeaponCharges(id) { return weaponCharges.get(id) ?? 1 }
+function initializeWeaponCharges() {
+  weaponCharges.clear()
+  weaponRechargeTimers.clear()
+  for (const id of weaponState.loadout.filter((weaponId) => getWeaponEntry(weaponId))) {
+    weaponCharges.set(id, 1)
+    weaponRechargeTimers.set(id, 0)
+  }
+}
+function updateWeaponCharges(delta) {
+  if (!hasWeaponRecharge()) return
+  const maxCharges = getWeaponMaxCharges()
+  const interval = getWeaponRechargeInterval()
+  let changed = false
+  for (const id of weaponState.loadout.filter((weaponId) => getWeaponEntry(weaponId))) {
+    const charges = getWeaponCharges(id)
+    if (charges >= maxCharges) {
+      weaponRechargeTimers.set(id, 0)
+      continue
+    }
+    let timer = (weaponRechargeTimers.get(id) ?? 0) + delta
+    let nextCharges = charges
+    while (timer >= interval && nextCharges < maxCharges) {
+      timer -= interval
+      nextCharges += 1
+      changed = true
+    }
+    weaponCharges.set(id, nextCharges)
+    weaponRechargeTimers.set(id, nextCharges >= maxCharges ? 0 : timer)
+  }
+  if (changed) renderWeaponHud()
+}
 function getWeaponLoadoutActionLabel(id) {
   if (weaponState.loadout.includes(id)) return 'REMOVE FROM LOADOUT'
   if (weaponState.loadout.length < getWeaponSlots()) return 'ADD TO LOADOUT'
@@ -1118,7 +1159,13 @@ function updateWeaponDurationIndicators() { for (const indicator of weaponHud.qu
 function renderWeaponHud() {
   const available = weaponState.loadout.filter((id) => getWeaponEntry(id))
   weaponHud.classList.toggle('hidden', !started || !available.length)
-  weaponHud.innerHTML = available.map((id, index) => `<button class="${index === weaponState.selected ? 'selected' : ''} ${usedWeaponsThisRound.has(id) ? 'spent' : ''}" data-use-weapon="${id}" type="button" ${usedWeaponsThisRound.has(id) ? 'disabled' : ''}><span class="weapon-hud-icon ${WEAPON_CONFIG.weapons[id].duration ? 'has-duration' : ''}" data-weapon-duration="${WEAPON_CONFIG.weapons[id].duration ? id : ''}"><img class="weapon-hud-art" src="${getWeaponAsset(id)}" alt=""></span><b>${index + 1}</b><span>${WEAPON_CONFIG.weapons[id].name}</span><i>${usedWeaponsThisRound.has(id) ? 'USED' : 'READY'}</i></button>`).join('')
+  weaponHud.innerHTML = available.map((id, index) => {
+    const charges = getWeaponCharges(id)
+    const maxCharges = getWeaponMaxCharges()
+    const recharging = hasWeaponRecharge() && charges < maxCharges
+    const status = recharging ? `${charges}/${maxCharges} · RECHARGING` : `${charges}/${maxCharges} CHARGES`
+    return `<button class="${index === weaponState.selected ? 'selected' : ''} ${charges === 0 ? 'spent' : ''}" data-use-weapon="${id}" type="button" ${charges === 0 ? 'disabled' : ''}><span class="weapon-hud-icon ${WEAPON_CONFIG.weapons[id].duration ? 'has-duration' : ''}" data-weapon-duration="${WEAPON_CONFIG.weapons[id].duration ? id : ''}"><img class="weapon-hud-art" src="${getWeaponAsset(id)}" alt=""></span><b>${index + 1}</b><span>${WEAPON_CONFIG.weapons[id].name}</span><i>${status}</i></button>`
+  }).join('')
   updateWeaponDurationIndicators()
 }
 function renderWeaponry() {
@@ -1127,6 +1174,9 @@ function renderWeaponry() {
   buyWeaponsFiveButton.textContent = `BUY WEAPON x5 · ✦ ${formatCompactNumber(WEAPON_CONFIG.purchaseCost * 5)}`
   buyWeaponButton.disabled = chronoshards < WEAPON_CONFIG.purchaseCost
   buyWeaponsFiveButton.disabled = chronoshards < WEAPON_CONFIG.purchaseCost * 5
+  const luckyFindChance = getLuckyFindChance()
+  weaponLuckyFindChance.hidden = luckyFindChance <= 0
+  weaponLuckyFindChance.textContent = `LUCKY FIND · ${Math.round(luckyFindChance * 100)}% · 2 CARDS`
   weaponSlotCount.textContent = `${weaponState.loadout.length}/${getWeaponSlots()}`
   weaponLoadout.innerHTML = Array.from({ length: getWeaponSlots() }, (_, index) => { const id = weaponState.loadout[index]; return `<button data-select-weapon-slot="${index}" type="button" class="${index === weaponState.selected ? 'selected' : ''}">${id ? WEAPON_CONFIG.weapons[id].name : 'EMPTY SLOT'}</button>` }).join('')
   weaponCardList.innerHTML = Object.entries(WEAPON_CONFIG.weapons).map(([id, weapon]) => { const entry = getWeaponEntry(id); const art = `<img class="asset-card-art" src="${getWeaponAsset(id)}" alt="">`; if (!entry) return `<article class="weapon-card locked">${art}<strong>${weapon.name}</strong><small>Not collected yet</small></article>`; const required = getWeaponRequirement(entry.level); return `<article class="weapon-card ${weaponState.loadout.includes(id) ? 'selected' : ''}">${art}<strong>${weapon.name} · LV. ${entry.level}</strong><small>${weapon.description}</small><em>${entry.level >= 5 ? 'MAX LEVEL' : `${entry.copies}/${required} copies to Lv. ${entry.level + 1}`}</em><button data-toggle-weapon="${id}" type="button">${getWeaponLoadoutActionLabel(id)}</button></article>` }).join('')
@@ -1148,31 +1198,50 @@ function renderWeaponReveal() {
   void weaponRevealModal.offsetWidth
   weaponRevealModal.classList.add('is-revealing')
 }
+function awardWeaponCard(id) {
+  const weapon = WEAPON_CONFIG.weapons[id]
+  let entry = getWeaponEntry(id)
+  if (!entry) {
+    entry = { level: 1, copies: 0 }
+    weaponState.cards[id] = entry
+    return { id, name: weapon.name, type: 'unlock', status: 'UNLOCKED', detail: 'Unlocked at Level 1.' }
+  }
+  entry.copies += 1
+  const requirement = getWeaponRequirement(entry.level)
+  if (entry.copies >= requirement && entry.level < 5) {
+    entry.copies -= requirement
+    entry.level += 1
+    return { id, name: weapon.name, type: 'level-up', status: `LEVEL UP · LV. ${entry.level}`, detail: `Upgraded to Level ${entry.level}.` }
+  }
+  if (entry.level >= 5) return { id, name: weapon.name, type: 'max-copy', status: 'MAX LEVEL COPY', detail: 'This weapon is already at maximum level.' }
+  return { id, name: weapon.name, type: 'copy', status: `COPY · LV. ${entry.level}`, detail: `${entry.copies}/${requirement} copies toward Level ${entry.level + 1}.` }
+}
+function getLuckyFindChance() {
+  return THREE.MathUtils.clamp(getResearchStatBonus('luckyFindChance'), 0, 1)
+}
 function buyWeapons(quantity) {
   const cost = WEAPON_CONFIG.purchaseCost * quantity
   if (chronoshards < cost) return
   updateChronoshards(-cost)
   const results = []
+  const weaponIds = Object.keys(WEAPON_CONFIG.weapons)
   for (let draw = 0; draw < quantity; draw += 1) {
-    const id = Object.keys(WEAPON_CONFIG.weapons)[Math.floor(Math.random() * Object.keys(WEAPON_CONFIG.weapons).length)]
-    const weapon = WEAPON_CONFIG.weapons[id]; let entry = getWeaponEntry(id)
-    if (!entry) {
-      entry = { level: 1, copies: 0 }
-      weaponState.cards[id] = entry
-      results.push({ id, name: weapon.name, type: 'unlock', status: 'UNLOCKED', detail: 'Unlocked at Level 1.' })
+    const id = weaponIds[Math.floor(Math.random() * weaponIds.length)]
+    const luckyFind = Math.random() < getLuckyFindChance()
+    const firstCard = awardWeaponCard(id)
+    if (!luckyFind) {
+      results.push(firstCard)
       continue
     }
-    entry.copies += 1
-    const requirement = getWeaponRequirement(entry.level)
-    if (entry.copies >= requirement && entry.level < 5) {
-      entry.copies -= requirement
-      entry.level += 1
-      results.push({ id, name: weapon.name, type: 'level-up', status: `LEVEL UP · LV. ${entry.level}`, detail: `Upgraded to Level ${entry.level}.` })
-    } else if (entry.level >= 5) {
-      results.push({ id, name: weapon.name, type: 'max-copy', status: 'MAX LEVEL COPY', detail: 'This weapon is already at maximum level.' })
-    } else {
-      results.push({ id, name: weapon.name, type: 'copy', status: `COPY · LV. ${entry.level}`, detail: `${entry.copies}/${requirement} copies toward Level ${entry.level + 1}.` })
-    }
+    const secondCard = awardWeaponCard(id)
+    results.push({
+      ...secondCard,
+      type: 'lucky-find',
+      status: 'LUCKY FIND · 2 CARDS',
+      detail: firstCard.type === 'unlock'
+        ? 'Unlocked at Level 1 and received an extra copy.'
+        : `Received 2 cards. ${secondCard.detail}`,
+    })
   }
   weaponRevealQueue = results
   weaponRevealIndex = 0
@@ -1210,7 +1279,8 @@ function toggleWeaponLoadout(id) {
 }
 function useWeapon(id = weaponState.loadout[weaponState.selected]) {
   const entry = getWeaponEntry(id); if (!started || paused || !entry || !weaponState.loadout.includes(id)) return
-  if (usedWeaponsThisRound.has(id)) return
+  const charges = getWeaponCharges(id)
+  if (charges <= 0) return
   const weapon = WEAPON_CONFIG.weapons[id]; const effect = getWeaponEffect(id)
   if (id === 'nuke') { const targets = [...obstacles].sort(() => Math.random() - 0.5).slice(0, Math.ceil(obstacles.length * Math.min(effect, 0.9))); createNukeWave(player.position, targets) }
   if (id === 'megaMagnet') megaMagnetTime = effect
@@ -1220,7 +1290,8 @@ function useWeapon(id = weaponState.loadout[weaponState.selected]) {
   if (id === 'plasmaOrbital') plasmaOrbitalTime = effect
   if (id === 'cellOverdrive') cellOverdriveTime = effect
   if (id === 'demonMode') demonModeTime = effect
-  usedWeaponsThisRound.add(id)
+  weaponCharges.set(id, charges - 1)
+  if (!weaponRechargeTimers.has(id)) weaponRechargeTimers.set(id, 0)
   renderWeaponHud()
   soundSystem.playBuildingEffect(player.position, 'overclockRelay')
 }
@@ -1495,7 +1566,8 @@ let cellOverdriveTime = 0
 let demonModeTime = 0
 const phaseDashEffects = []
 const playerDamageStates = new Map()
-const usedWeaponsThisRound = new Set()
+const weaponCharges = new Map()
+const weaponRechargeTimers = new Map()
 
 const cellGeometry = new THREE.OctahedronGeometry(ENTITIES.cellRadius)
 const chronoCellGeometry = new THREE.IcosahedronGeometry(ENTITIES.chronoCellRadius, 1)
@@ -1542,7 +1614,7 @@ function randomArenaPosition(minDistance = 0) {
 }
 
 function saveBuildings() { try { localStorage.setItem(BUILDINGS_STORAGE_KEY, JSON.stringify(buildingState)) } catch {} }
-function getBuildingUnlockCost() { return 100 + buildingState.unlockCount * 50 }
+function getBuildingUnlockCost() { return 60 + buildingState.unlockCount * 30 }
 function getBuildingUnlockOffers() {
   const remaining = Object.keys(BUILDING_CONFIG.types).filter((type) => !buildingState.unlocked.includes(type))
   const validOffers = buildingState.unlockOffers.filter((type) => remaining.includes(type))
@@ -2402,7 +2474,7 @@ function resetGame(populateArena = true) {
   for (const effect of phaseDashEffects) scene.remove(effect.trail)
   phaseDashEffects.length = 0
   playerDamageStates.clear()
-  usedWeaponsThisRound.clear()
+  initializeWeaponCharges()
   shieldBubble.visible = shieldCharges > 0
   scoreElement.textContent = '000'
   timeElement.textContent = '00:00'
@@ -2436,6 +2508,8 @@ function saveCurrentRound() {
     speedBoosterTime,
     thornShieldTime,
     freezerTime,
+    weaponCharges: Object.fromEntries(weaponCharges),
+    weaponRechargeTimers: Object.fromEntries(weaponRechargeTimers),
     cells: cells.map((cell) => ({ position: serializePosition(cell.position), phase: cell.userData.phase, cashValue: cell.userData.cashValue })),
     chronoCells: chronoCells.map((cell) => ({ position: serializePosition(cell.position), phase: cell.userData.phase, age: cell.userData.age })),
     boosters: boosters.map((booster) => ({ type: booster.userData.type, position: serializePosition(booster.position) })),
@@ -2482,6 +2556,12 @@ function restoreSavedRound() {
   speedBoosterTime = savedRound.speedBoosterTime ?? 0
   thornShieldTime = savedRound.thornShieldTime ?? 0
   freezerTime = savedRound.freezerTime ?? 0
+  for (const id of weaponState.loadout.filter((weaponId) => getWeaponEntry(weaponId))) {
+    const savedCharges = Number(savedRound.weaponCharges?.[id])
+    weaponCharges.set(id, THREE.MathUtils.clamp(Number.isFinite(savedCharges) ? savedCharges : 1, 0, getWeaponMaxCharges()))
+    const savedTimer = Number(savedRound.weaponRechargeTimers?.[id])
+    weaponRechargeTimers.set(id, Number.isFinite(savedTimer) ? Math.max(0, savedTimer) : 0)
+  }
   shieldBubble.visible = shieldCharges > 0
   for (const cell of savedRound.cells ?? []) addCell(cell)
   for (const chronoCell of savedRound.chronoCells ?? []) addChronoCell(chronoCell)
@@ -2651,6 +2731,7 @@ function updateGame(delta, total) {
   plasmaOrbitalTime = Math.max(0, plasmaOrbitalTime - delta)
   cellOverdriveTime = Math.max(0, cellOverdriveTime - delta)
   demonModeTime = Math.max(0, demonModeTime - delta)
+  updateWeaponCharges(delta)
   const atmosphereShieldDuration = getWeaponEffect('atmosphereShield')
   atmosphereShieldVisual.visible = atmosphereShieldTime > 0
   if (atmosphereShieldTime > 0) {

@@ -242,12 +242,14 @@ button:focus-visible { outline: 2px solid #fff4d2; outline-offset: 4px; }
 .weapon-buy-button { background:#b59aff; box-shadow:3px 3px 0 #65519c; width:100%; }
 .weapon-buy-button:hover { box-shadow:1px 1px 0 #65519c; }
 .weapon-buy-button:disabled { background:#4d536a; box-shadow:none; color:#a4acb1; cursor:not-allowed; transform:none; }
+.weapon-lucky-find-chance { background:linear-gradient(90deg, rgba(255,217,90,.14), rgba(107,255,184,.16), rgba(255,217,90,.14)); border:1px solid rgba(255,217,90,.72); color:#ffe98e; font:800 10px 'Trebuchet MS',Arial,sans-serif; letter-spacing:.12em; margin:10px 0 0; padding:8px 10px; text-align:center; text-shadow:0 0 10px rgba(255,217,90,.62); }
 .weapon-reveal-modal { align-items:center; background:rgba(7, 8, 28, .92); display:flex; inset:0; justify-content:center; padding:24px; position:absolute; z-index:24; }
 .weapon-reveal-modal.hidden { display:none; }
 .weapon-reveal-card { align-items:center; background:radial-gradient(circle at 50% 35%, rgba(73, 196, 255, .23), rgba(20, 25, 56, .98) 58%); border:2px solid #63f5cd; box-shadow:0 0 30px rgba(99, 245, 205, .45), 0 0 0 5px rgba(20, 25, 56, .92); display:grid; isolation:isolate; justify-items:center; max-width:390px; overflow:hidden; padding:28px; position:relative; text-align:center; width:min(100%, 390px); }
 .weapon-reveal-card::before { background:radial-gradient(circle, rgba(233, 255, 250, .92) 0 4%, rgba(99, 245, 205, .54) 20%, transparent 64%); content:''; inset:-45%; opacity:0; pointer-events:none; position:absolute; z-index:-1; }
 .weapon-reveal-card::after { border:2px solid rgba(99, 245, 205, .8); border-radius:50%; content:''; height:130px; left:50%; opacity:0; pointer-events:none; position:absolute; top:50%; transform:translate(-50%, -50%) scale(.2); width:130px; z-index:-1; }
 .weapon-reveal-card .eyebrow { color:#b59aff; margin:0 0 10px; }
+.weapon-lucky-find-badge { background:linear-gradient(90deg, #b9ffce, #fff1a3, #b9ffce); color:#31241a; display:none; font:900 11px 'Trebuchet MS',Arial,sans-serif; letter-spacing:.1em; margin:0 0 12px; padding:8px 12px; position:relative; text-shadow:none; }
 .weapon-reveal-status { color:#63f5cd; font:800 18px 'Trebuchet MS', Arial, sans-serif; letter-spacing:.1em; margin:0 0 14px; }
 .weapon-reveal-card .asset-card-art { filter:drop-shadow(0 0 20px rgba(99, 245, 205, .9)); height:150px; margin:4px 0 14px; position:relative; width:150px; z-index:1; }
 .weapon-reveal-card h2 { color:#fff4d2; font:800 29px 'Trebuchet MS', Arial, sans-serif; margin:0; }
@@ -266,6 +268,13 @@ button:focus-visible { outline: 2px solid #fff4d2; outline-offset: 4px; }
 .weapon-reveal-modal[data-reveal-type='level-up'] .weapon-reveal-status { color:#ffcf76; text-shadow:0 0 13px rgba(255, 207, 118, .9); }
 .weapon-reveal-modal.is-revealing[data-reveal-type='level-up'] .weapon-reveal-card::before { animation:weapon-level-flash 760ms ease-out both; }
 .weapon-reveal-modal.is-revealing[data-reveal-type='level-up'] .weapon-reveal-card .asset-card-art { animation:weapon-level-reveal 820ms cubic-bezier(.16, .95, .2, 1.3) both; }
+.weapon-reveal-modal[data-reveal-type='lucky-find'] .weapon-reveal-card { border-color:#ffd95a; box-shadow:0 0 48px rgba(255, 217, 90, .8), 0 0 88px rgba(107, 255, 184, .38), 0 0 0 5px rgba(20, 25, 56, .92); }
+.weapon-reveal-modal[data-reveal-type='lucky-find'] .weapon-lucky-find-badge { display:block; }
+.weapon-reveal-modal[data-reveal-type='lucky-find'] .weapon-reveal-status { color:#ffe98e; text-shadow:0 0 14px rgba(255, 217, 90, .9), 0 0 28px rgba(107, 255, 184, .62); }
+.weapon-reveal-modal.is-revealing[data-reveal-type='lucky-find'] .weapon-lucky-find-badge { animation:weapon-lucky-find-badge 1.1s cubic-bezier(.12,.9,.22,1.2) both; }
+.weapon-reveal-modal.is-revealing[data-reveal-type='lucky-find'] .weapon-reveal-card::before { animation:weapon-lucky-find-flash 900ms cubic-bezier(.1, .76, .18, 1) both; }
+.weapon-reveal-modal.is-revealing[data-reveal-type='lucky-find'] .weapon-reveal-card::after { animation:weapon-unlock-rings 1.1s ease-out both; border-color:#ffe98e; }
+.weapon-reveal-modal.is-revealing[data-reveal-type='lucky-find'] .weapon-reveal-card .asset-card-art { animation:weapon-lucky-find-reveal 900ms cubic-bezier(.12, .92, .18, 1.26) both; }
 @keyframes weapon-reveal-flash { 0% { opacity:0; transform:scale(.2); } 34% { opacity:1; } 100% { opacity:0; transform:scale(1); } }
 @keyframes weapon-card-reveal { 0% { filter:brightness(3) drop-shadow(0 0 34px #eafff9); opacity:0; transform:scale(.22) rotate(-12deg); } 58% { filter:brightness(1.8) drop-shadow(0 0 32px #63f5cd); opacity:1; transform:scale(1.18) rotate(3deg); } 100% { filter:drop-shadow(0 0 20px rgba(99, 245, 205, .9)); transform:scale(1) rotate(0); } }
 @keyframes weapon-unlock-flash { 0% { opacity:0; transform:scale(.08); } 20% { opacity:1; } 100% { opacity:0; transform:scale(1.35); } }
@@ -273,6 +282,9 @@ button:focus-visible { outline: 2px solid #fff4d2; outline-offset: 4px; }
 @keyframes weapon-unlock-reveal { 0% { filter:brightness(5) drop-shadow(0 0 55px #fff); opacity:0; transform:scale(.05) rotate(-20deg); } 38% { filter:brightness(2.5) drop-shadow(0 0 40px #b59aff); opacity:1; transform:scale(1.35) rotate(8deg); } 68% { transform:scale(.92) rotate(-2deg); } 100% { filter:drop-shadow(0 0 24px #63f5cd); transform:scale(1) rotate(0); } }
 @keyframes weapon-level-flash { 0% { background:radial-gradient(circle, #fff4cf, rgba(255, 207, 118, .7) 22%, transparent 64%); opacity:0; transform:scale(.15); } 30% { opacity:1; } 100% { opacity:0; transform:scale(1.16); } }
 @keyframes weapon-level-reveal { 0% { filter:brightness(4) drop-shadow(0 0 40px #fff4cf); opacity:0; transform:scale(.2) translateY(34px); } 54% { filter:brightness(2) drop-shadow(0 0 35px #ffcf76); opacity:1; transform:scale(1.24) translateY(-10px); } 100% { filter:drop-shadow(0 0 20px rgba(255, 207, 118, .9)); transform:scale(1) translateY(0); } }
+@keyframes weapon-lucky-find-flash { 0% { background:radial-gradient(circle, #fffde0, rgba(255, 217, 90, .92) 20%, rgba(107, 255, 184, .45) 38%, transparent 68%); opacity:0; transform:scale(.08) rotate(0deg); } 28% { opacity:1; } 100% { opacity:0; transform:scale(1.45) rotate(26deg); } }
+@keyframes weapon-lucky-find-reveal { 0% { filter:brightness(5) drop-shadow(0 0 52px #fffde0); opacity:0; transform:scale(.08) rotate(-18deg); } 45% { filter:brightness(2.3) drop-shadow(0 0 40px #ffd95a); opacity:1; transform:scale(1.32) rotate(7deg); } 70% { transform:scale(.93) rotate(-2deg); } 100% { filter:drop-shadow(0 0 25px rgba(255, 217, 90, .95)); transform:scale(1) rotate(0); } }
+@keyframes weapon-lucky-find-badge { 0% { filter:brightness(2.8); opacity:0; transform:scale(.25) rotate(-7deg); } 45% { filter:brightness(1.5); opacity:1; transform:scale(1.15) rotate(2deg); } 100% { filter:brightness(1); transform:scale(1) rotate(0); } }
 @media (prefers-reduced-motion: reduce) { .weapon-reveal-modal.is-revealing .weapon-reveal-card::before, .weapon-reveal-modal.is-revealing .weapon-reveal-card::after, .weapon-reveal-modal.is-revealing .weapon-reveal-card .asset-card-art { animation:none !important; } }
 
 @media (max-width: 580px), (hover: none) and (pointer: coarse) {
