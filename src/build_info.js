@@ -1,6 +1,6 @@
 export const BUILD_INFO = {
-  version: '0.1.0',
-  number: '002',
+  version: '2.1.1',
+  number: '1000',
   date: 'August 21, 2026',
   label: 'EARLY ACCESS',
 }
