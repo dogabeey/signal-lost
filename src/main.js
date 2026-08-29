@@ -21,8 +21,8 @@ document.querySelector('#app').innerHTML = `
     <canvas id="game" aria-label="Asteroid Belt game canvas"></canvas>
     <header class="hud">
       <div class="hud-left">
-        <div class="cash-balance">CASH <span id="cash">$000</span></div>
-        <div class="chronoshard-balance">CHRONOSHARDS <span id="chronoshards">✦ 0</span></div>
+        <div class="cash-balance"><span class="currency-label">CASH</span><span id="cash">$000</span></div>
+        <div class="chronoshard-balance"><span class="currency-label">CHRONOSHARDS</span><span id="chronoshards">✦ 0</span></div>
       </div>
       <div class="shield-indicators" id="shield-indicators" aria-label="Shield charges"></div>
       <div class="hud-tier" id="hud-tier" aria-label="Current difficulty tier"></div>
@@ -2721,7 +2721,7 @@ function endGame(cause = 'SIGNAL LOST') {
   recordTierHighScore()
   const hasEnemyPreview = showDeathEnemyPreview(cause)
   const shortCause = cause.toLocaleLowerCase().replace(/\s+(collision|detonation|projectile|impact|damage)$/, '')
-  overlayTitle.textContent = hasEnemyPreview ? 'KILLED BY' : `You were killed by ${shortCause}`
+  overlayTitle.textContent = hasEnemyPreview ? 'KILLED BY' : `KILLED BY ${shortCause.toUpperCase()}`
   overlayTitle.classList.add('death-title')
   overlayCopy.textContent = `You secured ${score} energy ${score === 1 ? 'cell' : 'cells'}.`
   gameOverTip.textContent = `TIP · ${getGameOverTip()}`
