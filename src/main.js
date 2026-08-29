@@ -58,7 +58,12 @@ document.querySelector('#app').innerHTML = `
     </section>
     <section class="overlay" id="overlay" aria-live="polite">
       <div class="menu-content" id="menu-content">
-        <h1 id="overlay-title">ASTEROID BELT</h1>
+        <div class="death-killer-heading">
+          <h1 id="overlay-title">ASTEROID BELT</h1>
+          <div class="death-killer-preview" id="death-killer-preview" hidden>
+            <canvas id="death-killer-canvas" aria-label="Defeating enemy 3D model"></canvas>
+          </div>
+        </div>
         <p id="overlay-copy"></p>
         <p class="game-over-tip" id="game-over-tip" hidden></p>
         <div class="tier-selection" aria-label="Difficulty tier selection">
@@ -112,6 +117,8 @@ const shieldIndicators = document.querySelector('#shield-indicators')
 const pauseButton = document.querySelector('#pause-button')
 const overlay = document.querySelector('#overlay')
 const overlayTitle = document.querySelector('#overlay-title')
+const deathKillerPreview = document.querySelector('#death-killer-preview')
+const deathKillerCanvas = document.querySelector('#death-killer-canvas')
 const overlayCopy = document.querySelector('#overlay-copy')
 const gameOverTip = document.querySelector('#game-over-tip')
 const startButton = document.querySelector('#start-button')
@@ -1609,6 +1616,58 @@ function createSpikedObstacle(material) {
   return obstacle
 }
 
+const deathPreviewScene = new THREE.Scene()
+const deathPreviewCamera = new THREE.PerspectiveCamera(34, 1, 0.1, 20)
+deathPreviewCamera.position.set(0, 0.1, 3.25)
+const deathPreviewRenderer = new THREE.WebGLRenderer({ canvas: deathKillerCanvas, alpha: true, antialias: true })
+deathPreviewRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+deathPreviewRenderer.setSize(76, 60, false)
+deathPreviewScene.add(new THREE.HemisphereLight('#d9f9ff', '#07141d', 2.5))
+const deathPreviewKeyLight = new THREE.DirectionalLight('#fff4cf', 3)
+deathPreviewKeyLight.position.set(2, 3, 4)
+deathPreviewScene.add(deathPreviewKeyLight)
+let deathPreviewEnemy = null
+
+function getKillerEnemyType(cause) {
+  const normalizedCause = cause.toLowerCase()
+  return Object.keys(OBSTACLE_TYPES).find((type) => normalizedCause.includes(type)) ?? null
+}
+
+function hideDeathEnemyPreview() {
+  if (deathPreviewEnemy) {
+    deathPreviewScene.remove(deathPreviewEnemy)
+    deathPreviewEnemy.userData.material?.dispose()
+    deathPreviewEnemy = null
+  }
+  deathKillerPreview.hidden = true
+  menuContent.classList.remove('is-death-screen')
+}
+
+function showDeathEnemyPreview(cause) {
+  const type = getKillerEnemyType(cause)
+  if (!type) {
+    hideDeathEnemyPreview()
+    return false
+  }
+  hideDeathEnemyPreview()
+  const enemy = OBSTACLE_TYPES[type]
+  const material = new THREE.MeshStandardMaterial({ color: enemy.color, emissive: enemy.emissive, emissiveIntensity: 1.35, metalness: ENTITIES.obstacleMetalness, roughness: ENTITIES.obstacleRoughness })
+  deathPreviewEnemy = createSpikedObstacle(material)
+  deathPreviewEnemy.rotation.set(0.25, 0, -0.16)
+  deathPreviewScene.add(deathPreviewEnemy)
+  deathKillerCanvas.setAttribute('aria-label', `${type} enemy 3D model`)
+  deathKillerPreview.hidden = false
+  menuContent.classList.add('is-death-screen')
+  return true
+}
+
+function updateDeathEnemyPreview(delta) {
+  if (!deathPreviewEnemy || deathKillerPreview.hidden) return
+  deathPreviewEnemy.rotation.y += delta * 1.8
+  deathPreviewEnemy.rotation.x += delta * 0.24
+  deathPreviewRenderer.render(deathPreviewScene, deathPreviewCamera)
+}
+
 function randomArenaPosition(minDistance = 0) {
   const arenaLimit = getArenaLimit()
   let position
@@ -2614,6 +2673,7 @@ function returnToMainMenu() {
   pauseMenu.classList.add('hidden')
   overlayTitle.textContent = 'ASTEROID BELT'
   overlayTitle.classList.remove('death-title')
+  hideDeathEnemyPreview()
   overlayCopy.textContent = 'Round saved. Continue when you are ready.'
   gameOverTip.hidden = true
   menuContent.classList.remove('hidden')
@@ -2659,8 +2719,9 @@ function endGame(cause = 'SIGNAL LOST') {
   pauseMenu.classList.add('hidden')
   clearSavedRound()
   recordTierHighScore()
+  const hasEnemyPreview = showDeathEnemyPreview(cause)
   const shortCause = cause.toLocaleLowerCase().replace(/\s+(collision|detonation|projectile|impact|damage)$/, '')
-  overlayTitle.textContent = `You were killed by ${shortCause}`
+  overlayTitle.textContent = hasEnemyPreview ? 'KILLED BY' : `You were killed by ${shortCause}`
   overlayTitle.classList.add('death-title')
   overlayCopy.textContent = `You secured ${score} energy ${score === 1 ? 'cell' : 'cells'}.`
   gameOverTip.textContent = `TIP · ${getGameOverTip()}`
@@ -3324,6 +3385,7 @@ function animate() {
   }
   starfield.position.copy(camera.position)
   renderer.render(scene, camera)
+  updateDeathEnemyPreview(delta)
 }
 
 function applyPlayerStatusDamage(type, source = 'unknown') {
@@ -3399,6 +3461,7 @@ startButton.addEventListener('click', async () => {
   ended = false
   paused = false
   overlayTitle.classList.remove('death-title')
+  hideDeathEnemyPreview()
   labPanel.classList.add('hidden')
   menuContent.classList.remove('hidden')
   overlay.classList.add('hidden')
