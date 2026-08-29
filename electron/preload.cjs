@@ -1,5 +1,1 @@
-const { contextBridge, ipcRenderer } = require('electron')
-
-contextBridge.exposeInMainWorld('steamShell', {
-  quit: () => ipcRenderer.invoke('quit-game'),
-})
+// Reserved for safely exposing desktop-only APIs when your game needs them.

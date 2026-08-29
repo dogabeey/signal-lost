@@ -1,21 +1,20 @@
 {
-  "name": "asteroid-belt",
-  "version": "2.1.1",
+  "name": "threejs-game-template",
+  "version": "0.0.1",
   "private": true,
   "type": "module",
   "main": "electron/main.js",
   "scripts": {
     "dev": "vite",
+    "server": "node server/index.js",
     "build": "vite build && powershell -NoProfile -Command \"Remove-Item -LiteralPath 'dist.zip' -Force -ErrorAction SilentlyContinue; tar.exe -a -c -f dist.zip -C dist .\"",
     "build:steam:web": "powershell -NoProfile -Command \"$env:VITE_STEAM_BUILD='true'; vite build\"",
-    "build:steam": "npm run build:steam:web && electron-builder --win --x64 --dir",
-    "deploy": "butler push dist.zip dogabeey/asteroid-belt:universal",
-    "release": "npm run build && npm run deploy",
+    "build:desktop": "npm run build:steam:web && electron-builder --win --x64 --dir",
     "preview": "vite preview"
   },
   "build": {
-    "appId": "com.dogabeey.asteroidbelt",
-    "productName": "Asteroid Belt",
+    "appId": "com.dogabeey.threejsgametemplate",
+    "productName": "The Last Toast",
     "asar": true,
     "directories": {
       "output": "release"
@@ -43,6 +42,7 @@
     "vite": "^8.2.0"
   },
   "dependencies": {
-    "three": "^0.185.1"
+    "three": "^0.185.1",
+    "ws": "^8.21.3"
   }
 }
