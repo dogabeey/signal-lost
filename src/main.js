@@ -26,10 +26,8 @@ document.querySelector('#app').innerHTML = `
       </div>
       <div class="shield-indicators" id="shield-indicators" aria-label="Shield charges"></div>
       <div class="hud-tier" id="hud-tier" aria-label="Current difficulty tier"></div>
-      <div class="hud-right"><dl class="stats">
-        <div><dt>CELLS</dt><dd id="score">000</dd></div>
-        <div><dt>TIME</dt><dd id="time">00:00</dd></div>
-      </dl><button class="pause-button" id="pause-button" type="button" aria-label="Pause game">Ⅱ</button></div>
+      <dl class="run-cell-counter"><div><dt>CELLS</dt><dd id="score">000</dd></div></dl>
+      <button class="pause-button" id="pause-button" type="button" aria-label="Pause game">Ⅱ</button>
     </header>
     <div class="weapon-hud hidden" id="weapon-hud"></div>
     <aside class="instructions" aria-label="Game controls"><span class="controls-desktop"><b>MOVE</b> WASD <i>·</i> <b>NAVIGATE</b> ↑↓ <i>·</i> <b>USE WEAPON</b> SPACE</span><span class="controls-mobile"><b>MOVE</b> JOYSTICK <i>·</i> <b>SELECT / USE WEAPON</b> TAP A CARD</span></aside>
@@ -48,7 +46,8 @@ document.querySelector('#app').innerHTML = `
       <div class="pause-actions">
         <button id="reset-round-button" type="button">RESET</button>
         <button id="surrender-button" type="button">SURRENDER</button>
-        <button class="secondary-button" id="return-menu-button" type="button">RETURN</button>
+        <button class="secondary-button" id="resume-game-button" type="button">RETURN</button>
+        <button id="return-menu-button" type="button">MAIN MENU</button>
       </div>
     </section>
     <section class="cheat-console hidden" id="cheat-console" aria-label="Debug console">
@@ -112,7 +111,6 @@ document.querySelector('#app').innerHTML = `
 
 const canvas = document.querySelector('#game')
 const scoreElement = document.querySelector('#score')
-const timeElement = document.querySelector('#time')
 const hudTierElement = document.querySelector('#hud-tier')
 const shieldIndicators = document.querySelector('#shield-indicators')
 const pauseButton = document.querySelector('#pause-button')
@@ -207,6 +205,7 @@ const closeCheatConsoleButton = document.querySelector('#close-cheat-console')
 const pauseMenu = document.querySelector('#pause-menu')
 const resetRoundButton = document.querySelector('#reset-round-button')
 const surrenderButton = document.querySelector('#surrender-button')
+const resumeGameButton = document.querySelector('#resume-game-button')
 const returnMenuButton = document.querySelector('#return-menu-button')
 const cashElement = document.querySelector('#cash')
 const chronoshardsElement = document.querySelector('#chronoshards')
@@ -2547,7 +2546,6 @@ function resetGame(populateArena = true) {
   initializeWeaponCharges()
   shieldBubble.visible = shieldCharges > 0
   scoreElement.textContent = '000'
-  timeElement.textContent = '00:00'
   if (populateArena) {
     for (let index = 0; index < GAME.initialCellCount + getResearchStatBonus('initialCellCount'); index += 1) addCell()
     for (const type of GAME.initialObstacleTypes) {
@@ -2736,9 +2734,6 @@ function endGame(cause = 'SIGNAL LOST') {
 
 function updateHud() {
   scoreElement.textContent = String(score).padStart(3, '0')
-  const minutes = Math.floor(elapsed / 60)
-  const seconds = Math.floor(elapsed % 60)
-  timeElement.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
   hudTierElement.textContent = `TIER ${selectedTierIndex + 1}`
   shieldIndicators.innerHTML = Array.from({ length: shieldCharges }, () => '<i aria-hidden="true"></i>').join('')
   shieldIndicators.hidden = shieldCharges === 0
@@ -3573,6 +3568,11 @@ resetRoundButton.addEventListener('click', () => {
 surrenderButton.addEventListener('click', () => {
   pauseMenu.classList.add('hidden')
   endGame('RUN ABANDONED')
+})
+
+resumeGameButton.addEventListener('click', () => {
+  paused = false
+  pauseMenu.classList.add('hidden')
 })
 
 returnMenuButton.addEventListener('click', returnToMainMenu)
