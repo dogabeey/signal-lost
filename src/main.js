@@ -349,6 +349,10 @@ let cash = readStoredNumber(CASH_STORAGE_KEY)
 let chronoshards = readStoredNumber(CHRONOSHARDS_STORAGE_KEY)
 let savedRound = readSavedRound()
 let featureUnlocks = (() => { try { const saved = JSON.parse(localStorage.getItem(FEATURE_UNLOCKS_STORAGE_KEY)); return { researchLab: Boolean(saved?.researchLab), buildingSystem: Boolean(saved?.buildingSystem), weaponry: Boolean(saved?.weaponry) } } catch { return { researchLab: false, buildingSystem: false, weaponry: false } } })()
+if (milestoneState.claimed.includes('tier-1-10') && !featureUnlocks.researchLab) {
+  featureUnlocks.researchLab = true
+  saveFeatureUnlocks()
+}
 let weaponState = (() => { try { const saved = JSON.parse(localStorage.getItem(WEAPONRY_STORAGE_KEY)); return { cards: saved?.cards ?? {}, loadout: Array.isArray(saved?.loadout) ? saved.loadout : [], selected: saved?.selected ?? 0 } } catch { return { cards: {}, loadout: [], selected: 0 } } })()
 let weaponRevealQueue = []
 let weaponRevealIndex = 0
@@ -696,7 +700,7 @@ function renderFeatureUnlockButtons() {
   for (const [feature, button] of [['researchLab', openLabButton], ['buildingSystem', openBuildingButton], ['weaponry', openWeaponryButton]]) {
     const unlock = RESEARCH_CONFIG.featureUnlocks[feature]
     const unlocked = featureUnlocks[feature]
-    const tierReady = getUnlockedTierIndex() + 1 >= unlock.minTier
+    const tierReady = getUnlockedTierIndex() + 1 >= unlock.minTier && (!unlock.requiredMilestone || milestoneState.claimed.includes(unlock.requiredMilestone))
     const name = feature === 'researchLab' ? 'RESEARCH LAB' : feature === 'buildingSystem' ? 'BUILDING SYSTEM' : 'WEAPONRY'
     button.className = `menu-system-button ${unlocked ? 'is-unlocked' : tierReady ? 'is-unlockable' : 'is-locked'}`
     button.disabled = !unlocked && !tierReady
@@ -705,7 +709,7 @@ function renderFeatureUnlockButtons() {
 }
 function unlockFeature(feature) {
   const unlock = RESEARCH_CONFIG.featureUnlocks[feature]
-  if (featureUnlocks[feature] || getUnlockedTierIndex() + 1 < unlock.minTier || chronoshards < unlock.chronoshardCost) return false
+  if (featureUnlocks[feature] || getUnlockedTierIndex() + 1 < unlock.minTier || (unlock.requiredMilestone && !milestoneState.claimed.includes(unlock.requiredMilestone)) || chronoshards < unlock.chronoshardCost) return false
   updateChronoshards(-unlock.chronoshardCost)
   featureUnlocks[feature] = true
   saveFeatureUnlocks()
@@ -888,6 +892,7 @@ function formatMilestoneReward(reward) {
   if (reward.type === 'cash') return `+$${reward.amount.toLocaleString()} cash`
   if (reward.type === 'chronoshards') return `+✦ ${reward.amount} Chronoshards`
   if (reward.type === 'tier') return `Unlock Tier ${reward.tier}`
+  if (reward.type === 'feature') return `Unlock ${reward.featureId === 'researchLab' ? 'Research Lab' : reward.featureId}`
   if (reward.type === 'research') return `Unlock: ${reward.researchIds.map((id) => getResearchById(id)?.name ?? id).join(', ')}`
   return 'Reward'
 }
@@ -903,7 +908,9 @@ function claimMilestone(milestoneId) {
   for (const reward of milestone.rewards) {
     if (reward.type === 'cash') updateCash(reward.amount)
     if (reward.type === 'chronoshards') updateChronoshards(reward.amount)
+    if (reward.type === 'feature' && reward.featureId in featureUnlocks) featureUnlocks[reward.featureId] = true
   }
+  saveFeatureUnlocks()
   saveMilestoneState()
   milestoneClaimToast.textContent = `REWARD CLAIMED · ${milestone.rewards.map(formatMilestoneReward).join(' · ')}`
   milestoneClaimToast.classList.remove('hidden')
