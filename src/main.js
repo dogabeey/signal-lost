@@ -5,7 +5,11 @@ import { CHEAT_CONFIG } from './cheat_config.js'
 import { BUILD_INFO } from './build_info.js'
 import { trackTierStarted } from './analytics.js'
 import { BUILDING_CONFIG } from './building_config.js'
-import { createPlayerShip } from './player_ship.js'
+import { createPlayerShip } from './three/player_ship.js'
+import { createBuildingVisual } from './three/buildings.js'
+import { createDroneVisual } from './three/drones.js'
+import { createEnemyVisualFactory } from './three/enemies.js'
+import { createCellVisualFactory } from './three/cells.js'
 import { formatCompactNumber, formatCurrency, formatDuration, formatResearchEffect } from './formatters.js'
 import { TIPS } from './tips.js'
 import { MILESTONES } from './milestones.js'
@@ -343,6 +347,14 @@ function isResearchMilestoneUnlocked(researchId) {
     && milestone.rewards.some((reward) => reward.type === 'research' && reward.researchIds.includes(researchId)))
 }
 
+function getResearchAscensionMilestone(researchId) {
+  return MILESTONES.find((milestone) => milestone.rewards.some((reward) => reward.type === 'research' && reward.researchIds.includes(researchId)))
+}
+
+function getResearchAscensionTier(researchId) {
+  return getResearchAscensionMilestone(researchId)?.tier ?? 0
+}
+
 let bankedCells = readStoredNumber(CELL_BANK_STORAGE_KEY)
 const tierHighScores = readStoredTierHighScores()
 const milestoneState = readMilestoneState()
@@ -476,7 +488,8 @@ function getResearchLockReason(research) {
   const requirements = research.requirements ?? {}
   // Debug's unlock_tiers command must grant every Ascension-gated research even
   // when an older save was created before explicit research reward state existed.
-  if (requirements.minTier && !milestoneState.debugAscensionsGranted && !isResearchMilestoneUnlocked(research.id)) return 'Unlock this research in Ascension'
+  const ascensionMilestone = getResearchAscensionMilestone(research.id)
+  if (ascensionMilestone && !milestoneState.debugAscensionsGranted && !isResearchMilestoneUnlocked(research.id)) return `Requires ${ascensionMilestone.cells} Cells in Tier ${ascensionMilestone.tier}`
   if (requirements.minBankedCells && bankedCells < requirements.minBankedCells) return `Requires ${requirements.minBankedCells} banked cells`
   if (requirements.researchId && getResearchLevel(requirements.researchId) < 1) return `Requires ${getResearchById(requirements.researchId).name}`
   for (const [researchId, level] of Object.entries(requirements.researchLevels ?? {})) {
@@ -493,7 +506,7 @@ function isResearchVisible(research) {
 // Keep the lab's progression readable: a research always appears after the
 // research(es) that unlock it, even when their names would sort differently.
 function getResearchProgressionOrder(research, visited = new Set()) {
-  if (visited.has(research.id)) return { tier: research.requirements?.minTier ?? 0, depth: 0 }
+  if (visited.has(research.id)) return { tier: getResearchAscensionTier(research.id), depth: 0 }
 
   const nextVisited = new Set(visited).add(research.id)
   const requirements = research.requirements ?? {}
@@ -507,7 +520,7 @@ function getResearchProgressionOrder(research, visited = new Set()) {
     .map((prerequisite) => getResearchProgressionOrder(prerequisite, nextVisited))
 
   return {
-    tier: Math.max(requirements.minTier ?? 0, ...prerequisiteOrders.map((order) => order.tier)),
+    tier: Math.max(getResearchAscensionTier(research.id), ...prerequisiteOrders.map((order) => order.tier)),
     depth: prerequisiteOrders.length ? Math.max(...prerequisiteOrders.map((order) => order.depth)) + 1 : 0,
   }
 }
@@ -1586,38 +1599,11 @@ const playerDamageStates = new Map()
 const weaponCharges = new Map()
 const weaponRechargeTimers = new Map()
 
-const cellGeometry = new THREE.OctahedronGeometry(ENTITIES.cellRadius)
-const chronoCellGeometry = new THREE.IcosahedronGeometry(ENTITIES.chronoCellRadius, 1)
 const fallingRockGeometry = new THREE.IcosahedronGeometry(ENTITIES.obstacleRadius, ENTITIES.fallingRockDetail)
-const obstacleCoreGeometry = new THREE.IcosahedronGeometry(ENTITIES.obstacleCoreRadius, 1)
-const obstacleSpikeGeometry = new THREE.ConeGeometry(ENTITIES.obstacleSpikeRadius, ENTITIES.obstacleSpikeHeight, ENTITIES.obstacleSpikeSegments)
 const shooterProjectileGeometry = new THREE.IcosahedronGeometry(ENTITIES.shooterProjectileRadius, 1)
 const sporeGeometry = new THREE.SphereGeometry(ENTITIES.sporeRadius, 10, 8)
-const boosterGeometry = new THREE.OctahedronGeometry(0.42)
-const spikeDirections = [
-  [0, 1, 0], [0, -1, 0], [1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1],
-  [1, 1, 1], [-1, 1, 1], [1, 1, -1], [-1, 1, -1],
-  [1, -1, 1], [-1, -1, 1], [1, -1, -1], [-1, -1, -1],
-].map(([x, y, z]) => new THREE.Vector3(x, y, z).normalize())
-const upDirection = new THREE.Vector3(0, 1, 0)
-
-function createSpikedObstacle(material) {
-  const obstacle = new THREE.Group()
-  const core = new THREE.Mesh(obstacleCoreGeometry, material)
-  core.castShadow = true
-  obstacle.add(core)
-
-  for (const direction of spikeDirections) {
-    const spike = new THREE.Mesh(obstacleSpikeGeometry, material)
-    spike.position.copy(direction).multiplyScalar(ENTITIES.obstacleCoreRadius + ENTITIES.obstacleSpikeHeight * 0.28)
-    spike.quaternion.setFromUnitVectors(upDirection, direction)
-    spike.castShadow = true
-    obstacle.add(spike)
-  }
-
-  obstacle.userData.material = material
-  return obstacle
-}
+const { createCell: createCellVisual, createChronoCell: createChronoCellVisual, createBooster: createBoosterVisual } = createCellVisualFactory({ THREE, COLORS, ENTITIES })
+const createSpikedObstacle = createEnemyVisualFactory({ THREE, ENTITIES })
 
 const deathPreviewScene = new THREE.Scene()
 const deathPreviewCamera = new THREE.PerspectiveCamera(34, 1, 0.1, 20)
@@ -1717,23 +1703,11 @@ function getBuildingUpgradeCost(building, key) { const entry = BUILDING_CONFIG.t
 function getBuildingRefund(building) { return Math.round((building.spent ?? BUILDING_CONFIG.types[building.type].baseCost) * 100) / 100 }
 function createBuildingMesh(building) {
   const config = BUILDING_CONFIG.types[building.type]
-  const group = new THREE.Group()
-  const material = new THREE.MeshStandardMaterial({ color: '#33465a', emissive: config.color, emissiveIntensity: 0.24, metalness: 0.92, roughness: 0.14 })
-  const accentColor = { autocannon: '#ffd36f', droneBay: '#79caff', barrierNode: '#76eaff', overclockRelay: '#ffcf76', salvageExtractor: '#8dff9c' }[building.type] ?? '#a6a2ff'
-  const accent = new THREE.MeshStandardMaterial({ color: accentColor, emissive: accentColor, emissiveIntensity: 1.25, metalness: 0.78, roughness: 0.12 })
-  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.53, 0.64, 0.26, 8), material)
-  base.position.y = 0.13; group.add(base)
-  if (building.type === 'chronoGenerator') { const core = new THREE.Mesh(new THREE.IcosahedronGeometry(0.32, 1), accent); core.position.y = 0.67; const ringA = new THREE.Mesh(new THREE.TorusGeometry(0.46, 0.035, 8, 24), accent); ringA.position.y = 0.68; ringA.rotation.x = Math.PI / 2; const ringB = ringA.clone(); ringB.rotation.set(Math.PI / 3, 0, Math.PI / 5); group.add(core, ringA, ringB) }
-  if (building.type === 'autocannon') { const turret = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.26, 0.48), accent); turret.position.y = 0.42; group.add(turret); for (const x of [-0.14, 0.14]) { const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.1, 0.78, 8), accent); barrel.rotation.x = Math.PI / 2; barrel.position.set(x, 0.51, 0.38); group.add(barrel) } }
-  if (building.type === 'droneBay') { const hangar = new THREE.Mesh(new THREE.BoxGeometry(0.96, 0.42, 0.78), material); hangar.position.y = 0.47; const door = new THREE.Mesh(new THREE.BoxGeometry(0.56, 0.22, 0.04), accent); door.position.set(0, 0.5, 0.41); group.add(hangar, door); for (const x of [-0.26, 0.26]) { const drone = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 6), accent); drone.position.set(x, 0.82, 0.08); group.add(drone) } }
-  if (building.type === 'barrierNode') { const crystal = new THREE.Mesh(new THREE.OctahedronGeometry(0.34, 0), accent); crystal.position.y = 0.72; group.add(crystal); for (let index = 0; index < 3; index += 1) { const pylon = new THREE.Mesh(new THREE.ConeGeometry(0.13, 0.8, 6), accent); const angle = index * Math.PI * 2 / 3; pylon.position.set(Math.cos(angle) * 0.42, 0.46, Math.sin(angle) * 0.42); group.add(pylon) } const dome = new THREE.Mesh(new THREE.SphereGeometry(0.72, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshBasicMaterial({ color: '#8ceaff', transparent: true, opacity: 0.15, depthWrite: false })); dome.position.y = 0.1; group.add(dome) }
-  if (building.type === 'overclockRelay') { const dish = new THREE.Mesh(new THREE.TorusGeometry(0.34, 0.06, 8, 24), accent); dish.position.y = 0.62; dish.rotation.x = Math.PI / 2; const antenna = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.05, 0.72, 8), accent); antenna.position.y = 0.8; const tip = new THREE.Mesh(new THREE.SphereGeometry(0.1, 10, 8), accent); tip.position.y = 1.18; group.add(dish, antenna, tip) }
-  if (building.type === 'salvageExtractor') { const chamber = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.42, 0.66, 8), accent); chamber.position.y = 0.55; const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.1, 0.82, 8), material); arm.position.set(0.36, 0.82, 0); arm.rotation.z = -Math.PI / 3; const claw = new THREE.Mesh(new THREE.ConeGeometry(0.17, 0.34, 5), accent); claw.position.set(0.72, 0.55, 0); claw.rotation.z = -Math.PI / 2; group.add(chamber, arm, claw) }
-  const hasRange = Number.isFinite(config.effect.range)
-  const effectRing = new THREE.Mesh(new THREE.RingGeometry(0.985, 1.005, 48), new THREE.MeshBasicMaterial({ color: config.color, transparent: true, opacity: 0.28, side: THREE.DoubleSide, depthWrite: false })); effectRing.rotation.x = -Math.PI / 2; effectRing.position.y = 0.03; effectRing.scale.setScalar(hasRange ? buildingValue(building, 'range') : 0); effectRing.visible = hasRange; group.add(effectRing)
-  let barrierField = null
-  if (building.type === 'barrierNode') { barrierField = new THREE.Group(); const wall = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 1.6, 40, 1, true), new THREE.MeshBasicMaterial({ color: config.color, transparent: true, opacity: 0.16, side: THREE.DoubleSide, depthWrite: false })); wall.position.y = 0.8; const crown = new THREE.Mesh(new THREE.TorusGeometry(1, 0.035, 6, 40), new THREE.MeshBasicMaterial({ color: '#d5ffff', transparent: true, opacity: 0.85, depthWrite: false })); crown.position.y = 1.58; crown.rotation.x = Math.PI / 2; barrierField.add(wall, crown); barrierField.visible = false; group.add(barrierField) }
-  group.position.set(building.x, 0, building.z); group.userData.buildingId = building.id; scene.add(group); buildingMeshes.set(building.id, group); buildingRuntime.set(building.id, { timer: 0, active: 0, effectRing, barrierField })
+  const { group, effectRing, barrierField } = createBuildingVisual({ THREE, building, config, range: buildingValue(building, 'range') })
+  group.userData.buildingId = building.id
+  scene.add(group)
+  buildingMeshes.set(building.id, group)
+  buildingRuntime.set(building.id, { timer: 0, active: 0, effectRing, barrierField })
 }
 function syncBuildings() { for (const mesh of buildingMeshes.values()) scene.remove(mesh); buildingMeshes.clear(); buildingRuntime.clear(); for (const building of buildingState.placed) createBuildingMesh(building) }
 function buildingCost(type) { const config = BUILDING_CONFIG.types[type]; return Math.ceil(config.baseCost * config.costMultiplier ** buildingState.placed.filter((b) => b.type === type).length) }
@@ -1828,14 +1802,7 @@ function removeObstacleFromArena(obstacle) {
 }
 
 function createDroneMesh() {
-  const drone = new THREE.Group()
-  const bodyMaterial = new THREE.MeshStandardMaterial({ color: '#314c63', emissive: '#79caff', emissiveIntensity: 0.8, metalness: 0.9, roughness: 0.18 })
-  const glowMaterial = new THREE.MeshBasicMaterial({ color: '#baf8ff', transparent: true, opacity: 0.95, depthWrite: false })
-  const body = new THREE.Mesh(new THREE.SphereGeometry(0.14, 10, 7), bodyMaterial); body.scale.set(1.25, 0.55, 1.5); drone.add(body)
-  const rotors = []
-  for (const [x, z] of [[-0.22, -0.2], [0.22, -0.2], [-0.22, 0.2], [0.22, 0.2]]) { const arm = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.035, 0.13), bodyMaterial); arm.position.set(x, 0, z); const rotor = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.018, 12), glowMaterial); rotor.position.set(x, 0.045, z); drone.add(arm, rotor); rotors.push(rotor) }
-  const eye = new THREE.Mesh(new THREE.SphereGeometry(0.055, 8, 6), glowMaterial); eye.position.set(0, 0.015, 0.2); drone.add(eye); drone.userData.rotors = rotors
-  return drone
+  return createDroneVisual(THREE)
 }
 
 function launchDroneStrike(origin, target, speed) {
@@ -1922,8 +1889,7 @@ function updateBuildings(delta, total) {
 }
 
 function addCell(savedCell) {
-  const material = new THREE.MeshStandardMaterial({ color: COLORS.cell, emissive: COLORS.cellEmissive, emissiveIntensity: ENTITIES.cellEmissiveIntensity, metalness: ENTITIES.cellMetalness, roughness: ENTITIES.cellRoughness })
-  const cell = new THREE.Mesh(cellGeometry, material)
+  const cell = createCellVisual()
   if (savedCell) cell.position.set(savedCell.position.x, savedCell.position.y, savedCell.position.z)
   else cell.position.copy(randomArenaPosition(GAME.cellMinDistance))
   if (!savedCell) cell.position.y = GAME.playerStartHeight
@@ -1935,8 +1901,7 @@ function addCell(savedCell) {
 
 function addChronoCell(savedCell) {
   if (chronoCells.length > 0) return
-  const material = new THREE.MeshStandardMaterial({ color: COLORS.chronoCell, emissive: COLORS.chronoCellEmissive, emissiveIntensity: ENTITIES.chronoCellEmissiveIntensity, metalness: 0.4, roughness: 0.12, transparent: true })
-  const chronoCell = new THREE.Mesh(chronoCellGeometry, material)
+  const chronoCell = createChronoCellVisual()
   if (savedCell) chronoCell.position.set(savedCell.position.x, savedCell.position.y, savedCell.position.z)
   else chronoCell.position.copy(randomArenaPosition(GAME.chronoCellMinDistance))
   if (!savedCell) chronoCell.position.y = GAME.playerStartHeight
@@ -1947,8 +1912,7 @@ function addChronoCell(savedCell) {
 }
 
 function addBooster(type, savedBooster) {
-  const colors = { speed: '#ffcf76', thorn: '#ff795f', freezer: '#7bdcff' }
-  const booster = new THREE.Mesh(boosterGeometry, new THREE.MeshStandardMaterial({ color: colors[type], emissive: colors[type], emissiveIntensity: 1.7, metalness: 0.25, roughness: 0.2 }))
+  const booster = createBoosterVisual(type)
   if (savedBooster) booster.position.set(savedBooster.position.x, savedBooster.position.y, savedBooster.position.z)
   else { booster.position.copy(randomArenaPosition(GAME.cellMinDistance)); booster.position.y = GAME.playerStartHeight }
   booster.userData.type = type

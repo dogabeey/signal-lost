@@ -1,7 +1,8 @@
 // Instructions for adding new research:
 // 1. Add a new research object to the "researches" array below.
 // 2. Make sure to give it a unique "id" and fill in the other properties as needed.
-// 3. If the research has requirements, specify them in the "requirements" property.
+// 3. If the research has prerequisites, specify them in the "requirements" property.
+//    Ascension-gated research is defined by its reward in milestones.js.
 // 4. If the research has an effect, specify it in the "effect" property.
 // 5. If the research has a cost, specify it in the "cost" property.
 // 6. If the research has a duration, specify it in the "duration" property.
@@ -25,23 +26,23 @@ export const RESEARCH_CONFIG = {
   researches: [
     {
       id: 'lucky-find', category: 'Weapons', name: 'Lucky Find', description: 'Weapon cards have a chance to become Lucky Finds and grant 2 cards instead of 1.', maxLevel: 10,
-      effect: { stat: 'luckyFindChance', perLevel: 0.02, format: 'percent' }, cost: { currency: 'cash', base: 28_000, multiplier: 1.32, jerk: 1.003 }, duration: { baseMs: 150_000, multiplier: 1.16 }, requirements: { minTier: 5 },
+      effect: { stat: 'luckyFindChance', perLevel: 0.02, format: 'percent' }, cost: { currency: 'cash', base: 28_000, multiplier: 1.32, jerk: 1.003 }, duration: { baseMs: 150_000, multiplier: 1.16 },
     },
     {
       id: 'weapon-recharge', category: 'Weapons', name: 'Weapon Recharge', description: 'Recharges one charge for each equipped weapon every 8 minutes.', maxLevel: 1,
-      cost: { currency: 'cash', base: 40_000, multiplier: 1, jerk: 1 }, duration: { baseMs: 180_000, multiplier: 1 }, requirements: { minTier: 5 },
+      cost: { currency: 'cash', base: 40_000, multiplier: 1, jerk: 1 }, duration: { baseMs: 180_000, multiplier: 1 },
     },
     {
       id: 'weapon-recharge-rate', category: 'Weapons', name: 'Weapon Recharge Rate', description: 'Reduces weapon recharge time by 30 seconds per level, down to 3 minutes.', maxLevel: 10,
-      effect: { stat: 'weaponRechargeReductionSeconds', perLevel: 30, format: 'flat' }, cost: { currency: 'cash', base: 12_000, multiplier: 1.25, jerk: 1.002 }, duration: { baseMs: 150_000, multiplier: 1.18 }, requirements: { minTier: 5, researchId: 'weapon-recharge' },
+      effect: { stat: 'weaponRechargeReductionSeconds', perLevel: 30, format: 'flat' }, cost: { currency: 'cash', base: 12_000, multiplier: 1.25, jerk: 1.002 }, duration: { baseMs: 150_000, multiplier: 1.18 }, requirements: { researchId: 'weapon-recharge' },
     },
     {
       id: 'weapon-charge-capacity', category: 'Weapons', name: 'Weapon Charge Capacity', description: 'Increases the maximum stored charges for each equipped weapon by 1.', maxLevel: 4,
-      effect: { stat: 'weaponChargeCapacity', perLevel: 1, format: 'flat' }, cost: { currency: 'cash', base: 30_000, multiplier: 1.35, jerk: 1.003 }, duration: { baseMs: 180_000, multiplier: 1.2 }, requirements: { minTier: 5, researchId: 'weapon-recharge' },
+      effect: { stat: 'weaponChargeCapacity', perLevel: 1, format: 'flat' }, cost: { currency: 'cash', base: 30_000, multiplier: 1.35, jerk: 1.003 }, duration: { baseMs: 180_000, multiplier: 1.2 }, requirements: { researchId: 'weapon-recharge' },
     },
     {
       id: 'weapon-slots', category: 'Weapons', name: 'Weapon Slot', description: 'Adds one weapon slot to your round loadout.', maxLevel: 4,
-      effect: { stat: 'weaponSlots', perLevel: 1, format: 'flat' }, cost: { currency: 'cash', base: 25_000, multiplier: 1.8, jerk: 1.004 }, duration: { baseMs: 180_000, multiplier: 1.25 }, requirements: { minTier: 3 },
+      effect: { stat: 'weaponSlots', perLevel: 1, format: 'flat' }, cost: { currency: 'cash', base: 25_000, multiplier: 1.8, jerk: 1.004 }, duration: { baseMs: 180_000, multiplier: 1.25 },
     },
     {
       id: 'player-speed-multiplier',
@@ -52,7 +53,6 @@ export const RESEARCH_CONFIG = {
       effect: { stat: 'playerSpeedMultiplier', perLevel: 0.02, format: 'percent' },
       cost: { currency: 'cash', base: 100, multiplier: 1.4, jerk: 1.001 },
       duration: { baseMs: 90_000, multiplier: 1.3 },
-      requirements: { minTier: 2},
     },
     {
       id: 'unlock-slow-aura',
@@ -62,7 +62,6 @@ export const RESEARCH_CONFIG = {
       maxLevel: 1,
       cost: { currency: 'cash', base: 2_500, multiplier: 1, jerk: 1 },
       duration: { baseMs: 90_000, multiplier: 1 },
-      requirements: { minTier: 3},
     },
     {
       id: 'unlock-orbital-electron',
@@ -72,7 +71,6 @@ export const RESEARCH_CONFIG = {
       maxLevel: 1,
       cost: { currency: 'cash', base: 5_000, multiplier: 1, jerk: 1 },
       duration: { baseMs: 120_000, multiplier: 1 },
-      requirements: { minTier: 3 },
     },
     {
       id: 'electron-stun-duration',
@@ -83,7 +81,7 @@ export const RESEARCH_CONFIG = {
       effect: { stat: 'electronStunDuration', perLevel: 0.2, format: 'flat' },
       cost: { currency: 'cash', base: 5_000, multiplier: 1.3, jerk: 1.0025 },
       duration: { baseMs: 120_000, multiplier: 1.18 },
-      requirements: { minTier: 3, researchId: 'unlock-orbital-electron' },
+      requirements: { researchId: 'unlock-orbital-electron' },
     },
     {
       id: 'electron-speed',
@@ -94,7 +92,7 @@ export const RESEARCH_CONFIG = {
       effect: { stat: 'electronSpeed', perLevel: 0.35, format: 'flat' },
       cost: { currency: 'cash', base: 4_000, multiplier: 1.28, jerk: 1.0025 },
       duration: { baseMs: 120_000, multiplier: 1.16 },
-      requirements: { minTier: 3, researchId: 'unlock-orbital-electron' },
+      requirements: { researchId: 'unlock-orbital-electron' },
     },
     {
       id: 'slow-aura-effect',
@@ -105,7 +103,7 @@ export const RESEARCH_CONFIG = {
       effect: { stat: 'slowAuraEffect', perLevel: 0.01, format: 'percent' },
       cost: { currency: 'cash', base: 1_000, multiplier: 1.35, jerk: 1.0015 },
       duration: { baseMs: 120_000_000, multiplier: 1.35 },
-      requirements: { minTier: 3, researchId: 'unlock-slow-aura' },
+      requirements: { researchId: 'unlock-slow-aura' },
     },
     {
       id: 'slow-aura-range',
@@ -116,7 +114,6 @@ export const RESEARCH_CONFIG = {
       effect: { stat: 'effectRange', perLevel: 0.01, format: 'percent' },
       cost: { currency: 'cash', base: 100, multiplier: 1.15, jerk: 1.0005 },
       duration: { baseMs: 120_000_000, multiplier: 1.35 },
-      requirements: { minTier: 2 },
       visibleWhen: { anyResearch: ['unlock-slow-aura', 'cell-magnet', 'pushback'] },
     },
     {
@@ -126,9 +123,8 @@ export const RESEARCH_CONFIG = {
       description: 'Increases the spawn rate of standard cells.',
       maxLevel: 30,
       effect: { stat: 'cellSpawnRate', perLevel: 0.05, format: 'percent' },
-      cost: { currency: 'cash', base: 25, multiplier: 1.3, jerk: 1.003 },
+      cost: { currency: 'cash', base: 250, multiplier: 1.3, jerk: 1.003 },
       duration: { baseMs: 120_000_000, multiplier: 1.35 },
-      requirements: { minTier: 2 },
     },
     {
       id: 'cell-increment-per-cell',
@@ -139,7 +135,6 @@ export const RESEARCH_CONFIG = {
       effect: { stat: 'cellSpawnRatePerCell', perLevel: 0.01, format: 'percent' },
       cost: { currency: 'cash', base: 150, multiplier: 1.32, jerk: 1.002 },
       duration: { baseMs: 90_000, multiplier: 1.2 },
-      requirements: { minTier: 3 },
     },
     {
       id: 'cash-cell-multiplier',
@@ -160,7 +155,6 @@ export const RESEARCH_CONFIG = {
       effect: { stat: 'initialCellCount', perLevel: 1, format: 'flat' },
       cost: { currency: 'cash', base: 10, multiplier: 1.12, jerk: 1.0002 },
       duration: { baseMs: 30_000, multiplier: 1.08 },
-      requirements: { minTier: 1 },
     },
     {
       id: 'cell-magnet',
@@ -169,9 +163,8 @@ export const RESEARCH_CONFIG = {
       description: 'Pulls nearby Cells toward you. Each level increases pull speed.',
       maxLevel: 20,
       effect: { stat: 'cellMagnetSpeed', perLevel: 0.25, format: 'flat' },
-      cost: { currency: 'cash', base: 2_000, multiplier: 1.3, jerk: 1.003 },
+      cost: { currency: 'cash', base: 1_000, multiplier: 1.3, jerk: 1.003 },
       duration: { baseMs: 90_000, multiplier: 1.16 },
-      requirements: { minTier: 2 },
     },
     {
       id: 'chrono-spawn-rate',
@@ -182,7 +175,6 @@ export const RESEARCH_CONFIG = {
       effect: { stat: 'chronoSpawnRate', perLevel: 0.05, format: 'percent' },
       cost: { currency: 'cash', base: 200, multiplier: 1.1, jerk: 1.002 },
       duration: { baseMs: 120_000_000, multiplier: 1.35 },
-      requirements: { minTier: 3 },
     },
     {
       id: 'chrono-lifetime-multiplier',
@@ -193,7 +185,6 @@ export const RESEARCH_CONFIG = {
       effect: { stat: 'chronoLifetimeMultiplier', perLevel: 0.05, format: 'percent' },
       cost: { currency: 'cash', base: 200, multiplier: 1.1, jerk: 1.002 },
       duration: { baseMs: 120_000_000, multiplier: 1.35 },
-      requirements: { minTier: 4 },
     },
     {
       id: 'unlock-shockwave',
@@ -203,7 +194,6 @@ export const RESEARCH_CONFIG = {
       maxLevel: 1,
       cost: { currency: 'cash', base: 20_000, multiplier: 1, jerk: 1 },
       duration: { baseMs: 120_000, multiplier: 1 },
-      requirements: { minTier: 2 },
     },
     {
       id: 'shockwave-size',
@@ -214,7 +204,7 @@ export const RESEARCH_CONFIG = {
       effect: { stat: 'shockwaveSize', perLevel: 0.1, format: 'percent' },
       cost: { currency: 'cash', base: 100, multiplier: 1.28, jerk: 1.002 },
       duration: { baseMs: 120_000, multiplier: 1.2 },
-      requirements: { minTier: 2, researchId: 'unlock-shockwave' },
+      requirements: { researchId: 'unlock-shockwave' },
     },
     {
       id: 'shockwave-frequency',
@@ -225,7 +215,7 @@ export const RESEARCH_CONFIG = {
       effect: { stat: 'shockwaveFrequency', perLevel: 0.1, format: 'percent' },
       cost: { currency: 'cash', base: 120, multiplier: 1.28, jerk: 1.002 },
       duration: { baseMs: 120_000, multiplier: 1.2 },
-      requirements: { minTier: 2, researchId: 'unlock-shockwave' },
+      requirements: { researchId: 'unlock-shockwave' },
     },
     {
       id: 'shield',
@@ -236,7 +226,6 @@ export const RESEARCH_CONFIG = {
       effect: { stat: 'shieldCharges', perLevel: 1, format: 'flat' },
       cost: { currency: 'cash', base: 25_000, multiplier: 1.35, jerk: 1.003 },
       duration: { baseMs: 180_000, multiplier: 1.25 },
-      requirements: { minTier: 4 },
     },
     {
       id: 'building-slots',
@@ -247,19 +236,18 @@ export const RESEARCH_CONFIG = {
       effect: { stat: 'buildingSlots', perLevel: 1, format: 'flat' },
       cost: { currency: 'cash', base: 12_000, multiplier: 1.48, jerk: 1.004 },
       duration: { baseMs: 120_000, multiplier: 1.2 },
-      requirements: { minTier: 2 },
     },
     ...[
-      ['unlock-speed-booster', 'Unlock Speed Boosters', 'Unlocks Speed Booster pickups that double movement speed.', 1, null, 2],
-      ['speed-booster-duration', 'Speed Booster Duration', 'Increases Speed Booster duration.', 20, 'speedBoosterDuration', 2, 'unlock-speed-booster'],
-      ['thorn-shield', 'Thorn Shield', 'Unlocks Thorn Shield pickups that grant immunity and destroy enemies on contact.', 1, null, 4],
-      ['thorn-shield-duration', 'Thorn Shield Duration', 'Increases Thorn Shield duration.', 20, 'thornShieldDuration', 4, 'thorn-shield'],
-      ['freezer', 'Freezer', 'Unlocks Freezer pickups that freeze all enemies.', 1, null, 5],
-      ['freezer-duration', 'Freezer Duration', 'Increases Freezer duration.', 20, 'freezerDuration', 5, 'freezer'],
-    ].map(([id, name, description, maxLevel, stat, minTier, researchId]) => ({ id, category: 'Boosters', name, description, maxLevel,
+      ['unlock-speed-booster', 'Unlock Speed Boosters', 'Unlocks Speed Booster pickups that double movement speed.', 1, null],
+      ['speed-booster-duration', 'Speed Booster Duration', 'Increases Speed Booster duration.', 20, 'speedBoosterDuration', 'unlock-speed-booster'],
+      ['thorn-shield', 'Thorn Shield', 'Unlocks Thorn Shield pickups that grant immunity and destroy enemies on contact.', 1, null],
+      ['thorn-shield-duration', 'Thorn Shield Duration', 'Increases Thorn Shield duration.', 20, 'thornShieldDuration', 'thorn-shield'],
+      ['freezer', 'Freezer', 'Unlocks Freezer pickups that freeze all enemies.', 1, null],
+      ['freezer-duration', 'Freezer Duration', 'Increases Freezer duration.', 20, 'freezerDuration', 'freezer'],
+    ].map(([id, name, description, maxLevel, stat, researchId]) => ({ id, category: 'Boosters', name, description, maxLevel,
       ...(stat ? { effect: { stat, perLevel: 0.25, format: 'flat' } } : {}),
       cost: { currency: 'cash', base: maxLevel === 1 ? 7_000 : 5_000, multiplier: 1.2, jerk: 1.002 },
-      duration: { baseMs: 120_000, multiplier: 1.18 }, requirements: { minTier, ...(researchId ? { researchId } : {}) } })),
+      duration: { baseMs: 120_000, multiplier: 1.18 }, ...(researchId ? { requirements: { researchId } } : {}) })),
     {
       id: 'pushback',
       category: 'Player Enhancements',
@@ -269,7 +257,6 @@ export const RESEARCH_CONFIG = {
       effect: { stat: 'pushbackSpeed', perLevel: 0.25, format: 'flat' },
       cost: { currency: 'cash', base: 80_000, multiplier: 1.32, jerk: 1.0025 },
       duration: { baseMs: 150_000, multiplier: 1.18 },
-      requirements: { minTier: 4 },
     },
     {
       id: 'shield-invulnerability-duration',
@@ -280,7 +267,7 @@ export const RESEARCH_CONFIG = {
       effect: { stat: 'shieldInvulnerabilityDuration', perLevel: 0.05, format: 'flat' },
       cost: { currency: 'cash', base: 175_000, multiplier: 1.34, jerk: 1.003 },
       duration: { baseMs: 180_000, multiplier: 1.2 },
-      requirements: { minTier: 4, researchLevels: { shield: 1 } },
+      requirements: { researchLevels: { shield: 1 } },
     },
     {
       id: 'shield-break-explosion',
@@ -291,24 +278,24 @@ export const RESEARCH_CONFIG = {
       effect: { stat: 'shieldBreakExplosionRadius', perLevel: 0.3, format: 'flat' },
       cost: { currency: 'cash', base: 250_000, multiplier: 1.38, jerk: 1.003 },
       duration: { baseMs: 210_000, multiplier: 1.22 },
-      requirements: { minTier: 4, researchLevels: { shield: 1 } },
+      requirements: { researchLevels: { shield: 1 } },
     },
     ...[
-      ['regular-lifetime-debuff', 'Regular Decay', 'Reduces Regular enemy lifetime.', 'regularLifetimeDebuff', 5],
-      ['chaser-range-debuff', 'Chaser Range Dampener', 'Reduces Chaser detection range.', 'chaserRangeDebuff', 5],
-      ['creeper-speed-debuff', 'Creeper Slowdown', 'Reduces Creeper movement speed.', 'creeperSpeedDebuff', 5],
-      ['banger-range-debuff', 'Banger Range Dampener', 'Reduces Banger blast range.', 'bangerRangeDebuff', 6],
-      ['banger-enemy-destruction', 'Banger Disruption', 'Gives each enemy in a Banger blast a separate destruction chance.', 'bangerEnemyDestroyChance', 6],
-      ['shooter-range-debuff', 'Shooter Range Dampener', 'Reduces Shooter firing range.', 'shooterRangeDebuff', 6],
-      ['shooter-projectile-debuff', 'Projectile Drag', 'Reduces Shooter projectile speed.', 'shooterProjectileSpeedDebuff', 6],
-      ['porter-interval-debuff', 'Porter Delay Field', 'Increases the interval between Porter teleports.', 'porterIntervalBonus', 7],
-      ['magnet-strength-debuff', 'Magnet Insulation', 'Reduces Magnet pull strength.', 'magnetStrengthDebuff', 7],
-      ['spore-speed-debuff', 'Spore Drag', 'Reduces Spore movement speed.', 'sporeSpeedDebuff', 7],
-    ].map(([id, name, description, stat, minTier]) => ({
+      ['regular-lifetime-debuff', 'Regular Decay', 'Reduces Regular enemy lifetime.', 'regularLifetimeDebuff'],
+      ['chaser-range-debuff', 'Chaser Range Dampener', 'Reduces Chaser detection range.', 'chaserRangeDebuff'],
+      ['creeper-speed-debuff', 'Creeper Slowdown', 'Reduces Creeper movement speed.', 'creeperSpeedDebuff'],
+      ['banger-range-debuff', 'Banger Range Dampener', 'Reduces Banger blast range.', 'bangerRangeDebuff'],
+      ['banger-enemy-destruction', 'Banger Disruption', 'Gives each enemy in a Banger blast a separate destruction chance.', 'bangerEnemyDestroyChance'],
+      ['shooter-range-debuff', 'Shooter Range Dampener', 'Reduces Shooter firing range.', 'shooterRangeDebuff'],
+      ['shooter-projectile-debuff', 'Projectile Drag', 'Reduces Shooter projectile speed.', 'shooterProjectileSpeedDebuff'],
+      ['porter-interval-debuff', 'Porter Delay Field', 'Increases the interval between Porter teleports.', 'porterIntervalBonus'],
+      ['magnet-strength-debuff', 'Magnet Insulation', 'Reduces Magnet pull strength.', 'magnetStrengthDebuff'],
+      ['spore-speed-debuff', 'Spore Drag', 'Reduces Spore movement speed.', 'sporeSpeedDebuff'],
+    ].map(([id, name, description, stat]) => ({
       id, category: 'Enemy Debuff', name, description, maxLevel: 20,
       effect: { stat, perLevel: stat === 'porterIntervalBonus' ? 0.05 : 0.025, format: 'percent' },
       cost: { currency: 'cash', base: 40_000, multiplier: 1.32, jerk: 1.0025 },
-      duration: { baseMs: 240_000, multiplier: 1.22 }, requirements: { minTier },
+      duration: { baseMs: 240_000, multiplier: 1.22 },
     })),
   ],
 }
