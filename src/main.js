@@ -10,6 +10,12 @@ import { createBuildingVisual } from './three/buildings.js'
 import { createDroneVisual } from './three/drones.js'
 import { createEnemyVisualFactory } from './three/enemies.js'
 import { createCellVisualFactory } from './three/cells.js'
+import { createArenaVisuals } from './three/arena.js'
+import { createProjectileVisualFactory } from './three/projectiles.js'
+import { createEffectVisualFactory } from './three/effects.js'
+import { migrateLegacyStorage, readStoredJson, readStoredNumber, STORAGE_KEYS, writeStoredJson, writeStoredNumber } from './storage.js'
+import { createSoundSystem } from './sound_system.js'
+import { createResearchRules } from './research_rules.js'
 import { formatCompactNumber, formatCurrency, formatDuration, formatResearchEffect } from './formatters.js'
 import { TIPS } from './tips.js'
 import { MILESTONES } from './milestones.js'
@@ -230,82 +236,33 @@ function getGameOverTip() {
   return tip
 }
 
-const CELL_BANK_STORAGE_KEY = 'asteroid-belt-banked-cells'
-const TIER_STORAGE_KEY = 'asteroid-belt-selected-tier'
-const TIER_HIGH_SCORES_STORAGE_KEY = 'asteroid-belt-tier-high-scores'
-const CASH_STORAGE_KEY = 'asteroid-belt-cash'
-const CHRONOSHARDS_STORAGE_KEY = 'asteroid-belt-chronoshards'
-const RESEARCH_LAB_STORAGE_KEY = 'asteroid-belt-research-lab'
-const SAVED_ROUND_STORAGE_KEY = 'asteroid-belt-saved-round'
-const BUILDINGS_STORAGE_KEY = 'asteroid-belt-buildings'
-const FEATURE_UNLOCKS_STORAGE_KEY = 'asteroid-belt-feature-unlocks'
-const MILESTONES_STORAGE_KEY = 'asteroid-belt-milestones'
-const SETTINGS_STORAGE_KEY = 'asteroid-belt-settings'
-const WEAPONRY_STORAGE_KEY = 'asteroid-belt-weaponry'
-const LEGACY_STORAGE_KEYS = [
-  ['astroid-belt-banked-cells', CELL_BANK_STORAGE_KEY], ['astroid-belt-selected-tier', TIER_STORAGE_KEY], ['astroid-belt-tier-high-scores', TIER_HIGH_SCORES_STORAGE_KEY],
-  ['astroid-belt-cash', CASH_STORAGE_KEY], ['astroid-belt-chronoshards', CHRONOSHARDS_STORAGE_KEY], ['astroid-belt-research-lab', RESEARCH_LAB_STORAGE_KEY],
-  ['astroid-belt-saved-round', SAVED_ROUND_STORAGE_KEY], ['astroid-belt-buildings', BUILDINGS_STORAGE_KEY], ['astroid-belt-feature-unlocks', FEATURE_UNLOCKS_STORAGE_KEY],
-]
-for (const [legacyKey, currentKey] of LEGACY_STORAGE_KEYS) {
-  try { if (localStorage.getItem(currentKey) === null && localStorage.getItem(legacyKey) !== null) localStorage.setItem(currentKey, localStorage.getItem(legacyKey)) } catch {}
-}
+const { cellBank: CELL_BANK_STORAGE_KEY, tier: TIER_STORAGE_KEY, tierHighScores: TIER_HIGH_SCORES_STORAGE_KEY, cash: CASH_STORAGE_KEY,
+  chronoshards: CHRONOSHARDS_STORAGE_KEY, researchLab: RESEARCH_LAB_STORAGE_KEY, savedRound: SAVED_ROUND_STORAGE_KEY,
+  buildings: BUILDINGS_STORAGE_KEY, featureUnlocks: FEATURE_UNLOCKS_STORAGE_KEY, milestones: MILESTONES_STORAGE_KEY,
+  settings: SETTINGS_STORAGE_KEY, weaponry: WEAPONRY_STORAGE_KEY } = STORAGE_KEYS
+migrateLegacyStorage()
 const tierKeys = Object.keys(DIFFICULTY)
 
-function readStoredNumber(key, fallback = 0) {
-  try {
-    const value = Number(window.localStorage.getItem(key))
-    return Number.isFinite(value) && value >= 0 ? value : fallback
-  } catch {
-    return fallback
-  }
-}
-
-function writeStoredNumber(key, value) {
-  try {
-    window.localStorage.setItem(key, String(value))
-  } catch {
-    // The game remains playable when storage is unavailable.
-  }
-}
-
 function readSavedRound() {
-  try {
-    const savedRound = JSON.parse(window.localStorage.getItem(SAVED_ROUND_STORAGE_KEY))
-    return savedRound && typeof savedRound === 'object' ? savedRound : null
-  } catch {
-    return null
-  }
+  const savedRound = readStoredJson(SAVED_ROUND_STORAGE_KEY)
+  return savedRound && typeof savedRound === 'object' ? savedRound : null
 }
 
 function persistSavedRound(round) {
-  try {
-    if (round) window.localStorage.setItem(SAVED_ROUND_STORAGE_KEY, JSON.stringify(round))
-    else window.localStorage.removeItem(SAVED_ROUND_STORAGE_KEY)
-  } catch {
-    // Round saving is optional when browser storage is unavailable.
-  }
+  writeStoredJson(SAVED_ROUND_STORAGE_KEY, round)
 }
 
 function readStoredTierHighScores() {
-  try {
-    const storedScores = JSON.parse(window.localStorage.getItem(TIER_HIGH_SCORES_STORAGE_KEY))
-    if (!storedScores || typeof storedScores !== 'object') return {}
-    return Object.fromEntries(tierKeys.map((tierKey) => [
-      tierKey,
-      Number.isFinite(storedScores[tierKey]) && storedScores[tierKey] >= 0 ? storedScores[tierKey] : 0,
-    ]))
-  } catch {
-    return {}
-  }
+  const storedScores = readStoredJson(TIER_HIGH_SCORES_STORAGE_KEY, {})
+  if (!storedScores || typeof storedScores !== 'object') return {}
+  return Object.fromEntries(tierKeys.map((tierKey) => [
+    tierKey,
+    Number.isFinite(storedScores[tierKey]) && storedScores[tierKey] >= 0 ? storedScores[tierKey] : 0,
+  ]))
 }
 
 function writeStoredTierHighScores() {
-  try {
-    window.localStorage.setItem(TIER_HIGH_SCORES_STORAGE_KEY, JSON.stringify(tierHighScores))
-  } catch {
-    // The game remains playable when storage is unavailable.
-  }
+  writeStoredJson(TIER_HIGH_SCORES_STORAGE_KEY, tierHighScores)
 }
 
 function readMilestoneState() {
@@ -324,11 +281,7 @@ function readMilestoneState() {
 }
 
 function saveMilestoneState() {
-  try {
-    window.localStorage.setItem(MILESTONES_STORAGE_KEY, JSON.stringify(milestoneState))
-  } catch {
-    // Milestones remain available for the current session when storage is unavailable.
-  }
+  writeStoredJson(MILESTONES_STORAGE_KEY, milestoneState)
 }
 
 function getUnlockedTierIndex() {
@@ -342,18 +295,7 @@ function isResearchTierUnlocked(tier) {
   return getUnlockedTierIndex() + 1 >= tier
 }
 
-function isResearchMilestoneUnlocked(researchId) {
-  return milestoneState.researchUnlocks.includes(researchId) || MILESTONES.some((milestone) => milestoneState.claimed.includes(milestone.id)
-    && milestone.rewards.some((reward) => reward.type === 'research' && reward.researchIds.includes(researchId)))
-}
 
-function getResearchAscensionMilestone(researchId) {
-  return MILESTONES.find((milestone) => milestone.rewards.some((reward) => reward.type === 'research' && reward.researchIds.includes(researchId)))
-}
-
-function getResearchAscensionTier(researchId) {
-  return getResearchAscensionMilestone(researchId)?.tier ?? 0
-}
 
 let bankedCells = readStoredNumber(CELL_BANK_STORAGE_KEY)
 const tierHighScores = readStoredTierHighScores()
@@ -403,7 +345,7 @@ function readSettings() {
 }
 
 const settings = readSettings()
-function saveSettings() { try { localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings)) } catch {} }
+function saveSettings() { writeStoredJson(SETTINGS_STORAGE_KEY, settings) }
 const availableBuildingTypes = Object.keys(BUILDING_CONFIG.types)
 buildingState.unlocked = [...new Set(buildingState.unlocked.filter((type) => availableBuildingTypes.includes(type)))]
 buildingState.placed = buildingState.placed.filter((building) => availableBuildingTypes.includes(building.type))
@@ -440,43 +382,25 @@ const researchState = readResearchState()
 let freeResearch = false
 
 function saveResearchState() {
-  try {
-    window.localStorage.setItem(RESEARCH_LAB_STORAGE_KEY, JSON.stringify(researchState))
-  } catch {
-    // Research continues for the current session when storage is unavailable.
-  }
+  writeStoredJson(RESEARCH_LAB_STORAGE_KEY, researchState)
 }
 
-function getResearchById(researchId) {
-  return RESEARCH_CONFIG.researches.find((research) => research.id === researchId)
-}
-
-function getResearchLevel(researchId) {
-  return researchState.levels[researchId] ?? 0
-}
-
-function getResearchStatBonus(stat) {
-  return RESEARCH_CONFIG.researches
-    .filter((research) => research.effect?.stat === stat)
-    .reduce((total, research) => total + getResearchLevel(research.id) * research.effect.perLevel, 0)
-}
+const researchRules = createResearchRules({
+  config: RESEARCH_CONFIG,
+  milestones: MILESTONES,
+  getResearchState: () => researchState,
+  getMilestoneState: () => milestoneState,
+  getBankedCells: () => bankedCells,
+})
+const { getResearchById, getResearchLevel, getResearchStatBonus, getResearchCost, getResearchDuration,
+  getResearchLockReason, isResearchVisible, compareResearchProgression } = researchRules
 
 function getEffectiveEnemyRange(type, baseRange) {
   const debuffStat = { chaser: 'chaserRangeDebuff', banger: 'bangerRangeDebuff', shooter: 'shooterRangeDebuff' }[type]
   return debuffStat ? baseRange * Math.max(0.5, 1 - getResearchStatBonus(debuffStat)) : baseRange
 }
 
-function getResearchCost(research, level) {
-  const jerk = research.cost.jerk ?? 1
-  const amount = research.cost.base
-    * research.cost.multiplier ** level
-    * jerk ** (level * (level - 1) / 2)
-  return research.cost.currency === 'cash' ? Math.round(amount * 100) / 100 : Math.ceil(amount)
-}
 
-function getResearchDuration(research, level) {
-  return Math.round(research.duration.baseMs * research.duration.multiplier ** level)
-}
 
 function legacyFormatCurrency(currency, amount) {
   return currency === 'cash'
@@ -484,54 +408,7 @@ function legacyFormatCurrency(currency, amount) {
     : `✦ ${formatCompactNumber(amount)}`
 }
 
-function getResearchLockReason(research) {
-  const requirements = research.requirements ?? {}
-  // Debug's unlock_tiers command must grant every Ascension-gated research even
-  // when an older save was created before explicit research reward state existed.
-  const ascensionMilestone = getResearchAscensionMilestone(research.id)
-  if (ascensionMilestone && !milestoneState.debugAscensionsGranted && !isResearchMilestoneUnlocked(research.id)) return `Requires ${ascensionMilestone.cells} Cells in Tier ${ascensionMilestone.tier}`
-  if (requirements.minBankedCells && bankedCells < requirements.minBankedCells) return `Requires ${requirements.minBankedCells} banked cells`
-  if (requirements.researchId && getResearchLevel(requirements.researchId) < 1) return `Requires ${getResearchById(requirements.researchId).name}`
-  for (const [researchId, level] of Object.entries(requirements.researchLevels ?? {})) {
-    if (getResearchLevel(researchId) < level) return `Requires ${getResearchById(researchId).name} Lv. ${level}`
-  }
-  return ''
-}
 
-function isResearchVisible(research) {
-  const visibleWhen = research.visibleWhen
-  return !visibleWhen?.anyResearch || visibleWhen.anyResearch.some((researchId) => getResearchLevel(researchId) > 0)
-}
-
-// Keep the lab's progression readable: a research always appears after the
-// research(es) that unlock it, even when their names would sort differently.
-function getResearchProgressionOrder(research, visited = new Set()) {
-  if (visited.has(research.id)) return { tier: getResearchAscensionTier(research.id), depth: 0 }
-
-  const nextVisited = new Set(visited).add(research.id)
-  const requirements = research.requirements ?? {}
-  const prerequisiteIds = [
-    ...(requirements.researchId ? [requirements.researchId] : []),
-    ...Object.keys(requirements.researchLevels ?? {}),
-  ]
-  const prerequisiteOrders = prerequisiteIds
-    .map((researchId) => getResearchById(researchId))
-    .filter(Boolean)
-    .map((prerequisite) => getResearchProgressionOrder(prerequisite, nextVisited))
-
-  return {
-    tier: Math.max(getResearchAscensionTier(research.id), ...prerequisiteOrders.map((order) => order.tier)),
-    depth: prerequisiteOrders.length ? Math.max(...prerequisiteOrders.map((order) => order.depth)) + 1 : 0,
-  }
-}
-
-function compareResearchProgression(first, second) {
-  const firstOrder = getResearchProgressionOrder(first)
-  const secondOrder = getResearchProgressionOrder(second)
-  return firstOrder.tier - secondOrder.tier
-    || firstOrder.depth - secondOrder.depth
-    || first.name.localeCompare(second.name)
-}
 
 function completeFinishedResearches() {
   const now = Date.now()
@@ -717,7 +594,7 @@ function clearResearchSave() {
   renderResearchLab()
 }
 
-function saveFeatureUnlocks() { try { localStorage.setItem(FEATURE_UNLOCKS_STORAGE_KEY, JSON.stringify(featureUnlocks)) } catch {} }
+function saveFeatureUnlocks() { writeStoredJson(FEATURE_UNLOCKS_STORAGE_KEY, featureUnlocks) }
 function clearFeatureUnlocks() { featureUnlocks = { researchLab: false, buildingSystem: false, weaponry: false }; saveFeatureUnlocks(); renderFeatureUnlockButtons() }
 function renderFeatureUnlockButtons() {
   for (const [feature, button] of [['researchLab', openLabButton], ['buildingSystem', openBuildingButton], ['weaponry', openWeaponryButton]]) {
@@ -975,155 +852,7 @@ function renderMilestones() {
   }
 }
 
-function createSoundSystem() {
-  let context
-  let masterGain
-  const buffers = new Map()
-  let soundLoadPromise
-
-  async function loadSound(name, url) {
-    try {
-      const response = await fetch(url)
-      if (!response.ok) return
-      buffers.set(name, await context.decodeAudioData(await response.arrayBuffer()))
-    } catch {
-      // The synthesized fallback remains available when a custom file cannot load.
-    }
-  }
-
-  function initialize() {
-    if (!context) {
-      const AudioContext = window.AudioContext || window.webkitAudioContext
-      if (!AudioContext) return Promise.resolve()
-      context = new AudioContext()
-      masterGain = context.createGain()
-      masterGain.gain.value = SOUND.masterVolume * (settings.sound.muted ? 0 : settings.sound.masterVolume / 100)
-      masterGain.connect(context.destination)
-      soundLoadPromise = Promise.all(Object.entries(SOUND.assets).map(([name, url]) => loadSound(name, url)))
-    }
-    const resumePromise = context.state === 'suspended' ? context.resume() : Promise.resolve()
-    return Promise.all([resumePromise, soundLoadPromise])
-  }
-
-  function getSpatialMix(sourcePosition) {
-    const offset = sourcePosition.clone().sub(player.position)
-    offset.y = 0
-    const distance = offset.length()
-    const attenuation = THREE.MathUtils.lerp(
-      SOUND.spatialMinGain,
-      1,
-      (1 - THREE.MathUtils.clamp(distance / SOUND.spatialMaxDistance, 0, 1)) ** 2,
-    )
-    if (distance === 0) return { attenuation, pan: 0 }
-
-    const cameraRight = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion)
-    cameraRight.y = 0
-    cameraRight.normalize()
-    return { attenuation, pan: THREE.MathUtils.clamp(offset.normalize().dot(cameraRight), -1, 1) }
-  }
-
-  function connectSpatialSource(source, volume, sourcePosition) {
-    const gain = context.createGain()
-    const spatialGain = context.createGain()
-    const stereoPanner = context.createStereoPanner?.()
-    const now = context.currentTime
-    const { attenuation, pan } = settings.sound.spatialAudio ? getSpatialMix(sourcePosition) : { attenuation: 1, pan: 0 }
-    gain.gain.setValueAtTime(volume, now)
-    spatialGain.gain.setValueAtTime(attenuation, now)
-    source.connect(gain)
-    gain.connect(spatialGain)
-    if (stereoPanner) {
-      stereoPanner.pan.setValueAtTime(pan, now)
-      spatialGain.connect(stereoPanner)
-      stereoPanner.connect(masterGain)
-    } else {
-      spatialGain.connect(masterGain)
-    }
-  }
-
-  function playTone(startFrequency, endFrequency, duration, volume, sourcePosition, type) {
-    if (!context || context.state !== 'running') return
-    const oscillator = context.createOscillator()
-    const now = context.currentTime
-    oscillator.type = type
-    oscillator.frequency.setValueAtTime(startFrequency, now)
-    oscillator.frequency.linearRampToValueAtTime(endFrequency, now + duration)
-    connectSpatialSource(oscillator, volume, sourcePosition)
-    oscillator.start(now)
-    oscillator.stop(now + duration)
-  }
-
-  function playFallingWhoosh(duration, volume, sourcePosition) {
-    if (!context || context.state !== 'running') return
-    const now = context.currentTime
-    const noise = context.createBuffer(1, Math.ceil(context.sampleRate * duration), context.sampleRate)
-    const samples = noise.getChannelData(0)
-    for (let index = 0; index < samples.length; index += 1) samples[index] = Math.random() * 2 - 1
-
-    const source = context.createBufferSource()
-    const filter = context.createBiquadFilter()
-    const envelope = context.createGain()
-    source.buffer = noise
-    filter.type = 'bandpass'
-    filter.Q.value = 0.65
-    filter.frequency.setValueAtTime(180, now)
-    filter.frequency.exponentialRampToValueAtTime(720, now + duration)
-    envelope.gain.setValueAtTime(0.0001, now)
-    envelope.gain.exponentialRampToValueAtTime(1, now + 0.18)
-    envelope.gain.exponentialRampToValueAtTime(0.0001, now + duration)
-    source.connect(filter)
-    filter.connect(envelope)
-    connectSpatialSource(envelope, volume, sourcePosition)
-    source.start(now)
-  }
-
-  function playSound(name, volume, sourcePosition, fallback) {
-    if (!context || context.state !== 'running') return
-    const buffer = buffers.get(name)
-    if (!buffer) {
-      fallback()
-      return
-    }
-    const source = context.createBufferSource()
-    source.buffer = buffer
-    connectSpatialSource(source, volume, sourcePosition)
-    source.start()
-  }
-
-  return {
-    initialize,
-    setMasterVolume() { if (masterGain && context) masterGain.gain.setTargetAtTime(SOUND.masterVolume * (settings.sound.muted ? 0 : settings.sound.masterVolume / 100), context.currentTime, 0.03) },
-    playBangerPulse(progress, position) {
-      const fallback = SOUND.fallback.bangerPulse
-      const frequency = THREE.MathUtils.lerp(fallback.startFrequency, fallback.endFrequency, progress)
-      playSound('bangerPulse', SOUND.bangerPulseVolume, position, () => playTone(frequency, frequency, fallback.duration, SOUND.bangerPulseVolume, position, fallback.type))
-    },
-    playFallingObstacle(position) {
-      const fallback = SOUND.fallback.fallingObstacle
-      playSound('fallingObstacle', SOUND.fallingObstacleVolume, position, () => playFallingWhoosh(fallback.duration, SOUND.fallingObstacleVolume, position))
-    },
-    playCellCollect(position) {
-      const fallback = SOUND.fallback.cellCollect
-      playSound('cellCollect', SOUND.cellCollectVolume, position, () => playTone(fallback.startFrequency, fallback.endFrequency, fallback.duration, SOUND.cellCollectVolume, position, fallback.type))
-    },
-    playBoosterPickup(position, type) {
-      const notes = { speed: [480, 900], thorn: [220, 620], freezer: [720, 260] }
-      const [start, end] = notes[type]
-      playTone(start, end, 0.22, 0.3, position, type === 'freezer' ? 'sine' : 'triangle')
-    },
-    playBuildingEffect(position, type) { const notes = { chronoGenerator: [280, 360], autocannon: [220, 90], droneBay: [520, 760], barrierNode: [260, 440], overclockRelay: [440, 600], salvageExtractor: [180, 300] }; const [start, end] = notes[type]; playTone(start, end, 0.12, 0.16, position, 'sine') },
-    playObstacleSummon(position) {
-      const fallback = SOUND.fallback.obstacleSummon
-      playSound('obstacleSummon', SOUND.obstacleSummonVolume, position, () => playTone(fallback.startFrequency, fallback.endFrequency, fallback.duration, SOUND.obstacleSummonVolume, position, fallback.type))
-    },
-    playButtonClick() {
-      const fallback = SOUND.fallback.buttonClick
-      playSound('buttonClick', SOUND.buttonClickVolume, player.position, () => playTone(fallback.startFrequency, fallback.endFrequency, fallback.duration, SOUND.buttonClickVolume, player.position, fallback.type))
-    },
-  }
-}
-
-const soundSystem = createSoundSystem()
+const soundSystem = createSoundSystem({ THREE, SOUND, getSettings: () => settings, getPlayer: () => player, getCamera: () => camera })
 
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true })
 function applyGraphicsSettings() {
@@ -1132,7 +861,7 @@ function applyGraphicsSettings() {
   renderer.shadowMap.enabled = settings.graphics.shadows && settings.graphics.quality !== 'low'
 }
 
-function saveWeaponState() { try { localStorage.setItem(WEAPONRY_STORAGE_KEY, JSON.stringify(weaponState)) } catch {} }
+function saveWeaponState() { writeStoredJson(WEAPONRY_STORAGE_KEY, weaponState) }
 function getWeaponSlots() { return 1 + getResearchLevel('weapon-slots') }
 function getWeaponEntry(id) { return weaponState.cards[id] }
 const WEAPON_RECHARGE_BASE_SECONDS = 8 * 60
@@ -1351,102 +1080,7 @@ const camera = new THREE.PerspectiveCamera(CAMERA.fov, window.innerWidth / windo
 camera.position.set(0, CAMERA.height, CAMERA.distance)
 camera.lookAt(0, 0, 0)
 
-function createStarfield() {
-  function createStarLayer(count, size, opacity) {
-    const positions = new Float32Array(count * 3)
-    const colors = new Float32Array(count * 3)
-
-    for (let index = 0; index < count; index += 1) {
-      const radius = SCENE.starfieldRadius
-      const y = THREE.MathUtils.randFloatSpread(2)
-      const horizontal = Math.sqrt(1 - y * y)
-      const angle = Math.random() * Math.PI * 2
-      const offset = index * 3
-      positions[offset] = Math.cos(angle) * horizontal * radius
-      positions[offset + 1] = y * radius
-      positions[offset + 2] = Math.sin(angle) * horizontal * radius
-
-      const warmth = Math.random()
-      colors[offset] = 0.72 + warmth * 0.28
-      colors[offset + 1] = 0.82 + warmth * 0.18
-      colors[offset + 2] = 1
-    }
-
-    const geometry = new THREE.BufferGeometry()
-    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3))
-    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3))
-    const material = new THREE.PointsMaterial({ size, sizeAttenuation: false, transparent: true, opacity, vertexColors: true, depthWrite: false, fog: false })
-    const stars = new THREE.Points(geometry, material)
-    stars.frustumCulled = false
-    return stars
-  }
-
-  const starfield = new THREE.Group()
-  starfield.add(createStarLayer(SCENE.starCount, SCENE.starSize, 0.84))
-  starfield.add(createStarLayer(SCENE.brightStarCount, SCENE.brightStarSize, 0.96))
-  return starfield
-}
-
-const starfield = createStarfield()
-scene.add(starfield)
-
-scene.add(new THREE.HemisphereLight(LIGHTING.hemisphereSky, LIGHTING.hemisphereGround, LIGHTING.hemisphereIntensity))
-const keyLight = new THREE.DirectionalLight(LIGHTING.key, LIGHTING.keyIntensity)
-keyLight.position.set(-7, 13, 5)
-keyLight.castShadow = true
-keyLight.shadow.mapSize.set(1024, 1024)
-scene.add(keyLight)
-
-const floor = new THREE.Mesh(
-  new THREE.CircleGeometry(GAME.arenaSize / 2, 96),
-  new THREE.MeshStandardMaterial({ color: COLORS.floor, metalness: SCENE.floorMetalness, roughness: SCENE.floorRoughness, transparent: true, opacity: SCENE.floorOpacity, depthWrite: false }),
-)
-floor.rotation.x = -Math.PI / 2
-floor.receiveShadow = true
-scene.add(floor)
-
-function createArenaGridGeometry(limit) {
-  const points = []
-  const segments = 80
-  const ringSpacing = 2
-  for (let radius = ringSpacing; radius < limit; radius += ringSpacing) {
-    for (let index = 0; index < segments; index += 1) {
-      const startAngle = index / segments * Math.PI * 2
-      const endAngle = (index + 1) / segments * Math.PI * 2
-      points.push(
-        new THREE.Vector3(Math.cos(startAngle) * radius, 0.01, Math.sin(startAngle) * radius),
-        new THREE.Vector3(Math.cos(endAngle) * radius, 0.01, Math.sin(endAngle) * radius),
-      )
-    }
-  }
-  for (let index = 0; index < 12; index += 1) {
-    const angle = index / 12 * Math.PI * 2
-    points.push(new THREE.Vector3(), new THREE.Vector3(Math.cos(angle) * limit, 0.01, Math.sin(angle) * limit))
-  }
-  return new THREE.BufferGeometry().setFromPoints(points)
-}
-
-const grid = new THREE.LineSegments(
-  createArenaGridGeometry(GAME.arenaLimit),
-  new THREE.LineBasicMaterial({ color: COLORS.gridMinor, transparent: true, opacity: 0.8 }),
-)
-grid.position.y = 0.01
-scene.add(grid)
-
-function createArenaBoundaryGeometry(limit) {
-  const segments = 96
-  return new THREE.BufferGeometry().setFromPoints(Array.from({ length: segments }, (_, index) => {
-    const angle = index / segments * Math.PI * 2
-    return new THREE.Vector3(Math.cos(angle) * limit, 0.04, Math.sin(angle) * limit)
-  }))
-}
-
-const arenaBoundary = new THREE.LineLoop(
-  createArenaBoundaryGeometry(GAME.arenaLimit),
-  new THREE.LineDashedMaterial({ color: COLORS.arenaBoundary, dashSize: 0.45, gapSize: 0.2 }),
-)
-arenaBoundary.computeLineDistances()
-scene.add(arenaBoundary)
+const { starfield, floor, grid, arenaBoundary, resize: resizeArenaVisuals } = createArenaVisuals({ THREE, scene, COLORS, GAME, SCENE, LIGHTING })
 
 function getArenaLimit() {
   return GAME.arenaLimit + getCurrentDifficulty().extraArenaPadding
@@ -1466,13 +1100,7 @@ function keepInsideArena(position, padding = 0) {
 function applyDifficulty() {
   const difficulty = getCurrentDifficulty()
   const arenaLimit = getArenaLimit()
-  floor.geometry.dispose()
-  floor.geometry = new THREE.CircleGeometry(GAME.arenaSize / 2 + difficulty.extraArenaPadding, 96)
-  grid.geometry.dispose()
-  grid.geometry = createArenaGridGeometry(arenaLimit)
-  arenaBoundary.geometry.dispose()
-  arenaBoundary.geometry = createArenaBoundaryGeometry(arenaLimit)
-  arenaBoundary.computeLineDistances()
+  resizeArenaVisuals(difficulty.extraArenaPadding)
 }
 
 const chronoBuildingTint = new THREE.Color(COLORS.slowAura)
@@ -1600,10 +1228,10 @@ const weaponCharges = new Map()
 const weaponRechargeTimers = new Map()
 
 const fallingRockGeometry = new THREE.IcosahedronGeometry(ENTITIES.obstacleRadius, ENTITIES.fallingRockDetail)
-const shooterProjectileGeometry = new THREE.IcosahedronGeometry(ENTITIES.shooterProjectileRadius, 1)
-const sporeGeometry = new THREE.SphereGeometry(ENTITIES.sporeRadius, 10, 8)
+const { createShooterProjectile: createShooterProjectileVisual, createSpore: createSporeVisual, createAutocannonProjectile: createAutocannonProjectileVisual, createSplinter: createSplinterVisual } = createProjectileVisualFactory({ THREE, COLORS, ENTITIES })
 const { createCell: createCellVisual, createChronoCell: createChronoCellVisual, createBooster: createBoosterVisual } = createCellVisualFactory({ THREE, COLORS, ENTITIES })
 const createSpikedObstacle = createEnemyVisualFactory({ THREE, ENTITIES })
+const { createExplosion: createExplosionVisual, createBangerPulse: createBangerPulseVisual, createShockwave: createShockwaveVisual, createPlayerDeath: createPlayerDeathVisual } = createEffectVisualFactory({ THREE, COLORS })
 
 const deathPreviewScene = new THREE.Scene()
 const deathPreviewCamera = new THREE.PerspectiveCamera(34, 1, 0.1, 20)
@@ -1668,7 +1296,7 @@ function randomArenaPosition(minDistance = 0) {
   return position
 }
 
-function saveBuildings() { try { localStorage.setItem(BUILDINGS_STORAGE_KEY, JSON.stringify(buildingState)) } catch {} }
+function saveBuildings() { writeStoredJson(BUILDINGS_STORAGE_KEY, buildingState) }
 function getBuildingUnlockCost() { return 60 + buildingState.unlockCount * 30 }
 function getBuildingUnlockOffers() {
   const remaining = Object.keys(BUILDING_CONFIG.types).filter((type) => !buildingState.unlocked.includes(type))
@@ -1884,7 +1512,7 @@ function updateBuildings(delta, total) {
     if (building.type === 'droneBay' && runtime.timer >= Math.max(2, buildingValue(building, 'period'))) { runtime.timer = 0; const targets = [...obstacles].sort(() => Math.random() - 0.5).slice(0, Math.floor(buildingValue(building, 'count'))); for (const target of targets) launchDroneStrike(building, target, buildingValue(building, 'droneSpeed')); if (targets.length) soundSystem.playBuildingEffect(mesh.position, building.type) }
     if (building.type === 'barrierNode') { const period = Math.max(2, buildingValue(building, 'period')); if (runtime.timer >= period) { runtime.timer = 0; runtime.active = buildingValue(building, 'duration'); soundSystem.playBuildingEffect(mesh.position, building.type) } runtime.active = Math.max(0, runtime.active - delta); if (runtime.barrierField) { runtime.barrierField.visible = runtime.active > 0; runtime.barrierField.scale.set(range, 1, range); runtime.barrierField.rotation.y += delta * 1.8; runtime.barrierField.children[0].material.opacity = runtime.active > 0 ? 0.14 + Math.sin(total * 10) * 0.05 : 0 } runtime.effectRing.material.opacity = runtime.active > 0 ? 0.58 : 0.12 }
     if (building.type === 'salvageExtractor' && runtime.timer >= Math.max(3, buildingValue(building, 'period'))) { runtime.timer = 0; const targets = obstacles.filter((obstacle) => planarDistance(obstacle.position, building) <= range).sort(() => Math.random() - 0.5).slice(0, Math.floor(buildingValue(building, 'count'))); for (const target of targets) { const cashValue = GAME.cellCashValue * getCurrentDifficulty().cashValueMultiplier * (1 + getResearchStatBonus('cashMultiplier')) + buildingValue(building, 'cash'); addCell({ position: { x: target.position.x, y: GAME.playerStartHeight, z: target.position.z }, cashValue }); createExplosion(target.position, 0.42); removeObstacleFromArena(target) } if (targets.length) soundSystem.playBuildingEffect(mesh.position, building.type) }
-    if (building.type === 'autocannon' && runtime.timer >= Math.max(0.35, buildingValue(building, 'interval'))) { runtime.timer = 0; const target = obstacles.filter((o) => planarDistance(o.position, building) <= range).sort((a, b) => planarDistance(a.position, building) - planarDistance(b.position, building))[0]; if (target) { const direction = target.position.clone().sub(mesh.position); direction.y = 0; direction.normalize(); mesh.rotation.y = Math.atan2(direction.x, direction.z); const shot = new THREE.Mesh(new THREE.SphereGeometry(0.16, 10, 8), new THREE.MeshBasicMaterial({ color: '#fff1a6', transparent: true, opacity: 0.95 })); shot.position.copy(mesh.position).addScaledVector(direction, 0.95); shot.position.y = 0.7; scene.add(shot); autocannonProjectiles.push({ mesh: shot, direction, destination: target.position.clone().setY(0.7), target, age: 0 }); soundSystem.playBuildingEffect(mesh.position, building.type) } }
+    if (building.type === 'autocannon' && runtime.timer >= Math.max(0.35, buildingValue(building, 'interval'))) { runtime.timer = 0; const target = obstacles.filter((o) => planarDistance(o.position, building) <= range).sort((a, b) => planarDistance(a.position, building) - planarDistance(b.position, building))[0]; if (target) { const direction = target.position.clone().sub(mesh.position); direction.y = 0; direction.normalize(); mesh.rotation.y = Math.atan2(direction.x, direction.z); const shot = createAutocannonProjectileVisual(); shot.position.copy(mesh.position).addScaledVector(direction, 0.95); shot.position.y = 0.7; scene.add(shot); autocannonProjectiles.push({ mesh: shot, direction, destination: target.position.clone().setY(0.7), target, age: 0 }); soundSystem.playBuildingEffect(mesh.position, building.type) } }
   }
 }
 
@@ -2072,7 +1700,7 @@ function clearPorterTeleportTarget(porter) {
 }
 
 function createSpore(position, direction) {
-  const spore = new THREE.Mesh(sporeGeometry, new THREE.MeshStandardMaterial({ color: COLORS.spore, emissive: COLORS.sporeEmissive, emissiveIntensity: 2, transparent: true, opacity: 0.9 }))
+  const spore = createSporeVisual()
   spore.position.copy(position)
   scene.add(spore)
   spores.push({ spore, direction: direction.clone() })
@@ -2096,10 +1724,7 @@ function detonateSpore(sporeEnemy) {
 }
 
 function createShooterProjectile(shooter) {
-  const projectile = new THREE.Mesh(
-    shooterProjectileGeometry,
-    new THREE.MeshStandardMaterial({ color: COLORS.shooter, emissive: COLORS.shooterEmissive, emissiveIntensity: 2.6, metalness: 0.25, roughness: 0.2 }),
-  )
+  const projectile = createShooterProjectileVisual()
   projectile.position.set(shooter.position.x, GAME.playerStartHeight, shooter.position.z)
   const direction = player.position.clone().sub(projectile.position)
   direction.y = 0
@@ -2240,10 +1865,7 @@ function createFireHazard(position, savedFire) {
 }
 
 function createSplinterPiece(position, direction, age = 0) {
-  const piece = new THREE.Mesh(
-    new THREE.TetrahedronGeometry(0.32),
-    new THREE.MeshStandardMaterial({ color: COLORS.splinter, emissive: COLORS.splinterEmissive, emissiveIntensity: 1.3, metalness: 0.4, roughness: 0.3 }),
-  )
+  const piece = createSplinterVisual()
   piece.position.copy(position)
   scene.add(piece)
   splinterPieces.push({ piece, direction, age })
@@ -2307,42 +1929,20 @@ function updateOrbitalElectron(delta, total, effectRangeMultiplier) {
 }
 
 function createExplosion(position, radius) {
-  const shockwave = new THREE.Mesh(
-    new THREE.RingGeometry(0.18, 0.42, 64),
-    new THREE.MeshBasicMaterial({ color: COLORS.banger, transparent: true, opacity: 1, side: THREE.DoubleSide, depthWrite: false }),
-  )
-  shockwave.rotation.x = -Math.PI / 2
-  shockwave.position.set(position.x, 0.05, position.z)
-  const blast = new THREE.Mesh(
-    new THREE.SphereGeometry(1, 24, 16),
-    new THREE.MeshBasicMaterial({ color: COLORS.banger, transparent: true, opacity: 0.65, wireframe: true, depthWrite: false }),
-  )
-  blast.position.set(position.x, 0.85, position.z)
-  const light = new THREE.PointLight(COLORS.banger, 10, radius * 2)
-  light.position.copy(blast.position)
-  scene.add(shockwave, blast, light)
-  explosions.push({ shockwave, blast, light, radius, age: 0 })
+  const effect = createExplosionVisual(position, radius)
+  scene.add(effect.shockwave, effect.blast, effect.light)
+  explosions.push({ ...effect, radius, age: 0 })
 }
 
 function createBangerPulse(position, radius, fuseProgress) {
-  const pulse = new THREE.Mesh(
-    new THREE.RingGeometry(0.22, 0.42, 48),
-    new THREE.MeshBasicMaterial({ color: COLORS.banger, transparent: true, opacity: 0.9, side: THREE.DoubleSide, depthWrite: false }),
-  )
-  pulse.rotation.x = -Math.PI / 2
-  pulse.position.set(position.x, 0.06, position.z)
+  const pulse = createBangerPulseVisual(position)
   scene.add(pulse)
   bangerPulses.push({ pulse, radius, age: 0 })
   soundSystem.playBangerPulse(fuseProgress, position)
 }
 
 function createShockwave(origin, radius, age = 0, affectedIds = []) {
-  const shockwave = new THREE.Mesh(
-    new THREE.RingGeometry(0.2, 0.42, 64),
-    new THREE.MeshBasicMaterial({ color: COLORS.slowAura, transparent: true, opacity: 0.95, side: THREE.DoubleSide, depthWrite: false }),
-  )
-  shockwave.rotation.x = -Math.PI / 2
-  shockwave.position.set(origin.x, 0.07, origin.z)
+  const shockwave = createShockwaveVisual(origin)
   scene.add(shockwave)
   shockwaves.push({ shockwave, origin: origin.clone(), radius, age, affected: new Set(obstacles.filter((obstacle) => affectedIds.includes(obstacle.userData.id))) })
 }
@@ -2353,39 +1953,9 @@ function triggerShockwave() {
 }
 
 function createPlayerDeathEffect(position) {
-  const flash = new THREE.Mesh(
-    new THREE.SphereGeometry(0.95, 24, 16),
-    new THREE.MeshBasicMaterial({ color: '#fff4cf', transparent: true, opacity: 1, depthWrite: false }),
-  )
-  flash.position.copy(position)
-  const blast = new THREE.Mesh(
-    new THREE.IcosahedronGeometry(0.7, 2),
-    new THREE.MeshBasicMaterial({ color: COLORS.playerRing, transparent: true, opacity: 0.95, wireframe: true, depthWrite: false }),
-  )
-  blast.position.copy(position)
-  const shockwave = new THREE.Mesh(
-    new THREE.RingGeometry(0.24, 0.5, 64),
-    new THREE.MeshBasicMaterial({ color: COLORS.player, transparent: true, opacity: 1, side: THREE.DoubleSide, depthWrite: false }),
-  )
-  shockwave.rotation.x = -Math.PI / 2
-  shockwave.position.set(position.x, 0.06, position.z)
-  const innerShockwave = shockwave.clone()
-  innerShockwave.material = shockwave.material.clone()
-  const light = new THREE.PointLight('#fff4cf', 22, 18)
-  light.position.copy(position)
-  const fragments = Array.from({ length: 18 }, () => {
-    const fragment = new THREE.Mesh(
-      new THREE.TetrahedronGeometry(THREE.MathUtils.randFloat(0.08, 0.19), 0),
-      new THREE.MeshBasicMaterial({ color: Math.random() > 0.45 ? COLORS.playerRing : COLORS.player, transparent: true, opacity: 1, depthWrite: false }),
-    )
-    fragment.position.copy(position)
-    const direction = new THREE.Vector3(Math.random() - 0.5, Math.random() * 0.75 + 0.18, Math.random() - 0.5).normalize()
-    fragment.userData.velocity = direction.multiplyScalar(THREE.MathUtils.randFloat(4, 10))
-    scene.add(fragment)
-    return fragment
-  })
-  scene.add(flash, blast, shockwave, innerShockwave, light)
-  playerDeathEffects.push({ flash, blast, shockwave, innerShockwave, light, fragments, age: 0 })
+  const effect = createPlayerDeathVisual(position)
+  scene.add(effect.flash, effect.blast, effect.shockwave, effect.innerShockwave, effect.light, ...effect.fragments)
+  playerDeathEffects.push({ ...effect, age: 0 })
 }
 
 function updatePlayerDeathEffects(delta) {
@@ -2601,10 +2171,7 @@ function restoreSavedRound() {
   for (const booster of savedRound.boosters ?? []) addBooster(booster.type, booster)
   for (const spore of savedRound.spores ?? []) createSpore(new THREE.Vector3(spore.position.x, spore.position.y, spore.position.z), new THREE.Vector3(spore.direction.x, spore.direction.y, spore.direction.z))
   for (const savedProjectile of savedRound.shooterProjectiles ?? []) {
-    const projectile = new THREE.Mesh(
-      shooterProjectileGeometry,
-      new THREE.MeshStandardMaterial({ color: COLORS.shooter, emissive: COLORS.shooterEmissive, emissiveIntensity: 2.6, metalness: 0.25, roughness: 0.2 }),
-    )
+    const projectile = createShooterProjectileVisual()
     projectile.position.set(savedProjectile.position.x, savedProjectile.position.y, savedProjectile.position.z)
     scene.add(projectile)
     shooterProjectiles.push({ projectile, direction: new THREE.Vector3(savedProjectile.direction.x, savedProjectile.direction.y, savedProjectile.direction.z), age: savedProjectile.age ?? 0 })
@@ -2616,7 +2183,7 @@ function restoreSavedRound() {
   for (const savedProjectile of savedRound.autocannonProjectiles ?? []) {
     const target = obstacles.find((obstacle) => obstacle.userData.id === savedProjectile.targetId)
     if (!target) continue
-    const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.16, 10, 8), new THREE.MeshBasicMaterial({ color: '#fff1a6', transparent: true, opacity: 0.95 }))
+    const mesh = createAutocannonProjectileVisual()
     mesh.position.set(savedProjectile.position.x, savedProjectile.position.y, savedProjectile.position.z)
     scene.add(mesh)
     autocannonProjectiles.push({ mesh, direction: new THREE.Vector3(savedProjectile.direction.x, savedProjectile.direction.y, savedProjectile.direction.z), destination: new THREE.Vector3(savedProjectile.destination.x, savedProjectile.destination.y, savedProjectile.destination.z), target, age: savedProjectile.age ?? 0 })
