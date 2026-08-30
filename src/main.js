@@ -17,6 +17,7 @@ import { migrateLegacyStorage, readStoredJson, readStoredNumber, STORAGE_KEYS, w
 import { createSoundSystem } from './sound_system.js'
 import { createResearchRules } from './research_rules.js'
 import { ENCYCLOPEDIA_ENTRIES } from './encyclopedia_config.js'
+import { PATCH_NOTES } from './patch_notes_config.js'
 import { formatCompactNumber, formatCurrency, formatDuration, formatResearchEffect } from './formatters.js'
 import { TIPS } from './tips.js'
 import { MILESTONES } from './milestones.js'
@@ -109,13 +110,13 @@ document.querySelector('#app').innerHTML = `
         <h3 id="research-slots-heading">ACTIVE SLOTS</h3><div class="research-slots" id="research-slots"></div>
         <h3>AVAILABLE RESEARCH</h3><label class="research-search"><span>SEARCH</span><input id="research-search" type="search" placeholder="Search research names" autocomplete="off"></label><div class="research-filters"><label><input id="hide-completed-researches" type="checkbox"> <span>Hide Completed Researches</span></label><label><input id="hide-locked-researches" type="checkbox"> <span>Hide Locked Researches</span></label></div><div class="research-list" id="research-list"></div>
       </section>
-      <section class="encyclopedia-panel hidden" id="encyclopedia-panel" aria-label="Encyclopedia"><div class="lab-header"><div><p class="eyebrow">THREAT DATABASE</p><h2>ENCYCLOPEDIA</h2></div><button class="secondary-button" id="close-encyclopedia-button" type="button">BACK</button></div><div class="encyclopedia-feature"><canvas id="encyclopedia-preview" width="180" height="140" aria-label="Selected encyclopedia model"></canvas><div><p class="encyclopedia-category" id="encyclopedia-category"></p><h3 id="encyclopedia-name"></h3><p id="encyclopedia-description"></p></div></div><div class="encyclopedia-list" id="encyclopedia-list"></div></section>
+      <section class="encyclopedia-panel hidden" id="encyclopedia-panel" aria-label="Encyclopedia"><div class="lab-header"><div><p class="eyebrow">THREAT DATABASE</p><h2>ENCYCLOPEDIA</h2></div><button class="secondary-button" id="close-encyclopedia-button" type="button">BACK</button></div><div class="encyclopedia-list" id="encyclopedia-list"></div></section>
       <section class="building-panel hidden" id="building-panel"><div class="lab-header"><div><p class="eyebrow">PERMANENT DEFENSES</p><h2>BUILDING SYSTEM</h2></div><button class="secondary-button" id="close-building-button" type="button">BACK</button></div><p class="lab-balance">CASH <span id="building-cash"></span> · CHRONOSHARDS <span id="building-chronoshards"></span> · SLOTS <span id="building-slots"></span></p><div class="building-actions"><button id="enter-build-mode" type="button">BUILD MODE</button><button id="open-building-draft" type="button">UNLOCK A BUILDING</button></div><h3>UNLOCKED BUILDINGS</h3><div class="building-list" id="building-list"></div></section>
       <section class="building-draft-modal hidden" id="building-draft-modal" aria-label="Building Draft"><button class="upgrade-close" id="close-building-draft" type="button" aria-label="Close building draft">×</button><p class="eyebrow">PERMANENT DEFENSES</p><h2>BUILDING DRAFT</h2><p class="building-draft-balance">CHRONOSHARDS <span id="building-draft-chronoshards"></span></p><div class="building-list" id="building-draft-list"></div></section>
       <section class="weaponry-panel hidden" id="weaponry-panel" aria-label="Weaponry"><div class="lab-header"><div><p class="eyebrow">ACTIVE ARSENAL</p><h2>WEAPONRY</h2></div><button class="secondary-button" id="close-weaponry-button" type="button">BACK</button></div><p class="lab-balance">CHRONOSHARDS <span id="weaponry-chronoshards"></span></p><div class="weapon-buy-actions"><button class="weapon-buy-button" id="buy-weapon-button" type="button">BUY WEAPON · ✦ 35</button><button class="weapon-buy-button" id="buy-weapons-five-button" type="button">BUY WEAPON x5 · ✦ 175</button></div><p class="weapon-lucky-find-chance" id="weapon-lucky-find-chance" hidden>LUCKY FIND · 0% · 2 CARDS</p><h3>ROUND LOADOUT <span id="weapon-slot-count"></span></h3><div class="weapon-loadout" id="weapon-loadout"></div><h3>WEAPON CARDS</h3><div class="weapon-card-list" id="weapon-card-list"></div></section>
       <section class="weapon-reveal-modal hidden" id="weapon-reveal-modal" aria-label="Weapon purchase result" aria-live="polite"><div class="weapon-reveal-card"><p class="eyebrow" id="weapon-reveal-count"></p><p class="weapon-lucky-find-badge" aria-hidden="true">✦ LUCKY FIND · DOUBLE CARD ✦</p><p class="weapon-reveal-status" id="weapon-reveal-status"></p><img class="asset-card-art" id="weapon-reveal-art" alt=""><h2 id="weapon-reveal-name"></h2><p id="weapon-reveal-detail"></p><button id="weapon-reveal-continue" type="button">CLAIM</button></div></section>
       <section class="settings-panel hidden" id="settings-panel" aria-label="Settings"><div class="lab-header"><div><p class="eyebrow">PREFERENCES</p><h2>SETTINGS</h2></div><button class="secondary-button" id="close-settings-button" type="button">BACK</button></div><div class="settings-section"><h3>GRAPHICS</h3><div class="settings-row"><div><strong>Quality</strong><small>Changes render resolution and shadows.</small></div><div class="settings-options" id="graphics-quality-options"></div></div><label class="settings-row settings-toggle"><span><strong>Shadows</strong><small>Show dynamic object shadows.</small></span><input id="setting-shadows" type="checkbox"></label></div><div class="settings-section"><h3>GAMEPLAY</h3><label class="settings-row"><span><strong>Camera Distance</strong><small>Adjusts how far the camera sits from your ship.</small></span><output id="camera-distance-value"></output><input id="setting-camera-distance" type="range" min="80" max="130" step="5"></label><label class="settings-row settings-toggle"><span><strong>Auto Pause</strong><small>Pause the run when the game loses focus.</small></span><input id="setting-auto-pause" type="checkbox"></label><label class="settings-row settings-toggle"><span><strong>High Contrast HUD</strong><small>Improves HUD readability.</small></span><input id="setting-high-contrast" type="checkbox"></label></div><div class="settings-section"><h3>SOUND</h3><label class="settings-row"><span><strong>Master Volume</strong><small>Controls all game sound effects.</small></span><output id="master-volume-value"></output><input id="setting-master-volume" type="range" min="0" max="100" step="1"></label><label class="settings-row settings-toggle"><span><strong>Mute All</strong><small>Instantly silence all sound effects.</small></span><input id="setting-muted" type="checkbox"></label><label class="settings-row settings-toggle"><span><strong>Spatial Audio</strong><small>Pan sounds based on their world position.</small></span><input id="setting-spatial-audio" type="checkbox"></label></div><div class="settings-section settings-actions"><button id="open-patch-notes-button" type="button">PATCH NOTES</button></div></section>
-      <section class="patch-notes-panel hidden" id="patch-notes-panel" aria-label="Patch notes"><div class="lab-header"><div><p class="eyebrow">VERSION ${BUILD_INFO.version} · BUILD ${BUILD_INFO.number}</p><h2>PATCH NOTES</h2></div><button class="secondary-button" id="close-patch-notes-button" type="button">BACK</button></div><article class="patch-notes-entry"><h3>Small Update</h3><ul><li>Pause menu now has options to return to main menu and return to game.</li><li>The in-run HUD now focuses on Cells and your current Tier for a cleaner combat view.</li></ul></article></section>
+      <section class="patch-notes-panel hidden" id="patch-notes-panel" aria-label="Patch notes"><div class="lab-header"><div><p class="eyebrow">VERSION ${BUILD_INFO.version} · BUILD ${BUILD_INFO.number}</p><h2>PATCH NOTES</h2></div><button class="secondary-button" id="close-patch-notes-button" type="button">BACK</button></div>${PATCH_NOTES.map((entry) => `<article class="patch-notes-entry"><h3>${entry.heading}</h3><ul>${entry.changes.map((change) => `<li>${change}</li>`).join('')}</ul></article>`).join('')}</section>
     </section>
     <div class="build-bar hidden" id="build-bar"><span id="build-status">SELECT A BUILDING</span><div id="build-options"></div><button id="exit-build-mode" type="button">DONE</button></div>
     <section class="building-upgrade hidden" id="building-upgrade"></section>
@@ -153,10 +154,6 @@ const openEncyclopediaButton = document.querySelector('#open-encyclopedia-button
 const encyclopediaPanel = document.querySelector('#encyclopedia-panel')
 const closeEncyclopediaButton = document.querySelector('#close-encyclopedia-button')
 const encyclopediaList = document.querySelector('#encyclopedia-list')
-const encyclopediaPreview = document.querySelector('#encyclopedia-preview')
-const encyclopediaCategory = document.querySelector('#encyclopedia-category')
-const encyclopediaName = document.querySelector('#encyclopedia-name')
-const encyclopediaDescription = document.querySelector('#encyclopedia-description')
 const weaponryPanel = document.querySelector('#weaponry-panel')
 const closeWeaponryButton = document.querySelector('#close-weaponry-button')
 const weaponryChronoshards = document.querySelector('#weaponry-chronoshards')
@@ -1197,6 +1194,7 @@ const chronoCells = []
 const obstacles = []
 const fallingObstacles = []
 const fireHazards = []
+const poisonTrails = []
 const splinterPieces = []
 const explosions = []
 const bangerPulses = []
@@ -1239,20 +1237,21 @@ const weaponCharges = new Map()
 const weaponRechargeTimers = new Map()
 
 const fallingRockGeometry = new THREE.IcosahedronGeometry(ENTITIES.obstacleRadius, ENTITIES.fallingRockDetail)
-const { createShooterProjectile: createShooterProjectileVisual, createSpore: createSporeVisual, createAutocannonProjectile: createAutocannonProjectileVisual, createSplinter: createSplinterVisual } = createProjectileVisualFactory({ THREE, COLORS, ENTITIES })
+const { createShooterProjectile: createShooterProjectileVisual, createAutocannonProjectile: createAutocannonProjectileVisual, createSplinter: createSplinterVisual } = createProjectileVisualFactory({ THREE, COLORS, ENTITIES })
 const { createCell: createCellVisual, createChronoCell: createChronoCellVisual, createBooster: createBoosterVisual } = createCellVisualFactory({ THREE, COLORS, ENTITIES })
 const createSpikedObstacle = createEnemyVisualFactory({ THREE, ENTITIES })
-const { createExplosion: createExplosionVisual, createBangerPulse: createBangerPulseVisual, createShockwave: createShockwaveVisual, createPlayerDeath: createPlayerDeathVisual } = createEffectVisualFactory({ THREE, COLORS })
+const { createExplosion: createExplosionVisual, createBangerPulse: createBangerPulseVisual, createShockwave: createShockwaveVisual, createPoisonTrail: createPoisonTrailVisual, createPlayerDeath: createPlayerDeathVisual } = createEffectVisualFactory({ THREE, COLORS })
+const creeperColor = new THREE.Color(COLORS.creeper)
+const poisonCreeperColor = new THREE.Color(COLORS.poisonCreeper)
+const creeperEmissive = new THREE.Color(COLORS.creeperEmissive)
+const poisonCreeperEmissive = new THREE.Color(COLORS.poisonCreeperEmissive)
 
-let selectedEncyclopediaEntryId = ENCYCLOPEDIA_ENTRIES[0].id
-let encyclopediaPreviewRenderer
-function getEncyclopediaEntry(id = selectedEncyclopediaEntryId) { return ENCYCLOPEDIA_ENTRIES.find((entry) => entry.id === id) ?? ENCYCLOPEDIA_ENTRIES[0] }
-function renderEncyclopediaPreview(entry) {
-  encyclopediaPreviewRenderer ??= new THREE.WebGLRenderer({ canvas: encyclopediaPreview, alpha: true, antialias: true })
-  encyclopediaPreviewRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
-  encyclopediaPreviewRenderer.setSize(180, 140, false)
+function renderEncyclopediaModel(entry, canvas) {
+  const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true })
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+  renderer.setSize(210, 150, false)
   const previewScene = new THREE.Scene()
-  const previewCamera = new THREE.PerspectiveCamera(32, 180 / 140, 0.1, 20)
+  const previewCamera = new THREE.PerspectiveCamera(32, 210 / 150, 0.1, 20)
   previewCamera.position.set(0, 1.3, 4.8)
   previewCamera.lookAt(0, 0, 0)
   previewScene.add(new THREE.HemisphereLight('#d9f9ff', '#07141d', 2.6))
@@ -1264,16 +1263,16 @@ function renderEncyclopediaPreview(entry) {
   const model = entry.model === 'spiked-enemy' ? createSpikedObstacle(material) : new THREE.Mesh(fallingRockGeometry, material)
   model.rotation.set(0.28, -0.55, 0.14)
   previewScene.add(model)
-  encyclopediaPreviewRenderer.render(previewScene, previewCamera)
+  renderer.render(previewScene, previewCamera)
   material.dispose()
+  renderer.dispose()
 }
 function renderEncyclopedia() {
-  const entry = getEncyclopediaEntry()
-  encyclopediaCategory.textContent = entry.category.toUpperCase()
-  encyclopediaName.textContent = entry.name
-  encyclopediaDescription.textContent = entry.description
-  encyclopediaList.innerHTML = ENCYCLOPEDIA_ENTRIES.map((item) => `<button class="encyclopedia-entry ${item.id === entry.id ? 'selected' : ''}" data-encyclopedia-entry="${item.id}" type="button"><span>${item.category}</span><strong>${item.name}</strong><small>${item.model === 'spiked-enemy' ? 'SPIKED ENEMY MODEL' : 'FALLING ROCK MODEL'}</small></button>`).join('')
-  renderEncyclopediaPreview(entry)
+  encyclopediaList.innerHTML = ENCYCLOPEDIA_ENTRIES.map((entry) => `<article class="encyclopedia-entry"><h3>${entry.name}</h3><canvas data-encyclopedia-model="${entry.id}" width="210" height="150" aria-label="${entry.name} model"></canvas><p>${entry.description}</p></article>`).join('')
+  for (const canvas of encyclopediaList.querySelectorAll('[data-encyclopedia-model]')) {
+    const entry = ENCYCLOPEDIA_ENTRIES.find((item) => item.id === canvas.dataset.encyclopediaModel)
+    if (entry) renderEncyclopediaModel(entry, canvas)
+  }
 }
 
 const deathPreviewScene = new THREE.Scene()
@@ -1434,6 +1433,7 @@ function setBuildModeEntityVisibility(hidden) {
   for (const explosion of explosions) { explosion.shockwave.visible = !hidden; explosion.blast.visible = !hidden; explosion.light.visible = !hidden }
   for (const effect of playerDeathEffects) { effect.flash.visible = !hidden; effect.blast.visible = !hidden; effect.shockwave.visible = !hidden; effect.innerShockwave.visible = !hidden; effect.light.visible = !hidden; for (const fragment of effect.fragments) fragment.visible = !hidden }
   for (const fireHazard of fireHazards) { fireHazard.visual.visible = !hidden; fireHazard.light.visible = !hidden }
+  for (const poisonTrail of poisonTrails) poisonTrail.visual.visible = !hidden
   for (const piece of splinterPieces) piece.piece.visible = !hidden
   for (const pulse of bangerPulses) pulse.pulse.visible = !hidden
   for (const wave of shockwaves) wave.shockwave.visible = !hidden
@@ -1653,6 +1653,7 @@ function createObstacle(position, type, savedObstacle) {
   obstacle.userData.pulseTimer = savedObstacle?.pulseTimer ?? 0
   obstacle.userData.shotCooldown = savedObstacle?.shotCooldown ?? 0
   obstacle.userData.teleportTimer = savedObstacle?.teleportTimer ?? 0
+  obstacle.userData.poisonTrailTimer = savedObstacle?.poisonTrailTimer ?? 0
   obstacle.userData.teleportTarget = savedObstacle?.teleportTarget ? new THREE.Vector3(savedObstacle.teleportTarget.x, savedObstacle.teleportTarget.y, savedObstacle.teleportTarget.z) : null
   obstacle.userData.colliderRadius = GAME.obstacleColliderRadius
   obstacle.userData.electronStunnedOnce = Boolean(savedObstacle?.electronStunnedOnce)
@@ -1742,18 +1743,20 @@ function clearPorterTeleportTarget(porter) {
   porter.userData.teleportEffect = null
 }
 
-function createSpore(position, direction) {
-  const spore = createSporeVisual()
+function createSpore(position, direction, generation = 1, savedSpore = {}) {
+  const spore = createSpikedObstacle(new THREE.MeshStandardMaterial({ color: COLORS.spore, emissive: COLORS.sporeEmissive, emissiveIntensity: 2, metalness: ENTITIES.obstacleMetalness, roughness: ENTITIES.obstacleRoughness }))
+  spore.scale.setScalar(generation === 1 ? ENTITIES.sporeFragmentScale : ENTITIES.sporeFragmentChildScale)
   spore.position.copy(position)
   scene.add(spore)
-  spores.push({ spore, direction: direction.clone() })
+  spores.push({ spore, direction: direction.clone(), generation, age: savedSpore.age ?? 0 })
 }
 
-function releaseSpores(position) {
+function releaseSpores(position, generation = 1) {
+  const count = generation === 1 ? ENTITIES.sporeFragmentCount : ENTITIES.sporeFragmentChildCount
   const startAngle = Math.random() * Math.PI * 2
-  for (let index = 0; index < ENTITIES.sporeCount; index += 1) {
-    const angle = startAngle + index * (Math.PI * 2 / ENTITIES.sporeCount)
-    createSpore(new THREE.Vector3(position.x, GAME.playerStartHeight, position.z), new THREE.Vector3(Math.cos(angle), 0, Math.sin(angle)))
+  for (let index = 0; index < count; index += 1) {
+    const angle = startAngle + index * (Math.PI * 2 / count)
+    createSpore(new THREE.Vector3(position.x, GAME.playerStartHeight, position.z), new THREE.Vector3(Math.cos(angle), 0, Math.sin(angle)), generation)
   }
 }
 
@@ -1905,6 +1908,12 @@ function createFireHazard(position, savedFire) {
   light.position.set(position.x, 1.2, position.z)
   scene.add(visual, light)
   fireHazards.push({ visual, ground, flames, embers, light, position: position.clone(), age: savedFire?.age ?? 0 })
+}
+
+function createPoisonTrail(position, savedTrail) {
+  const { visual, pool, vapor } = createPoisonTrailVisual(position, ENTITIES.poisonCreeperTrailRadius)
+  scene.add(visual)
+  poisonTrails.push({ visual, pool, vapor, position: position.clone(), age: savedTrail?.age ?? 0 })
 }
 
 function createSplinterPiece(position, direction, age = 0) {
@@ -2064,6 +2073,8 @@ function resetGame(populateArena = true) {
   fallingObstacles.length = 0
   for (const fireHazard of fireHazards) scene.remove(fireHazard.visual, fireHazard.light)
   fireHazards.length = 0
+  for (const poisonTrail of poisonTrails) scene.remove(poisonTrail.visual)
+  poisonTrails.length = 0
   for (const splinterPiece of splinterPieces) scene.remove(splinterPiece.piece)
   splinterPieces.length = 0
   for (const explosion of explosions) scene.remove(explosion.shockwave, explosion.blast, explosion.light)
@@ -2158,11 +2169,12 @@ function saveCurrentRound() {
     cells: cells.map((cell) => ({ position: serializePosition(cell.position), phase: cell.userData.phase, cashValue: cell.userData.cashValue })),
     chronoCells: chronoCells.map((cell) => ({ position: serializePosition(cell.position), phase: cell.userData.phase, age: cell.userData.age })),
     boosters: boosters.map((booster) => ({ type: booster.userData.type, position: serializePosition(booster.position) })),
-    obstacles: obstacles.map((obstacle) => ({ id: obstacle.userData.id, position: serializePosition(obstacle.position), type: obstacle.userData.type, age: obstacle.userData.age, lifetimeAge: obstacle.userData.lifetimeAge, speed: obstacle.userData.speed, pulseTimer: obstacle.userData.pulseTimer, shotCooldown: obstacle.userData.shotCooldown, teleportTimer: obstacle.userData.teleportTimer, teleportTarget: obstacle.userData.teleportTarget && serializePosition(obstacle.userData.teleportTarget), magnetPulsePhase: obstacle.userData.magnetPulsePhase, electronStunnedOnce: obstacle.userData.electronStunnedOnce })),
-    spores: spores.map((entry) => ({ position: serializePosition(entry.spore.position), direction: serializePosition(entry.direction) })),
+    obstacles: obstacles.map((obstacle) => ({ id: obstacle.userData.id, position: serializePosition(obstacle.position), type: obstacle.userData.type, age: obstacle.userData.age, lifetimeAge: obstacle.userData.lifetimeAge, speed: obstacle.userData.speed, pulseTimer: obstacle.userData.pulseTimer, shotCooldown: obstacle.userData.shotCooldown, teleportTimer: obstacle.userData.teleportTimer, poisonTrailTimer: obstacle.userData.poisonTrailTimer, teleportTarget: obstacle.userData.teleportTarget && serializePosition(obstacle.userData.teleportTarget), magnetPulsePhase: obstacle.userData.magnetPulsePhase, electronStunnedOnce: obstacle.userData.electronStunnedOnce })),
+    spores: spores.map((entry) => ({ position: serializePosition(entry.spore.position), direction: serializePosition(entry.direction), generation: entry.generation, age: entry.age })),
     shooterProjectiles: shooterProjectiles.map((projectile) => ({ position: serializePosition(projectile.projectile.position), direction: serializePosition(projectile.direction), age: projectile.age })),
     fallingObstacles: fallingObstacles.map((fallingObstacle) => ({ target: serializePosition(fallingObstacle.target), type: fallingObstacle.type, age: fallingObstacle.age, landed: fallingObstacle.landed, impactTriggered: fallingObstacle.impactTriggered })),
     fireHazards: fireHazards.map((fireHazard) => ({ position: serializePosition(fireHazard.position), age: fireHazard.age })),
+    poisonTrails: poisonTrails.map((poisonTrail) => ({ position: serializePosition(poisonTrail.position), age: poisonTrail.age })),
     splinterPieces: splinterPieces.map((entry) => ({ position: serializePosition(entry.piece.position), direction: serializePosition(entry.direction), age: entry.age })),
     buildingRuntime: buildingState.placed.map((building) => ({ id: building.id, timer: buildingRuntime.get(building.id)?.timer ?? 0, active: buildingRuntime.get(building.id)?.active ?? 0 })),
     autocannonProjectiles: autocannonProjectiles.map((entry) => ({ position: serializePosition(entry.mesh.position), direction: serializePosition(entry.direction), destination: serializePosition(entry.destination), targetId: entry.target.userData.id, age: entry.age })),
@@ -2212,7 +2224,7 @@ function restoreSavedRound() {
   for (const chronoCell of savedRound.chronoCells ?? []) addChronoCell(chronoCell)
   for (const obstacle of savedRound.obstacles ?? []) createObstacle(new THREE.Vector3(obstacle.position.x, obstacle.position.y, obstacle.position.z), obstacle.type, obstacle)
   for (const booster of savedRound.boosters ?? []) addBooster(booster.type, booster)
-  for (const spore of savedRound.spores ?? []) createSpore(new THREE.Vector3(spore.position.x, spore.position.y, spore.position.z), new THREE.Vector3(spore.direction.x, spore.direction.y, spore.direction.z))
+  for (const spore of savedRound.spores ?? []) createSpore(new THREE.Vector3(spore.position.x, spore.position.y, spore.position.z), new THREE.Vector3(spore.direction.x, spore.direction.y, spore.direction.z), spore.generation ?? 1, spore)
   for (const savedProjectile of savedRound.shooterProjectiles ?? []) {
     const projectile = createShooterProjectileVisual()
     projectile.position.set(savedProjectile.position.x, savedProjectile.position.y, savedProjectile.position.z)
@@ -2221,6 +2233,7 @@ function restoreSavedRound() {
   }
   for (const fallingObstacle of savedRound.fallingObstacles ?? []) createFallingObstacle(new THREE.Vector3(fallingObstacle.target.x, fallingObstacle.target.y, fallingObstacle.target.z), fallingObstacle)
   for (const fireHazard of savedRound.fireHazards ?? []) createFireHazard(new THREE.Vector3(fireHazard.position.x, fireHazard.position.y, fireHazard.position.z), fireHazard)
+  for (const poisonTrail of savedRound.poisonTrails ?? []) createPoisonTrail(new THREE.Vector3(poisonTrail.position.x, poisonTrail.position.y, poisonTrail.position.z), poisonTrail)
   for (const splinterPiece of savedRound.splinterPieces ?? []) createSplinterPiece(new THREE.Vector3(splinterPiece.position.x, splinterPiece.position.y, splinterPiece.position.z), new THREE.Vector3(splinterPiece.direction.x, splinterPiece.direction.y, splinterPiece.direction.z), splinterPiece.age)
   for (const runtime of savedRound.buildingRuntime ?? []) { const entry = buildingRuntime.get(runtime.id); if (entry) { entry.timer = runtime.timer ?? 0; entry.active = runtime.active ?? 0 } }
   for (const savedProjectile of savedRound.autocannonProjectiles ?? []) {
@@ -2521,11 +2534,18 @@ function updateGame(delta, total) {
     }
     const playerOffset = player.position.clone().sub(obstacle.position)
     playerOffset.y = 0
-    if (obstacle.userData.type === 'creeper') {
+    const isCreeper = obstacle.userData.type === 'creeper' || obstacle.userData.type === 'poisonCreeper'
+    if (isCreeper) {
       obstacle.userData.staticCollisionSlow = Math.max(0, (obstacle.userData.staticCollisionSlow ?? 0) - delta)
     }
     const chronoSlow = buildingState.placed.filter((b) => b.type === 'chronoGenerator' && planarDistance(obstacle.position, b) <= buildingValue(b, 'range')).reduce((slow, b) => Math.max(slow, buildingValue(b, 'slow')), 0)
     obstacle.userData.material.emissive.set(obstacleType.emissive)
+    if (obstacle.userData.type === 'poisonCreeper') {
+      const colorShift = (Math.sin(total * 2.7 + obstacle.userData.speed) + 1) / 2
+      obstacle.userData.material.color.lerpColors(creeperColor, poisonCreeperColor, colorShift)
+      obstacle.userData.material.emissive.lerpColors(creeperEmissive, poisonCreeperEmissive, colorShift)
+      obstacle.userData.material.emissiveIntensity = 1.2 + colorShift * 0.75
+    }
     if (chronoSlow > 0) obstacle.userData.material.emissive.lerp(chronoBuildingTint, THREE.MathUtils.clamp(chronoSlow * 1.6, 0, 0.82))
     if (thornShieldTime > 0 && playerOffset.length() < GAME.playerRadius) {
       scene.remove(obstacle, obstacle.userData.rangeIndicator, obstacle.userData.magnetPulse)
@@ -2579,12 +2599,12 @@ function updateGame(delta, total) {
       if (pushDirection.lengthSq() > 0) obstacle.position.addScaledVector(pushDirection.normalize(), (GAME.pushbackBaseSpeed + pushbackSpeed) * delta)
     }
     if (playerOffset.length() <= effectiveRange && obstacleType.speed > 0) {
-      const speedMultiplier = obstacle.userData.type === 'creeper' ? Math.max(0.5, 1 - getResearchStatBonus('creeperSpeedDebuff')) : 1
-      const creeperLifetimeProgress = obstacle.userData.type === 'creeper' ? Math.min(obstacle.userData.lifetimeAge / regularObstacleLifetime, 1) : 0
-      const movementSpeed = obstacle.userData.type === 'creeper'
+      const speedMultiplier = isCreeper ? Math.max(0.5, 1 - getResearchStatBonus('creeperSpeedDebuff')) : 1
+      const creeperLifetimeProgress = isCreeper ? Math.min(obstacle.userData.lifetimeAge / regularObstacleLifetime, 1) : 0
+      const movementSpeed = isCreeper
         ? THREE.MathUtils.lerp(obstacleType.speed, GAME.playerSpeed * 0.9, creeperLifetimeProgress)
         : obstacleType.speed
-      const staticCollisionSpeedMultiplier = obstacle.userData.type === 'creeper' && obstacle.userData.staticCollisionSlow > 0
+      const staticCollisionSpeedMultiplier = isCreeper && obstacle.userData.staticCollisionSlow > 0
         ? GAME.creeperStaticCollisionSpeedMultiplier
         : 1
       obstacle.position.addScaledVector(playerOffset.normalize(), movementSpeed * speedMultiplier * obstacleSpeedMultiplier * staticCollisionSpeedMultiplier * delta)
@@ -2608,6 +2628,13 @@ function updateGame(delta, total) {
     }
     obstacle.rotation.y += delta * obstacle.userData.speed * obstacleSpeedMultiplier
     obstacle.position.y = ANIMATION.obstacleBobBaseHeight + Math.sin(total * ANIMATION.obstacleBobSpeed + obstacle.position.x) * ANIMATION.obstacleBobAmplitude
+    if (obstacle.userData.type === 'poisonCreeper') {
+      obstacle.userData.poisonTrailTimer += delta
+      if (obstacle.userData.poisonTrailTimer >= ENTITIES.poisonCreeperTrailInterval) {
+        obstacle.userData.poisonTrailTimer = 0
+        createPoisonTrail(obstacle.position)
+      }
+    }
     if (obstacle.userData.type === 'banger') {
       obstacle.userData.age += delta * obstacleSpeedMultiplier
       const fuseProgress = Math.min(obstacle.userData.age / ENTITIES.bangerFuseDuration, 1)
@@ -2677,11 +2704,22 @@ function updateGame(delta, total) {
 
   for (let index = spores.length - 1; index >= 0; index -= 1) {
     const entry = spores[index]
-    entry.spore.position.addScaledVector(entry.direction, ENTITIES.sporeSpeed * Math.max(0.5, 1 - getResearchStatBonus('sporeSpeedDebuff')) * delta)
+    entry.age += delta
+    const movementProgress = Math.min(entry.age / ENTITIES.sporeFragmentDuration, 1)
+    const speed = ENTITIES.sporeFragmentSpeed * (1 - movementProgress) * Math.max(0.5, 1 - getResearchStatBonus('sporeSpeedDebuff'))
+    entry.spore.position.addScaledVector(entry.direction, speed * delta)
     entry.spore.rotation.x += delta * 7
     entry.spore.rotation.z += delta * 5
+    if (movementProgress >= 1) {
+      if (entry.generation === 1) releaseSpores(entry.spore.position, 2)
+      scene.remove(entry.spore)
+      entry.spore.userData.material?.dispose()
+      spores.splice(index, 1)
+      continue
+    }
     if (Math.hypot(entry.spore.position.x, entry.spore.position.z) > getArenaLimit()) {
       scene.remove(entry.spore)
+      entry.spore.userData.material?.dispose()
       spores.splice(index, 1)
     }
   }
@@ -2858,6 +2896,28 @@ function updateGame(delta, total) {
     }
   }
 
+  for (let index = poisonTrails.length - 1; index >= 0; index -= 1) {
+    const poisonTrail = poisonTrails[index]
+    poisonTrail.age += delta
+    const duration = GAME.poisonTrailDuration * (1 - getResearchStatBonus('poisonTrailDurationReduction'))
+    const progress = poisonTrail.age / duration
+    const fade = Math.max(0, 1 - progress)
+    const pulse = 1 + Math.sin(total * 5 + index) * 0.08
+    poisonTrail.pool.scale.setScalar(pulse * (0.92 + progress * 0.16))
+    poisonTrail.pool.material.opacity = 0.36 * fade
+    for (const puff of poisonTrail.vapor) {
+      const rise = (Math.sin(total * 2.8 + puff.userData.phase) + 1) / 2
+      puff.position.y = 0.1 + rise * 0.26
+      puff.material.opacity = 0.5 * fade * (0.55 + rise * 0.45)
+      puff.scale.setScalar(0.8 + rise * 0.55)
+    }
+    if (planarDistance(player.position, poisonTrail.position) < ENTITIES.poisonCreeperTrailRadius) applyPlayerStatusDamage('poison', 'poison-creeper-trail')
+    if (progress >= 1) {
+      scene.remove(poisonTrail.visual)
+      poisonTrails.splice(index, 1)
+    }
+  }
+
   const activeStatusDamage = updatePlayerStatusDamage(delta, total)
   if (activeStatusDamage) {
     playerCore.material.emissive.set(activeStatusDamage.color)
@@ -2929,9 +2989,9 @@ function updateGame(delta, total) {
     obstacleSpawnTimer = 0
   }
   const fallingRockSpawnInterval = Math.max(
-    GAME.fallingBlockMinInterval,
+    GAME.fallingBlockMinInterval / GAME.fallingRockSpawnFrequencyMultiplier,
     (GAME.fallingBlockBaseInterval + difficulty.fallingRockSpawnIntervalOffset
-      - score * (GAME.fallingBlockIntervalPerCell + difficulty.fallingRockSpawnDecreasePerCellOffset)) * (1 - tierPressure),
+      - score * (GAME.fallingBlockIntervalPerCell + difficulty.fallingRockSpawnDecreasePerCellOffset)) * (1 - tierPressure) / GAME.fallingRockSpawnFrequencyMultiplier,
   )
   if (hazardTimer > fallingRockSpawnInterval) {
     scheduleFallingObstacles()
@@ -3103,7 +3163,6 @@ openBuildingButton.addEventListener('click', (event) => { event.stopPropagation(
 openWeaponryButton.addEventListener('click', (event) => { event.stopPropagation(); if (!featureUnlocks.weaponry && !unlockFeature('weaponry')) return; menuContent.classList.add('hidden'); weaponryPanel.classList.remove('hidden'); renderWeaponry() })
 openEncyclopediaButton.addEventListener('click', (event) => { event.stopPropagation(); menuContent.classList.add('hidden'); encyclopediaPanel.classList.remove('hidden'); renderEncyclopedia() })
 closeEncyclopediaButton.addEventListener('click', () => { encyclopediaPanel.classList.add('hidden'); menuContent.classList.remove('hidden') })
-encyclopediaList.addEventListener('click', (event) => { const entryButton = event.target.closest('[data-encyclopedia-entry]'); if (!entryButton) return; selectedEncyclopediaEntryId = entryButton.dataset.encyclopediaEntry; renderEncyclopedia() })
 closeWeaponryButton.addEventListener('click', () => { weaponryPanel.classList.add('hidden'); menuContent.classList.remove('hidden') })
 buyWeaponButton.addEventListener('click', () => buyWeapons(1))
 buyWeaponsFiveButton.addEventListener('click', () => buyWeapons(5))

@@ -1,12 +1,8 @@
 export function createProjectileVisualFactory({ THREE, COLORS, ENTITIES }) {
   const shooterGeometry = new THREE.IcosahedronGeometry(ENTITIES.shooterProjectileRadius, 1)
-  const sporeGeometry = new THREE.SphereGeometry(ENTITIES.sporeRadius, 10, 8)
   return {
     createShooterProjectile() {
       return new THREE.Mesh(shooterGeometry, new THREE.MeshStandardMaterial({ color: COLORS.shooter, emissive: COLORS.shooterEmissive, emissiveIntensity: 2.6, metalness: 0.25, roughness: 0.2 }))
-    },
-    createSpore() {
-      return new THREE.Mesh(sporeGeometry, new THREE.MeshStandardMaterial({ color: COLORS.spore, emissive: COLORS.sporeEmissive, emissiveIntensity: 2, transparent: true, opacity: 0.9 }))
     },
     createAutocannonProjectile() {
       return new THREE.Mesh(new THREE.SphereGeometry(0.16, 10, 8), new THREE.MeshBasicMaterial({ color: '#fff1a6', transparent: true, opacity: 0.95 }))

@@ -19,6 +19,22 @@ export function createEffectVisualFactory({ THREE, COLORS }) {
     createShockwave(origin) {
       const shockwave = ring(0.2, 0.42, 64, COLORS.slowAura, 0.95); shockwave.position.set(origin.x, 0.07, origin.z); return shockwave
     },
+    createPoisonTrail(position, radius) {
+      const visual = new THREE.Group()
+      visual.position.set(position.x, 0.035, position.z)
+      const pool = new THREE.Mesh(new THREE.CircleGeometry(radius, 24), new THREE.MeshBasicMaterial({ color: COLORS.poisonTrail, transparent: true, opacity: 0.36, depthWrite: false }))
+      pool.rotation.x = -Math.PI / 2
+      visual.add(pool)
+      const vapor = Array.from({ length: 5 }, (_, index) => {
+        const puff = new THREE.Mesh(new THREE.SphereGeometry(0.12 + index * 0.025, 8, 6), new THREE.MeshBasicMaterial({ color: COLORS.poisonTrail, transparent: true, opacity: 0.5, depthWrite: false }))
+        const angle = index * Math.PI * 2 / 5
+        puff.position.set(Math.cos(angle) * radius * 0.38, 0.12 + index * 0.035, Math.sin(angle) * radius * 0.38)
+        puff.userData.phase = angle
+        visual.add(puff)
+        return puff
+      })
+      return { visual, pool, vapor }
+    },
     createPlayerDeath(position) {
       const flash = new THREE.Mesh(new THREE.SphereGeometry(0.95, 24, 16), new THREE.MeshBasicMaterial({ color: '#fff4cf', transparent: true, opacity: 1, depthWrite: false })); flash.position.copy(position)
       const blast = new THREE.Mesh(new THREE.IcosahedronGeometry(0.7, 2), new THREE.MeshBasicMaterial({ color: COLORS.playerRing, transparent: true, opacity: 0.95, wireframe: true, depthWrite: false })); blast.position.copy(position)
