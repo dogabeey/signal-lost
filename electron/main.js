@@ -11,7 +11,7 @@ function createWindow() {
     height: 720,
     minWidth: 960,
     minHeight: 540,
-    backgroundColor: '#111827',
+    backgroundColor: '#101b25',
     autoHideMenuBar: true,
     webPreferences: {
       contextIsolation: true,
@@ -24,6 +24,7 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  ipcMain.handle('quit-game', () => app.quit())
   createWindow()
 
   app.on('activate', () => {
