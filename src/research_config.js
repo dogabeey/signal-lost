@@ -42,7 +42,7 @@ export const RESEARCH_CONFIG = {
     },
     {
       id: 'weapon-slots', category: 'Weapons', name: 'Weapon Slot', description: 'Adds one weapon slot to your round loadout.', maxLevel: 4,
-      effect: { stat: 'weaponSlots', perLevel: 1, format: 'flat' }, cost: { currency: 'cash', base: 25_000, multiplier: 1.8, jerk: 1.004 }, duration: { baseMs: 180_000, multiplier: 1.25 },
+      effect: { stat: 'weaponSlots', perLevel: 1, format: 'flat' }, cost: { currency: 'cash', base: 20_000, multiplier: 2, jerk: 1.1 }, duration: { baseMs: 180_000, multiplier: 1.25 },
     },
     {
       id: 'player-speed-multiplier',

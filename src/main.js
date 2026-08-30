@@ -16,6 +16,7 @@ import { createEffectVisualFactory } from './three/effects.js'
 import { migrateLegacyStorage, readStoredJson, readStoredNumber, STORAGE_KEYS, writeStoredJson, writeStoredNumber } from './storage.js'
 import { createSoundSystem } from './sound_system.js'
 import { createResearchRules } from './research_rules.js'
+import { ENCYCLOPEDIA_ENTRIES } from './encyclopedia_config.js'
 import { formatCompactNumber, formatCurrency, formatDuration, formatResearchEffect } from './formatters.js'
 import { TIPS } from './tips.js'
 import { MILESTONES } from './milestones.js'
@@ -91,6 +92,7 @@ document.querySelector('#app').innerHTML = `
           <button class="menu-system-button" id="open-lab-button" type="button">RESEARCH LAB</button>
           <button class="menu-system-button" id="open-building-button" type="button">BUILDING SYSTEM</button>
           <button class="menu-system-button" id="open-weaponry-button" type="button">WEAPONRY</button>
+          <button class="menu-system-button" id="open-encyclopedia-button" type="button">ENCYCLOPEDIA</button>
           <button class="menu-system-button" id="open-settings-button" type="button">SETTINGS</button>
           ${IS_STEAM_BUILD ? '<button class="menu-exit-button" id="exit-game-button" type="button">EXIT GAME</button>' : ''}
         </div>
@@ -107,12 +109,13 @@ document.querySelector('#app').innerHTML = `
         <h3 id="research-slots-heading">ACTIVE SLOTS</h3><div class="research-slots" id="research-slots"></div>
         <h3>AVAILABLE RESEARCH</h3><label class="research-search"><span>SEARCH</span><input id="research-search" type="search" placeholder="Search research names" autocomplete="off"></label><div class="research-filters"><label><input id="hide-completed-researches" type="checkbox"> <span>Hide Completed Researches</span></label><label><input id="hide-locked-researches" type="checkbox"> <span>Hide Locked Researches</span></label></div><div class="research-list" id="research-list"></div>
       </section>
+      <section class="encyclopedia-panel hidden" id="encyclopedia-panel" aria-label="Encyclopedia"><div class="lab-header"><div><p class="eyebrow">THREAT DATABASE</p><h2>ENCYCLOPEDIA</h2></div><button class="secondary-button" id="close-encyclopedia-button" type="button">BACK</button></div><div class="encyclopedia-feature"><canvas id="encyclopedia-preview" width="180" height="140" aria-label="Selected encyclopedia model"></canvas><div><p class="encyclopedia-category" id="encyclopedia-category"></p><h3 id="encyclopedia-name"></h3><p id="encyclopedia-description"></p></div></div><div class="encyclopedia-list" id="encyclopedia-list"></div></section>
       <section class="building-panel hidden" id="building-panel"><div class="lab-header"><div><p class="eyebrow">PERMANENT DEFENSES</p><h2>BUILDING SYSTEM</h2></div><button class="secondary-button" id="close-building-button" type="button">BACK</button></div><p class="lab-balance">CASH <span id="building-cash"></span> · CHRONOSHARDS <span id="building-chronoshards"></span> · SLOTS <span id="building-slots"></span></p><div class="building-actions"><button id="enter-build-mode" type="button">BUILD MODE</button><button id="open-building-draft" type="button">UNLOCK A BUILDING</button></div><h3>UNLOCKED BUILDINGS</h3><div class="building-list" id="building-list"></div></section>
       <section class="building-draft-modal hidden" id="building-draft-modal" aria-label="Building Draft"><button class="upgrade-close" id="close-building-draft" type="button" aria-label="Close building draft">×</button><p class="eyebrow">PERMANENT DEFENSES</p><h2>BUILDING DRAFT</h2><p class="building-draft-balance">CHRONOSHARDS <span id="building-draft-chronoshards"></span></p><div class="building-list" id="building-draft-list"></div></section>
       <section class="weaponry-panel hidden" id="weaponry-panel" aria-label="Weaponry"><div class="lab-header"><div><p class="eyebrow">ACTIVE ARSENAL</p><h2>WEAPONRY</h2></div><button class="secondary-button" id="close-weaponry-button" type="button">BACK</button></div><p class="lab-balance">CHRONOSHARDS <span id="weaponry-chronoshards"></span></p><div class="weapon-buy-actions"><button class="weapon-buy-button" id="buy-weapon-button" type="button">BUY WEAPON · ✦ 35</button><button class="weapon-buy-button" id="buy-weapons-five-button" type="button">BUY WEAPON x5 · ✦ 175</button></div><p class="weapon-lucky-find-chance" id="weapon-lucky-find-chance" hidden>LUCKY FIND · 0% · 2 CARDS</p><h3>ROUND LOADOUT <span id="weapon-slot-count"></span></h3><div class="weapon-loadout" id="weapon-loadout"></div><h3>WEAPON CARDS</h3><div class="weapon-card-list" id="weapon-card-list"></div></section>
       <section class="weapon-reveal-modal hidden" id="weapon-reveal-modal" aria-label="Weapon purchase result" aria-live="polite"><div class="weapon-reveal-card"><p class="eyebrow" id="weapon-reveal-count"></p><p class="weapon-lucky-find-badge" aria-hidden="true">✦ LUCKY FIND · DOUBLE CARD ✦</p><p class="weapon-reveal-status" id="weapon-reveal-status"></p><img class="asset-card-art" id="weapon-reveal-art" alt=""><h2 id="weapon-reveal-name"></h2><p id="weapon-reveal-detail"></p><button id="weapon-reveal-continue" type="button">CLAIM</button></div></section>
       <section class="settings-panel hidden" id="settings-panel" aria-label="Settings"><div class="lab-header"><div><p class="eyebrow">PREFERENCES</p><h2>SETTINGS</h2></div><button class="secondary-button" id="close-settings-button" type="button">BACK</button></div><div class="settings-section"><h3>GRAPHICS</h3><div class="settings-row"><div><strong>Quality</strong><small>Changes render resolution and shadows.</small></div><div class="settings-options" id="graphics-quality-options"></div></div><label class="settings-row settings-toggle"><span><strong>Shadows</strong><small>Show dynamic object shadows.</small></span><input id="setting-shadows" type="checkbox"></label></div><div class="settings-section"><h3>GAMEPLAY</h3><label class="settings-row"><span><strong>Camera Distance</strong><small>Adjusts how far the camera sits from your ship.</small></span><output id="camera-distance-value"></output><input id="setting-camera-distance" type="range" min="80" max="130" step="5"></label><label class="settings-row settings-toggle"><span><strong>Auto Pause</strong><small>Pause the run when the game loses focus.</small></span><input id="setting-auto-pause" type="checkbox"></label><label class="settings-row settings-toggle"><span><strong>High Contrast HUD</strong><small>Improves HUD readability.</small></span><input id="setting-high-contrast" type="checkbox"></label></div><div class="settings-section"><h3>SOUND</h3><label class="settings-row"><span><strong>Master Volume</strong><small>Controls all game sound effects.</small></span><output id="master-volume-value"></output><input id="setting-master-volume" type="range" min="0" max="100" step="1"></label><label class="settings-row settings-toggle"><span><strong>Mute All</strong><small>Instantly silence all sound effects.</small></span><input id="setting-muted" type="checkbox"></label><label class="settings-row settings-toggle"><span><strong>Spatial Audio</strong><small>Pan sounds based on their world position.</small></span><input id="setting-spatial-audio" type="checkbox"></label></div><div class="settings-section settings-actions"><button id="open-patch-notes-button" type="button">PATCH NOTES</button></div></section>
-      <section class="patch-notes-panel hidden" id="patch-notes-panel" aria-label="Patch notes"><div class="lab-header"><div><p class="eyebrow">VERSION ${BUILD_INFO.version} · BUILD ${BUILD_INFO.number}</p><h2>PATCH NOTES</h2></div><button class="secondary-button" id="close-patch-notes-button" type="button">BACK</button></div><article class="patch-notes-entry"><h3>PROGRESSION UPDATE</h3><ul><li>The Research Lab now becomes available after your first Tier 1 Ascension.</li><li>Initial Cell research is available as soon as you can access the Research Lab.</li><li>Slow Aura and Orbital Electron are much easier to unlock in Tier 3.</li><li>Shield and enemy-control upgrades now require less Cash, helping your defenses keep pace with later tiers.</li><li>Cell Spawn Rate upgrades now stay affordable for longer.</li></ul></article></section>
+      <section class="patch-notes-panel hidden" id="patch-notes-panel" aria-label="Patch notes"><div class="lab-header"><div><p class="eyebrow">VERSION ${BUILD_INFO.version} · BUILD ${BUILD_INFO.number}</p><h2>PATCH NOTES</h2></div><button class="secondary-button" id="close-patch-notes-button" type="button">BACK</button></div><article class="patch-notes-entry"><h3>Small Update</h3><ul><li>Pause menu now has options to return to main menu and return to game.</li><li>The in-run HUD now focuses on Cells and your current Tier for a cleaner combat view.</li></ul></article></section>
     </section>
     <div class="build-bar hidden" id="build-bar"><span id="build-status">SELECT A BUILDING</span><div id="build-options"></div><button id="exit-build-mode" type="button">DONE</button></div>
     <section class="building-upgrade hidden" id="building-upgrade"></section>
@@ -146,6 +149,14 @@ const labPanel = document.querySelector('#lab-panel')
 const openLabButton = document.querySelector('#open-lab-button')
 const openBuildingButton = document.querySelector('#open-building-button')
 const openWeaponryButton = document.querySelector('#open-weaponry-button')
+const openEncyclopediaButton = document.querySelector('#open-encyclopedia-button')
+const encyclopediaPanel = document.querySelector('#encyclopedia-panel')
+const closeEncyclopediaButton = document.querySelector('#close-encyclopedia-button')
+const encyclopediaList = document.querySelector('#encyclopedia-list')
+const encyclopediaPreview = document.querySelector('#encyclopedia-preview')
+const encyclopediaCategory = document.querySelector('#encyclopedia-category')
+const encyclopediaName = document.querySelector('#encyclopedia-name')
+const encyclopediaDescription = document.querySelector('#encyclopedia-description')
 const weaponryPanel = document.querySelector('#weaponry-panel')
 const closeWeaponryButton = document.querySelector('#close-weaponry-button')
 const weaponryChronoshards = document.querySelector('#weaponry-chronoshards')
@@ -1232,6 +1243,38 @@ const { createShooterProjectile: createShooterProjectileVisual, createSpore: cre
 const { createCell: createCellVisual, createChronoCell: createChronoCellVisual, createBooster: createBoosterVisual } = createCellVisualFactory({ THREE, COLORS, ENTITIES })
 const createSpikedObstacle = createEnemyVisualFactory({ THREE, ENTITIES })
 const { createExplosion: createExplosionVisual, createBangerPulse: createBangerPulseVisual, createShockwave: createShockwaveVisual, createPlayerDeath: createPlayerDeathVisual } = createEffectVisualFactory({ THREE, COLORS })
+
+let selectedEncyclopediaEntryId = ENCYCLOPEDIA_ENTRIES[0].id
+let encyclopediaPreviewRenderer
+function getEncyclopediaEntry(id = selectedEncyclopediaEntryId) { return ENCYCLOPEDIA_ENTRIES.find((entry) => entry.id === id) ?? ENCYCLOPEDIA_ENTRIES[0] }
+function renderEncyclopediaPreview(entry) {
+  encyclopediaPreviewRenderer ??= new THREE.WebGLRenderer({ canvas: encyclopediaPreview, alpha: true, antialias: true })
+  encyclopediaPreviewRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+  encyclopediaPreviewRenderer.setSize(180, 140, false)
+  const previewScene = new THREE.Scene()
+  const previewCamera = new THREE.PerspectiveCamera(32, 180 / 140, 0.1, 20)
+  previewCamera.position.set(0, 1.3, 4.8)
+  previewCamera.lookAt(0, 0, 0)
+  previewScene.add(new THREE.HemisphereLight('#d9f9ff', '#07141d', 2.6))
+  const keyLight = new THREE.DirectionalLight('#fff4cf', 2.8)
+  keyLight.position.set(2, 3, 4)
+  previewScene.add(keyLight)
+  const source = entry.model === 'spiked-enemy' ? OBSTACLE_TYPES[entry.id] : FALLING_ROCK_TYPES[entry.id]
+  const material = new THREE.MeshStandardMaterial({ color: source.color, emissive: source.emissive, emissiveIntensity: source.emissiveIntensity ?? 1.35, metalness: ENTITIES.obstacleMetalness, roughness: ENTITIES.obstacleRoughness })
+  const model = entry.model === 'spiked-enemy' ? createSpikedObstacle(material) : new THREE.Mesh(fallingRockGeometry, material)
+  model.rotation.set(0.28, -0.55, 0.14)
+  previewScene.add(model)
+  encyclopediaPreviewRenderer.render(previewScene, previewCamera)
+  material.dispose()
+}
+function renderEncyclopedia() {
+  const entry = getEncyclopediaEntry()
+  encyclopediaCategory.textContent = entry.category.toUpperCase()
+  encyclopediaName.textContent = entry.name
+  encyclopediaDescription.textContent = entry.description
+  encyclopediaList.innerHTML = ENCYCLOPEDIA_ENTRIES.map((item) => `<button class="encyclopedia-entry ${item.id === entry.id ? 'selected' : ''}" data-encyclopedia-entry="${item.id}" type="button"><span>${item.category}</span><strong>${item.name}</strong><small>${item.model === 'spiked-enemy' ? 'SPIKED ENEMY MODEL' : 'FALLING ROCK MODEL'}</small></button>`).join('')
+  renderEncyclopediaPreview(entry)
+}
 
 const deathPreviewScene = new THREE.Scene()
 const deathPreviewCamera = new THREE.PerspectiveCamera(34, 1, 0.1, 20)
@@ -3037,12 +3080,30 @@ closeLabButton.addEventListener('click', () => {
   menuContent.classList.remove('hidden')
 })
 overlay.addEventListener('click', (event) => {
-  if (labPanel.classList.contains('hidden') || event.composedPath().includes(labPanel)) return
-  labPanel.classList.add('hidden')
-  menuContent.classList.remove('hidden')
+  const clickPath = event.composedPath()
+  if (!labPanel.classList.contains('hidden') && !clickPath.includes(labPanel)) {
+    labPanel.classList.add('hidden')
+    menuContent.classList.remove('hidden')
+  }
+  if (!buildingPanel.classList.contains('hidden') && !clickPath.includes(buildingPanel) && !clickPath.includes(buildingDraftModal)) {
+    buildingDraftModal.classList.add('hidden')
+    buildingPanel.classList.add('hidden')
+    menuContent.classList.remove('hidden')
+  }
+  if (!weaponryPanel.classList.contains('hidden') && weaponRevealModal.classList.contains('hidden') && !clickPath.includes(weaponryPanel)) {
+    weaponryPanel.classList.add('hidden')
+    menuContent.classList.remove('hidden')
+  }
+  if (!encyclopediaPanel.classList.contains('hidden') && !clickPath.includes(encyclopediaPanel)) {
+    encyclopediaPanel.classList.add('hidden')
+    menuContent.classList.remove('hidden')
+  }
 })
-openBuildingButton.addEventListener('click', () => { if (!featureUnlocks.buildingSystem && !unlockFeature('buildingSystem')) return; menuContent.classList.add('hidden'); buildingPanel.classList.remove('hidden'); renderBuildings() })
-openWeaponryButton.addEventListener('click', () => { if (!featureUnlocks.weaponry && !unlockFeature('weaponry')) return; menuContent.classList.add('hidden'); weaponryPanel.classList.remove('hidden'); renderWeaponry() })
+openBuildingButton.addEventListener('click', (event) => { event.stopPropagation(); if (!featureUnlocks.buildingSystem && !unlockFeature('buildingSystem')) return; menuContent.classList.add('hidden'); buildingPanel.classList.remove('hidden'); renderBuildings() })
+openWeaponryButton.addEventListener('click', (event) => { event.stopPropagation(); if (!featureUnlocks.weaponry && !unlockFeature('weaponry')) return; menuContent.classList.add('hidden'); weaponryPanel.classList.remove('hidden'); renderWeaponry() })
+openEncyclopediaButton.addEventListener('click', (event) => { event.stopPropagation(); menuContent.classList.add('hidden'); encyclopediaPanel.classList.remove('hidden'); renderEncyclopedia() })
+closeEncyclopediaButton.addEventListener('click', () => { encyclopediaPanel.classList.add('hidden'); menuContent.classList.remove('hidden') })
+encyclopediaList.addEventListener('click', (event) => { const entryButton = event.target.closest('[data-encyclopedia-entry]'); if (!entryButton) return; selectedEncyclopediaEntryId = entryButton.dataset.encyclopediaEntry; renderEncyclopedia() })
 closeWeaponryButton.addEventListener('click', () => { weaponryPanel.classList.add('hidden'); menuContent.classList.remove('hidden') })
 buyWeaponButton.addEventListener('click', () => buyWeapons(1))
 buyWeaponsFiveButton.addEventListener('click', () => buyWeapons(5))
@@ -3112,6 +3173,14 @@ pauseButton.addEventListener('click', () => {
   if (!started) return
   paused = !paused
   pauseMenu.classList.toggle('hidden', !paused)
+})
+
+document.addEventListener('click', (event) => {
+  if (pauseMenu.classList.contains('hidden')) return
+  const clickPath = event.composedPath()
+  if (clickPath.includes(pauseMenu) || clickPath.includes(pauseButton)) return
+  paused = false
+  pauseMenu.classList.add('hidden')
 })
 
 closeCheatConsoleButton.addEventListener('click', () => toggleCheatConsole(false))
