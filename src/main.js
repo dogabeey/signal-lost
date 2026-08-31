@@ -1260,7 +1260,7 @@ function renderEncyclopediaModel(entry, canvas) {
   previewScene.add(keyLight)
   const source = entry.model === 'spiked-enemy' ? OBSTACLE_TYPES[entry.id] : FALLING_ROCK_TYPES[entry.id]
   const material = new THREE.MeshStandardMaterial({ color: source.color, emissive: source.emissive, emissiveIntensity: source.emissiveIntensity ?? 1.35, metalness: ENTITIES.obstacleMetalness, roughness: ENTITIES.obstacleRoughness })
-  const model = entry.model === 'spiked-enemy' ? createSpikedObstacle(material) : new THREE.Mesh(fallingRockGeometry, material)
+  const model = entry.model === 'spiked-enemy' ? createSpikedObstacle(material, entry.id) : new THREE.Mesh(fallingRockGeometry, material)
   model.rotation.set(0.28, -0.55, 0.14)
   previewScene.add(model)
   renderer.render(previewScene, previewCamera)
@@ -1268,7 +1268,15 @@ function renderEncyclopediaModel(entry, canvas) {
   renderer.dispose()
 }
 function renderEncyclopedia() {
-  encyclopediaList.innerHTML = ENCYCLOPEDIA_ENTRIES.map((entry) => `<article class="encyclopedia-entry"><h3>${entry.name}</h3><canvas data-encyclopedia-model="${entry.id}" width="210" height="150" aria-label="${entry.name} model"></canvas><p>${entry.description}</p></article>`).join('')
+  const unlockedTier = getUnlockedTierIndex() + 1
+  const maskDescription = (description) => [...description].map((character) => character === ' ' ? ' ' : '?').join('')
+  encyclopediaList.innerHTML = ENCYCLOPEDIA_ENTRIES.map((entry) => {
+    const unlocked = entry.firstTier <= unlockedTier
+    const icon = unlocked
+      ? `<canvas data-encyclopedia-model="${entry.id}" width="210" height="150" aria-label="${entry.name} model"></canvas>`
+      : '<div class="encyclopedia-unknown-icon" role="img" aria-label="Unknown enemy">?</div>'
+    return `<article class="encyclopedia-entry ${unlocked ? '' : 'locked'}"><h3>${entry.name}</h3>${icon}<p>${unlocked ? entry.description : maskDescription(entry.description)}</p></article>`
+  }).join('')
   for (const canvas of encyclopediaList.querySelectorAll('[data-encyclopedia-model]')) {
     const entry = ENCYCLOPEDIA_ENTRIES.find((item) => item.id === canvas.dataset.encyclopediaModel)
     if (entry) renderEncyclopediaModel(entry, canvas)
@@ -1311,7 +1319,7 @@ function showDeathEnemyPreview(cause) {
   hideDeathEnemyPreview()
   const enemy = OBSTACLE_TYPES[type]
   const material = new THREE.MeshStandardMaterial({ color: enemy.color, emissive: enemy.emissive, emissiveIntensity: 1.35, metalness: ENTITIES.obstacleMetalness, roughness: ENTITIES.obstacleRoughness })
-  deathPreviewEnemy = createSpikedObstacle(material)
+  deathPreviewEnemy = createSpikedObstacle(material, type)
   deathPreviewEnemy.rotation.set(0.25, 0, -0.16)
   deathPreviewScene.add(deathPreviewEnemy)
   deathKillerCanvas.setAttribute('aria-label', `${type} enemy 3D model`)
@@ -1641,8 +1649,8 @@ function scheduleObstacle(savedWarning) {
 
 function createObstacle(position, type, savedObstacle) {
   const obstacleType = OBSTACLE_TYPES[type]
-  const material = new THREE.MeshStandardMaterial({ color: obstacleType.color, emissive: obstacleType.emissive, metalness: ENTITIES.obstacleMetalness, roughness: ENTITIES.obstacleRoughness })
-  const obstacle = createSpikedObstacle(material)
+  const material = new THREE.MeshStandardMaterial({ color: obstacleType.color, emissive: obstacleType.emissive, emissiveIntensity: type === 'spore' ? 2.3 : 1, metalness: ENTITIES.obstacleMetalness, roughness: ENTITIES.obstacleRoughness })
+  const obstacle = createSpikedObstacle(material, type)
   obstacle.position.copy(position)
   obstacle.position.y = GAME.obstacleGroundHeight
   obstacle.userData.type = type
@@ -1744,7 +1752,7 @@ function clearPorterTeleportTarget(porter) {
 }
 
 function createSpore(position, direction, generation = 1, savedSpore = {}) {
-  const spore = createSpikedObstacle(new THREE.MeshStandardMaterial({ color: COLORS.spore, emissive: COLORS.sporeEmissive, emissiveIntensity: 2, metalness: ENTITIES.obstacleMetalness, roughness: ENTITIES.obstacleRoughness }))
+  const spore = createSpikedObstacle(new THREE.MeshStandardMaterial({ color: COLORS.spore, emissive: COLORS.sporeEmissive, emissiveIntensity: 3, metalness: ENTITIES.obstacleMetalness, roughness: ENTITIES.obstacleRoughness }), 'spore')
   spore.scale.setScalar(generation === 1 ? ENTITIES.sporeFragmentScale : ENTITIES.sporeFragmentChildScale)
   spore.position.copy(position)
   scene.add(spore)
@@ -2626,7 +2634,21 @@ function updateGame(delta, total) {
       magnetPulse.scale.setScalar(effectiveRange * (1.1 - pulseProgress * 0.9))
       magnetPulse.material.opacity = 0.5 * (1 - pulseProgress)
     }
-    obstacle.rotation.y += delta * obstacle.userData.speed * obstacleSpeedMultiplier
+    const type = obstacle.userData.type
+    if (type === 'creeper' || type === 'poisonCreeper') {
+      for (const spike of obstacle.userData.spikes ?? []) {
+        spike.root.quaternion.copy(spike.baseQuaternion)
+        spike.root.rotateX(Math.sin(total * 4.6 + spike.phase) * 0.1)
+        spike.root.rotateZ(Math.cos(total * 3.8 + spike.phase) * 0.075)
+      }
+    }
+    if (type === 'porter') {
+      for (const spike of obstacle.userData.spikes ?? []) {
+        const scale = 0.86 + (Math.sin(total * 4.4 + spike.phase) + 1) * 0.12
+        spike.root.scale.set(1, scale, 1)
+      }
+    }
+    obstacle.rotation.y += delta * (type === 'chaser' ? 4.2 : obstacle.userData.speed * obstacleSpeedMultiplier)
     obstacle.position.y = ANIMATION.obstacleBobBaseHeight + Math.sin(total * ANIMATION.obstacleBobSpeed + obstacle.position.x) * ANIMATION.obstacleBobAmplitude
     if (obstacle.userData.type === 'poisonCreeper') {
       obstacle.userData.poisonTrailTimer += delta
@@ -2686,7 +2708,7 @@ function updateGame(delta, total) {
     }
     if (obstacle.userData.type === 'spore') {
       obstacle.userData.age += delta
-      obstacle.userData.material.emissiveIntensity = 1 + (Math.sin(obstacle.userData.age * 10) + 1) * 1.3
+      obstacle.userData.material.emissiveIntensity = 2.2 + (Math.sin(obstacle.userData.age * 10) + 1) * 1.5
       if (obstacle.userData.age >= ENTITIES.sporeFuseDuration) sporesToDetonate.push(obstacle)
     }
     enforceBarrierNodes(obstacle)
