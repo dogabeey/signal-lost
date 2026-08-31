@@ -131,9 +131,9 @@ export const RESEARCH_CONFIG = {
       category: 'Economy',
       name: 'Cell Increment Per Cell',
       description: 'Each collected Cell increases the standard Cell spawn rate.',
-      maxLevel: 50,
+      maxLevel: 10,
       effect: { stat: 'cellSpawnRatePerCell', perLevel: 0.01, format: 'percent' },
-      cost: { currency: 'cash', base: 150, multiplier: 1.32, jerk: 1.002 },
+      cost: { currency: 'cash', base: 1200, multiplier: 1.5, jerk: 1.05 },
       duration: { baseMs: 90_000, multiplier: 1.2 },
     },
     {
@@ -143,7 +143,7 @@ export const RESEARCH_CONFIG = {
       description: 'Increases the Cash earned from every standard cell.',
       maxLevel: 99,
       effect: { stat: 'cashMultiplier', perLevel: 0.05, format: 'percent' },
-      cost: { currency: 'cash', base: 50, multiplier: 1.35, jerk: 1.00075 },
+      cost: { currency: 'cash', base: 50, multiplier: 1.35, jerk: 1.007 },
       duration: { baseMs: 60_000, multiplier: 1.25 },
     },
     {
