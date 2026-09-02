@@ -129,6 +129,7 @@ h1.death-title { font-size: clamp(28px, 5vw, 54px); line-height: 1.05; max-width
 .anomaly-run-card h2 { color: #ffb48b; font: 700 27px 'Trebuchet MS', Arial, sans-serif; margin: 5px 0 12px; }
 .anomaly-run-card > p:not(.eyebrow) { line-height: 1.5; margin: 0 auto 16px; }
 .anomaly-reward { color: #d8c1ff; font: 700 13px 'Trebuchet MS', Arial, sans-serif; letter-spacing: 0.06em; }
+.anomaly-reset { color: #aeb8d0; font: 11px 'Trebuchet MS', Arial, sans-serif; margin-top: -9px !important; }
 .anomaly-run-card > div { display: flex; gap: 10px; justify-content: center; }
 .menu-exit-button { background: #e25858; box-shadow: 4px 4px 0 #7d2828; color: #2b1515; }
 .menu-exit-button:hover { box-shadow: 2px 2px 0 #7d2828; }

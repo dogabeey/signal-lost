@@ -1,4 +1,6 @@
 export const ANOMALY_CONFIG = {
+  unlockTier: 2,
+  weeklyAnchorDate: '2026-09-02',
   rewardCellTarget: 250,
   rewardBaseChronoshards: 10,
   rewardChronoshardStepPerTier: 2,

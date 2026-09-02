@@ -120,7 +120,7 @@ document.querySelector('#app').innerHTML = `
       <section class="settings-panel hidden" id="settings-panel" aria-label="Settings"><div class="lab-header"><div><p class="eyebrow">PREFERENCES</p><h2>SETTINGS</h2></div><button class="secondary-button" id="close-settings-button" type="button">BACK</button></div><div class="settings-section"><h3>GRAPHICS</h3><div class="settings-row"><div><strong>Quality</strong><small>Changes render resolution and shadows.</small></div><div class="settings-options" id="graphics-quality-options"></div></div><label class="settings-row settings-toggle"><span><strong>Shadows</strong><small>Show dynamic object shadows.</small></span><input id="setting-shadows" type="checkbox"></label></div><div class="settings-section"><h3>GAMEPLAY</h3><label class="settings-row"><span><strong>Camera Distance</strong><small>Adjusts how far the camera sits from your ship.</small></span><output id="camera-distance-value"></output><input id="setting-camera-distance" type="range" min="80" max="130" step="5"></label><label class="settings-row settings-toggle"><span><strong>Auto Pause</strong><small>Pause the run when the game loses focus.</small></span><input id="setting-auto-pause" type="checkbox"></label><label class="settings-row settings-toggle"><span><strong>High Contrast HUD</strong><small>Improves HUD readability.</small></span><input id="setting-high-contrast" type="checkbox"></label></div><div class="settings-section"><h3>SOUND</h3><label class="settings-row"><span><strong>Master Volume</strong><small>Controls all game sound effects.</small></span><output id="master-volume-value"></output><input id="setting-master-volume" type="range" min="0" max="100" step="1"></label><label class="settings-row settings-toggle"><span><strong>Mute All</strong><small>Instantly silence all sound effects.</small></span><input id="setting-muted" type="checkbox"></label><label class="settings-row settings-toggle"><span><strong>Spatial Audio</strong><small>Pan sounds based on their world position.</small></span><input id="setting-spatial-audio" type="checkbox"></label></div><div class="settings-section settings-actions"><button id="open-patch-notes-button" type="button">PATCH NOTES</button></div></section>
       <section class="patch-notes-panel hidden" id="patch-notes-panel" aria-label="Patch notes"><div class="lab-header"><div><p class="eyebrow">VERSION ${BUILD_INFO.version} · BUILD ${BUILD_INFO.number}</p><h2>PATCH NOTES</h2></div><button class="secondary-button" id="close-patch-notes-button" type="button">BACK</button></div>${PATCH_NOTES.map((entry) => `<article class="patch-notes-entry"><h3>${entry.heading}</h3><ul>${entry.changes.map((change) => `<li>${change}</li>`).join('')}</ul></article>`).join('')}</section>
     </section>
-    <section class="anomaly-run-modal hidden" id="anomaly-run-modal" aria-label="Anomaly Run challenge"><div class="anomaly-run-card"><p class="eyebrow">WEEKLY ANOMALY</p><h2 id="anomaly-challenge-name"></h2><p id="anomaly-challenge-description"></p><p class="anomaly-reward" id="anomaly-reward"></p><div><button class="secondary-button" id="cancel-anomaly-run" type="button">BACK</button><button id="confirm-anomaly-run" type="button">START ANOMALY RUN</button></div></div></section>
+    <section class="anomaly-run-modal hidden" id="anomaly-run-modal" aria-label="Anomaly Run challenge"><div class="anomaly-run-card"><p class="eyebrow">WEEKLY ANOMALY</p><h2 id="anomaly-challenge-name"></h2><p id="anomaly-challenge-description"></p><p class="anomaly-reward" id="anomaly-reward"></p><p class="anomaly-reset" id="anomaly-reset"></p><div><button class="secondary-button" id="cancel-anomaly-run" type="button">BACK</button><button id="confirm-anomaly-run" type="button">START ANOMALY RUN</button></div></div></section>
     <div class="build-bar hidden" id="build-bar"><span id="build-status">SELECT A BUILDING</span><div id="build-options"></div><button id="exit-build-mode" type="button">DONE</button></div>
     <section class="building-upgrade hidden" id="building-upgrade"></section>
   </main>
@@ -143,6 +143,7 @@ const anomalyRunModal = document.querySelector('#anomaly-run-modal')
 const anomalyChallengeName = document.querySelector('#anomaly-challenge-name')
 const anomalyChallengeDescription = document.querySelector('#anomaly-challenge-description')
 const anomalyRewardElement = document.querySelector('#anomaly-reward')
+const anomalyResetElement = document.querySelector('#anomaly-reset')
 const confirmAnomalyRunButton = document.querySelector('#confirm-anomaly-run')
 const cancelAnomalyRunButton = document.querySelector('#cancel-anomaly-run')
 const menuContent = document.querySelector('#menu-content')
@@ -783,6 +784,7 @@ function renderTierOptions() {
   milestoneClaimCount.textContent = String(claimableCount)
   milestoneClaimCount.hidden = claimableCount === 0
   renderFeatureUnlockButtons()
+  updateStartButton()
 }
 
 function selectTier(tierIndex) {
@@ -1299,18 +1301,28 @@ function renderEncyclopediaModel(entry, canvas) {
   renderer.dispose()
 }
 
+function getAnomalyWeekIndex(date = new Date()) {
+  const anchor = new Date(`${ANOMALY_CONFIG.weeklyAnchorDate}T00:00:00Z`)
+  const utcDate = Date.UTC(date.getFullYear(), date.getMonth(), date.getDate())
+  return Math.max(0, Math.floor((utcDate - anchor.getTime()) / (7 * 86_400_000)))
+}
+
 function getAnomalyWeekId(date = new Date()) {
-  const utcDate = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()))
-  const weekday = utcDate.getUTCDay() || 7
-  utcDate.setUTCDate(utcDate.getUTCDate() + 4 - weekday)
-  const yearStart = new Date(Date.UTC(utcDate.getUTCFullYear(), 0, 1))
-  const week = Math.ceil(((utcDate - yearStart) / 86_400_000 + 1) / 7)
-  return `${utcDate.getUTCFullYear()}-W${String(week).padStart(2, '0')}`
+  return String(getAnomalyWeekIndex(date))
+}
+
+function getNextAnomalyResetDate(date = new Date()) {
+  const anchor = new Date(`${ANOMALY_CONFIG.weeklyAnchorDate}T00:00:00Z`)
+  anchor.setUTCDate(anchor.getUTCDate() + (getAnomalyWeekIndex(date) + 1) * 7)
+  return anchor
+}
+
+function formatAnomalyDate(date) {
+  return `${String(date.getUTCDate()).padStart(2, '0')}.${String(date.getUTCMonth() + 1).padStart(2, '0')}.${date.getUTCFullYear()}`
 }
 
 function getWeeklyAnomalyChallenge(weekId = getAnomalyWeekId()) {
-  const [year, week] = weekId.match(/\d+/g).map(Number)
-  return ANOMALY_CONFIG.challenges[(year * 53 + week) % ANOMALY_CONFIG.challenges.length]
+  return ANOMALY_CONFIG.challenges[Number(weekId) % ANOMALY_CONFIG.challenges.length]
 }
 
 function getAnomalyReward(tierIndex) {
@@ -2373,9 +2385,10 @@ function restoreSavedRound() {
 function updateStartButton() {
   startButton.textContent = savedRound ? 'CONTINUE' : 'START RUN'
   const rewardClaimed = hasClaimedAnomalyReward()
-  anomalyRunButton.textContent = rewardClaimed ? 'ANOMALY RUN (Reward Claimed)' : 'ANOMALY RUN'
-  anomalyRunButton.title = rewardClaimed ? 'This tier’s weekly Anomaly reward has already been claimed.' : 'View this week’s challenge.'
-  anomalyRunButton.disabled = Boolean(savedRound) || rewardClaimed
+  const unlocked = isResearchTierUnlocked(ANOMALY_CONFIG.unlockTier)
+  anomalyRunButton.textContent = !unlocked ? `ANOMALY RUN · TIER ${ANOMALY_CONFIG.unlockTier}` : rewardClaimed ? 'ANOMALY RUN (Reward Claimed)' : 'ANOMALY RUN'
+  anomalyRunButton.title = !unlocked ? `Unlocks at Tier ${ANOMALY_CONFIG.unlockTier}.` : rewardClaimed ? 'This tier’s weekly Anomaly reward has already been claimed.' : 'View this week’s challenge.'
+  anomalyRunButton.disabled = Boolean(savedRound) || rewardClaimed || !unlocked
 }
 
 function openAnomalyRunDialog() {
@@ -2383,6 +2396,7 @@ function openAnomalyRunDialog() {
   anomalyChallengeName.textContent = `${challenge.name} (Tier ${selectedTierIndex + 1})`
   anomalyChallengeDescription.textContent = challenge.description
   anomalyRewardElement.textContent = `250 CELLS · REWARD ✦ ${getAnomalyReward(selectedTierIndex)}`
+  anomalyResetElement.textContent = `(New Anomaly in ${formatAnomalyDate(getNextAnomalyResetDate())})`
   anomalyRunModal.classList.remove('hidden')
 }
 
