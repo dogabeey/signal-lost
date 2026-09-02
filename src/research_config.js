@@ -11,6 +11,7 @@
 
 export const RESEARCH_CONFIG = {
   durationsEnabled: false,
+  categoryOrder: ['Player Enhancements', 'Economy', 'Boosters'],
   featureUnlocks: {
     researchLab: { minTier: 1, chronoshardCost: 0, requiredMilestone: 'tier-1-10' },
     buildingSystem: { minTier: 4, chronoshardCost: 50 },
@@ -285,7 +286,7 @@ export const RESEARCH_CONFIG = {
       ['chaser-range-debuff', 'Chaser Range Dampener', 'Reduces Chaser detection range.', 'chaserRangeDebuff'],
       ['creeper-speed-debuff', 'Creeper Slowdown', 'Reduces Creeper movement speed.', 'creeperSpeedDebuff'],
       ['banger-range-debuff', 'Banger Range Dampener', 'Reduces Banger blast range.', 'bangerRangeDebuff'],
-      ['banger-enemy-destruction', 'Banger Disruption', 'Gives each enemy in a Banger blast a separate destruction chance.', 'bangerEnemyDestroyChance'],
+      ['banger-enemy-destruction', 'Banger Disruption', 'Give the banger\'s blast a chance to destroy affected enemies.', 'bangerEnemyDestroyChance'],
       ['shooter-range-debuff', 'Shooter Range Dampener', 'Reduces Shooter firing range.', 'shooterRangeDebuff'],
       ['shooter-projectile-debuff', 'Projectile Drag', 'Reduces Shooter projectile speed.', 'shooterProjectileSpeedDebuff'],
       ['porter-interval-debuff', 'Porter Delay Field', 'Increases the interval between Porter teleports.', 'porterIntervalBonus'],
