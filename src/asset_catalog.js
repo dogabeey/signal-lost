@@ -20,6 +20,14 @@ const weaponAssets = {
   demonMode: publicAsset('weapons/demon-mode.png'),
 }
 
+const uiIconAssets = {
+  researchLab: publicAsset('ui/research-lab.svg'),
+  buildingSystem: publicAsset('ui/building-system.svg'),
+  weaponry: publicAsset('ui/weaponry.svg'),
+  encyclopedia: publicAsset('ui/encyclopedia.svg'),
+  settings: publicAsset('ui/settings.svg'),
+}
+
 // Add a matching generated PNG here whenever a new model is introduced.
 export function getBuildingAsset(type) {
   return buildingAssets[type] ?? ''
@@ -27,4 +35,8 @@ export function getBuildingAsset(type) {
 
 export function getWeaponAsset(type) {
   return weaponAssets[type] ?? ''
+}
+
+export function getUiIconAsset(id) {
+  return uiIconAssets[id] ?? ''
 }

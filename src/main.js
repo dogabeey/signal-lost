@@ -24,11 +24,23 @@ import { formatCompactNumber, formatCurrency, formatDuration, formatResearchEffe
 import { TIPS } from './tips.js'
 import { MILESTONES } from './milestones.js'
 import { WEAPON_CONFIG } from './weapons_config.js'
-import { getBuildingAsset, getWeaponAsset } from './asset_catalog.js'
+import { getBuildingAsset, getUiIconAsset, getWeaponAsset } from './asset_catalog.js'
 import { DAMAGE_TYPES } from './damage_types.js'
 import './style.css'
 
 const IS_STEAM_BUILD = import.meta.env.VITE_STEAM_BUILD === 'true'
+
+function getMenuIconMarkup(iconId, fallback) {
+  return `<span class="menu-button-icon" aria-hidden="true"><img data-menu-icon src="${getUiIconAsset(iconId)}" alt=""><span class="menu-icon-fallback" hidden>${fallback}</span></span>`
+}
+
+function getSystemMenuButtonMarkup({ id, iconId, fallback, label }) {
+  return `<button class="menu-system-button" id="${id}" type="button" aria-label="${label}" title="${label}">${getMenuIconMarkup(iconId, fallback)}<span class="menu-button-label">${label}</span><span class="menu-button-lock" hidden></span></button>`
+}
+
+function getUtilityMenuButtonMarkup({ id, iconId, fallback, label }) {
+  return `<button class="menu-system-button menu-utility-button" id="${id}" type="button" aria-label="${label}" title="${label}">${getMenuIconMarkup(iconId, fallback)}<span class="menu-button-label">${label}</span></button>`
+}
 
 document.querySelector('#app').innerHTML = `
   <main class="game-shell">
@@ -54,6 +66,7 @@ document.querySelector('#app').innerHTML = `
     <div class="cash-indicators" id="cash-indicators" aria-live="polite"></div>
     <div class="build-grid-ui hidden" id="build-grid-ui" aria-label="Build locations"></div>
     <div class="milestone-claim-toast hidden" id="milestone-claim-toast" role="status" aria-live="polite"></div>
+    <div class="feature-lock-toast hidden" id="feature-lock-toast" role="status" aria-live="polite"></div>
     <section class="pause-menu hidden" id="pause-menu" aria-label="Pause menu">
       <p class="eyebrow">ROUND PAUSED</p>
       <h2>PAUSE</h2>
@@ -93,11 +106,11 @@ document.querySelector('#app').innerHTML = `
         <div class="menu-actions">
           <button class="menu-start-button" id="start-button" type="button">START RUN</button>
           <button class="menu-start-button anomaly-run-button" id="anomaly-run-button" type="button">ANOMALY RUN</button>
-          <button class="menu-system-button" id="open-lab-button" type="button">RESEARCH LAB</button>
-          <button class="menu-system-button" id="open-building-button" type="button">BUILDING SYSTEM</button>
-          <button class="menu-system-button" id="open-weaponry-button" type="button">WEAPONRY</button>
-          <button class="menu-system-button" id="open-encyclopedia-button" type="button">ENCYCLOPEDIA</button>
-          <button class="menu-system-button" id="open-settings-button" type="button">SETTINGS</button>
+          ${getSystemMenuButtonMarkup({ id: 'open-lab-button', iconId: 'researchLab', fallback: 'RL', label: 'RESEARCH LAB' })}
+          ${getSystemMenuButtonMarkup({ id: 'open-building-button', iconId: 'buildingSystem', fallback: 'BS', label: 'BUILDING SYSTEM' })}
+          ${getSystemMenuButtonMarkup({ id: 'open-weaponry-button', iconId: 'weaponry', fallback: 'W', label: 'WEAPONRY' })}
+          ${getUtilityMenuButtonMarkup({ id: 'open-encyclopedia-button', iconId: 'encyclopedia', fallback: 'E', label: 'ENCYCLOPEDIA' })}
+          ${getUtilityMenuButtonMarkup({ id: 'open-settings-button', iconId: 'settings', fallback: 'S', label: 'SETTINGS' })}
           ${IS_STEAM_BUILD ? '<button class="menu-exit-button" id="exit-game-button" type="button">EXIT GAME</button>' : ''}
         </div>
       </div>
@@ -128,6 +141,13 @@ document.querySelector('#app').innerHTML = `
 `
 
 const canvas = document.querySelector('#game')
+for (const icon of document.querySelectorAll('[data-menu-icon]')) {
+  icon.addEventListener('error', () => {
+    icon.hidden = true
+    const fallback = icon.nextElementSibling
+    if (fallback) fallback.hidden = false
+  })
+}
 const scoreElement = document.querySelector('#score')
 const hudTierElement = document.querySelector('#hud-tier')
 const shieldIndicators = document.querySelector('#shield-indicators')
@@ -156,6 +176,7 @@ const milestoneMaxCells = document.querySelector('#milestone-max-cells')
 const milestoneTrack = document.querySelector('#milestone-track')
 const milestoneClaimCount = document.querySelector('#milestone-claim-count')
 const milestoneClaimToast = document.querySelector('#milestone-claim-toast')
+const featureLockToast = document.querySelector('#feature-lock-toast')
 const previousMilestoneTierButton = document.querySelector('#previous-milestone-tier')
 const nextMilestoneTierButton = document.querySelector('#next-milestone-tier')
 const milestoneTierLabel = document.querySelector('#milestone-tier-label')
@@ -631,6 +652,38 @@ function clearResearchSave() {
 
 function saveFeatureUnlocks() { writeStoredJson(FEATURE_UNLOCKS_STORAGE_KEY, featureUnlocks) }
 function clearFeatureUnlocks() { featureUnlocks = { researchLab: false, buildingSystem: false, weaponry: false }; saveFeatureUnlocks(); renderFeatureUnlockButtons() }
+function shouldShowCompactSystemLocks() {
+  return window.matchMedia('(max-width: 580px), (hover: none) and (pointer: coarse)').matches && window.innerHeight >= window.innerWidth
+}
+
+let featureLockToastTimer
+function showFeatureLockToast(button, message) {
+  featureLockToast.textContent = message
+  const rect = button.getBoundingClientRect()
+  featureLockToast.style.left = `${rect.left + rect.width / 2}px`
+  featureLockToast.style.top = `${Math.max(12, rect.top - 8)}px`
+  featureLockToast.classList.remove('hidden')
+  window.clearTimeout(featureLockToastTimer)
+  featureLockToastTimer = window.setTimeout(() => featureLockToast.classList.add('hidden'), 4_000)
+}
+
+function getFeatureUnlockMessage(feature) {
+  const unlock = RESEARCH_CONFIG.featureUnlocks[feature]
+  if (getUnlockedTierIndex() + 1 < unlock.minTier) return `You need to reach Tier ${unlock.minTier}.`
+  if (unlock.requiredMilestone && !milestoneState.claimed.includes(unlock.requiredMilestone)) {
+    const milestone = MILESTONES.find((entry) => entry.id === unlock.requiredMilestone)
+    if (milestone) return `You need to collect ${milestone.cells} Cells in Tier ${milestone.tier}.`
+  }
+  if (chronoshards < unlock.chronoshardCost) return `You need ✦ ${unlock.chronoshardCost} Chronoshards.`
+  return 'This system is not available yet.'
+}
+
+function tryUnlockFeature(feature, button) {
+  if (featureUnlocks[feature] || unlockFeature(feature)) return true
+  showFeatureLockToast(button, getFeatureUnlockMessage(feature))
+  return false
+}
+
 function renderFeatureUnlockButtons() {
   for (const [feature, button] of [['researchLab', openLabButton], ['buildingSystem', openBuildingButton], ['weaponry', openWeaponryButton]]) {
     const unlock = RESEARCH_CONFIG.featureUnlocks[feature]
@@ -638,8 +691,13 @@ function renderFeatureUnlockButtons() {
     const tierReady = getUnlockedTierIndex() + 1 >= unlock.minTier && (!unlock.requiredMilestone || milestoneState.claimed.includes(unlock.requiredMilestone))
     const name = feature === 'researchLab' ? 'RESEARCH LAB' : feature === 'buildingSystem' ? 'BUILDING SYSTEM' : 'WEAPONRY'
     button.className = `menu-system-button ${unlocked ? 'is-unlocked' : tierReady ? 'is-unlockable' : 'is-locked'}`
-    button.disabled = !unlocked && !tierReady
-    button.textContent = unlocked ? name : tierReady ? `UNLOCK ${name} · ✦ ${unlock.chronoshardCost}` : `${name} · TIER ${unlock.minTier}`
+    button.disabled = false
+    button.querySelector('.menu-button-label').textContent = unlocked ? name : tierReady ? `UNLOCK ${name} · ✦ ${unlock.chronoshardCost}` : `${name} · TIER ${unlock.minTier}`
+    const lockOverlay = button.querySelector('.menu-button-lock')
+    lockOverlay.hidden = unlocked || !shouldShowCompactSystemLocks()
+    lockOverlay.innerHTML = tierReady
+      ? `<span class="chronoshard-symbol" aria-hidden="true">✦</span><span>${unlock.chronoshardCost}</span>`
+      : `<span>TIER ${unlock.minTier}</span>`
   }
 }
 function unlockFeature(feature) {
@@ -1218,7 +1276,7 @@ const anomalyScoutShip = createPlayerShip({
   COLORS: { ...COLORS, player: '#ff4d4d', playerEmissive: '#9d1010', playerWing: '#ff6767', playerWingEmissive: '#9d1010', playerRing: '#ffaaa0', slowAura: '#ff4d4d' },
   ENTITIES,
   GAME,
-  opacity: 0.58,
+  opacity: 0.72,
 })
 const anomalyScout = { ...anomalyScoutShip, active: false }
 anomalyScout.player.visible = false
@@ -2269,7 +2327,7 @@ function updateAnomalyScout(delta, total) {
     direction.y = 0
     if (direction.lengthSq() > 0) {
       direction.normalize()
-      anomalyScout.player.position.addScaledVector(direction, 3.65 * delta)
+      anomalyScout.player.position.addScaledVector(direction, getEffectivePlayerSpeed() * 0.65 * delta)
       anomalyScout.player.rotation.y = Math.atan2(direction.x, direction.z)
     }
     if (anomalyScout.player.position.distanceTo(target.position) < GAME.cellPickupRadius) {
@@ -2620,6 +2678,10 @@ function updateHud() {
   shieldIndicators.hidden = shieldCharges === 0
 }
 
+function getEffectivePlayerSpeed() {
+  return GAME.playerSpeed * (1 + getResearchStatBonus('playerSpeedMultiplier')) * (speedBoosterTime > 0 ? 2 : 1) * (demonModeTime > 0 ? 1.8 : 1)
+}
+
 function updateGame(delta, total) {
   for (const state of playerDamageStates.values()) state.exposed = false
   const difficulty = getCurrentDifficulty()
@@ -2649,7 +2711,7 @@ function updateGame(delta, total) {
 
   if (direction.lengthSq() > 0) {
     direction.normalize()
-    player.position.addScaledVector(direction, GAME.playerSpeed * (1 + getResearchStatBonus('playerSpeedMultiplier')) * (speedBoosterTime > 0 ? 2 : 1) * (demonModeTime > 0 ? 1.8 : 1) * delta)
+    player.position.addScaledVector(direction, getEffectivePlayerSpeed() * delta)
     playerTargetHeading = Math.atan2(direction.x, direction.z)
   }
 
@@ -3434,7 +3496,7 @@ confirmAnomalyRunButton.addEventListener('click', () => startRound(true))
 
 openLabButton.addEventListener('click', (event) => {
   event.stopPropagation()
-  if (!featureUnlocks.researchLab && !unlockFeature('researchLab')) return
+  if (!tryUnlockFeature('researchLab', openLabButton)) return
   menuContent.classList.add('hidden')
   labPanel.classList.remove('hidden')
   setLabMessage()
@@ -3485,8 +3547,8 @@ overlay.addEventListener('click', (event) => {
     menuContent.classList.remove('hidden')
   }
 })
-openBuildingButton.addEventListener('click', (event) => { event.stopPropagation(); if (!featureUnlocks.buildingSystem && !unlockFeature('buildingSystem')) return; menuContent.classList.add('hidden'); buildingPanel.classList.remove('hidden'); renderBuildings() })
-openWeaponryButton.addEventListener('click', (event) => { event.stopPropagation(); if (!featureUnlocks.weaponry && !unlockFeature('weaponry')) return; menuContent.classList.add('hidden'); weaponryPanel.classList.remove('hidden'); renderWeaponry() })
+openBuildingButton.addEventListener('click', (event) => { event.stopPropagation(); if (!tryUnlockFeature('buildingSystem', openBuildingButton)) return; menuContent.classList.add('hidden'); buildingPanel.classList.remove('hidden'); renderBuildings() })
+openWeaponryButton.addEventListener('click', (event) => { event.stopPropagation(); if (!tryUnlockFeature('weaponry', openWeaponryButton)) return; menuContent.classList.add('hidden'); weaponryPanel.classList.remove('hidden'); renderWeaponry() })
 openEncyclopediaButton.addEventListener('click', (event) => { event.stopPropagation(); menuContent.classList.add('hidden'); encyclopediaPanel.classList.remove('hidden'); renderEncyclopedia() })
 closeEncyclopediaButton.addEventListener('click', () => { encyclopediaPanel.classList.add('hidden'); menuContent.classList.remove('hidden') })
 closeWeaponryButton.addEventListener('click', () => { weaponryPanel.classList.add('hidden'); menuContent.classList.remove('hidden') })
@@ -3668,6 +3730,7 @@ document.addEventListener('visibilitychange', () => {
   pauseMenu.classList.remove('hidden')
 })
 window.addEventListener('resize', () => {
+  renderFeatureUnlockButtons()
   camera.aspect = window.innerWidth / window.innerHeight
   camera.updateProjectionMatrix()
   renderer.setSize(window.innerWidth, window.innerHeight)
