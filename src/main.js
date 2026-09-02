@@ -35,7 +35,8 @@ function getMenuIconMarkup(iconId, fallback) {
 }
 
 function getSystemMenuButtonMarkup({ id, iconId, fallback, label }) {
-  return `<button class="menu-system-button" id="${id}" type="button" aria-label="${label}" title="${label}">${getMenuIconMarkup(iconId, fallback)}<span class="menu-button-label">${label}</span><span class="menu-button-lock" hidden></span></button>`
+  const homeClass = id === 'home-button' ? ' menu-home-button' : ''
+  return `<button class="menu-system-button${homeClass}" id="${id}" type="button" aria-label="${label}" title="${label}">${getMenuIconMarkup(iconId, fallback)}<span class="menu-button-label">${label}</span><span class="menu-button-lock" hidden></span></button>`
 }
 
 function getUtilityMenuButtonMarkup({ id, iconId, fallback, label }) {
@@ -103,16 +104,17 @@ document.querySelector('#app').innerHTML = `
           <p class="tier-requirement" id="tier-requirement"></p>
           <button class="milestone-button" id="open-milestones-button" type="button">VIEW ASCENSION <span class="milestone-claim-count" id="milestone-claim-count" hidden>0</span></button>
         </div>
-        <div class="menu-actions">
+      </div>
+      <div class="menu-actions">
           <button class="menu-start-button" id="start-button" type="button">START RUN</button>
           <button class="menu-start-button anomaly-run-button" id="anomaly-run-button" type="button">ANOMALY RUN</button>
+          ${getSystemMenuButtonMarkup({ id: 'home-button', iconId: 'home', fallback: 'H', label: 'HOME' })}
           ${getSystemMenuButtonMarkup({ id: 'open-lab-button', iconId: 'researchLab', fallback: 'RL', label: 'RESEARCH LAB' })}
-          ${getSystemMenuButtonMarkup({ id: 'open-building-button', iconId: 'buildingSystem', fallback: 'BS', label: 'BUILDING SYSTEM' })}
           ${getSystemMenuButtonMarkup({ id: 'open-weaponry-button', iconId: 'weaponry', fallback: 'W', label: 'WEAPONRY' })}
+          ${getSystemMenuButtonMarkup({ id: 'open-building-button', iconId: 'buildingSystem', fallback: 'BS', label: 'BUILDING SYSTEM' })}
           ${getUtilityMenuButtonMarkup({ id: 'open-encyclopedia-button', iconId: 'encyclopedia', fallback: 'E', label: 'ENCYCLOPEDIA' })}
           ${getUtilityMenuButtonMarkup({ id: 'open-settings-button', iconId: 'settings', fallback: 'S', label: 'SETTINGS' })}
           ${IS_STEAM_BUILD ? '<button class="menu-exit-button" id="exit-game-button" type="button">EXIT GAME</button>' : ''}
-        </div>
       </div>
       <section class="milestones-panel hidden" id="milestones-panel" aria-label="Ascension">
         <div class="milestones-header"><div><p class="eyebrow">BEST SINGLE RUN</p><h2>ASCENSION</h2><p>MAX CELLS <strong id="milestone-max-cells">000</strong></p></div><button class="secondary-button" id="close-milestones-button" type="button">BACK</button></div>
@@ -182,6 +184,7 @@ const nextMilestoneTierButton = document.querySelector('#next-milestone-tier')
 const milestoneTierLabel = document.querySelector('#milestone-tier-label')
 const labPanel = document.querySelector('#lab-panel')
 const openLabButton = document.querySelector('#open-lab-button')
+const homeButton = document.querySelector('#home-button')
 const openBuildingButton = document.querySelector('#open-building-button')
 const openWeaponryButton = document.querySelector('#open-weaponry-button')
 const openEncyclopediaButton = document.querySelector('#open-encyclopedia-button')
@@ -659,9 +662,10 @@ function shouldShowCompactSystemLocks() {
 let featureLockToastTimer
 function showFeatureLockToast(button, message) {
   featureLockToast.textContent = message
-  const rect = button.getBoundingClientRect()
-  featureLockToast.style.left = `${rect.left + rect.width / 2}px`
-  featureLockToast.style.top = `${Math.max(12, rect.top - 8)}px`
+  const startRect = startButton.getBoundingClientRect()
+  const anomalyRect = anomalyRunButton.getBoundingClientRect()
+  featureLockToast.style.left = `${window.innerWidth / 2}px`
+  featureLockToast.style.top = `${Math.min(window.innerHeight - 12, Math.max(startRect.bottom, anomalyRect.bottom) + 12)}px`
   featureLockToast.classList.remove('hidden')
   window.clearTimeout(featureLockToastTimer)
   featureLockToastTimer = window.setTimeout(() => featureLockToast.classList.add('hidden'), 4_000)
@@ -690,7 +694,7 @@ function renderFeatureUnlockButtons() {
     const unlocked = featureUnlocks[feature]
     const tierReady = getUnlockedTierIndex() + 1 >= unlock.minTier && (!unlock.requiredMilestone || milestoneState.claimed.includes(unlock.requiredMilestone))
     const name = feature === 'researchLab' ? 'RESEARCH LAB' : feature === 'buildingSystem' ? 'BUILDING SYSTEM' : 'WEAPONRY'
-    button.className = `menu-system-button ${unlocked ? 'is-unlocked' : tierReady ? 'is-unlockable' : 'is-locked'}`
+    button.className = `menu-system-button ${unlocked ? 'is-unlocked' : tierReady ? 'is-unlockable' : 'is-locked'}${button.classList.contains('is-active') ? ' is-active' : ''}`
     button.disabled = false
     button.querySelector('.menu-button-label').textContent = unlocked ? name : tierReady ? `UNLOCK ${name} · ✦ ${unlock.chronoshardCost}` : `${name} · TIER ${unlock.minTier}`
     const lockOverlay = button.querySelector('.menu-button-lock')
@@ -929,10 +933,8 @@ function selectTier(tierIndex) {
 previousTierButton.addEventListener('click', () => selectTier(selectedTierIndex - 1))
 nextTierButton.addEventListener('click', () => selectTier(selectedTierIndex + 1))
 openMilestonesButton.addEventListener('click', () => {
-  menuContent.classList.add('hidden')
   milestoneTierIndex = selectedTierIndex
-  milestonesPanel.classList.remove('hidden')
-  renderMilestones()
+  openMenuPanel(milestonesPanel, renderMilestones)
 })
 closeMilestonesButton.addEventListener('click', () => {
   milestonesPanel.classList.add('hidden')
@@ -3494,16 +3496,60 @@ anomalyRunButton.addEventListener('click', openAnomalyRunDialog)
 cancelAnomalyRunButton.addEventListener('click', () => anomalyRunModal.classList.add('hidden'))
 confirmAnomalyRunButton.addEventListener('click', () => startRound(true))
 
+function hideMenuPanels() {
+  labPanel.classList.add('hidden')
+  buildingPanel.classList.add('hidden')
+  buildingDraftModal.classList.add('hidden')
+  buildingUpgrade.classList.add('hidden')
+  weaponryPanel.classList.add('hidden')
+  weaponRevealModal.classList.add('hidden')
+  encyclopediaPanel.classList.add('hidden')
+  settingsPanel.classList.add('hidden')
+  patchNotesPanel.classList.add('hidden')
+  milestonesPanel.classList.add('hidden')
+  anomalyRunModal.classList.add('hidden')
+  featureLockToast.classList.add('hidden')
+}
+
+const menuPanelButtons = new Map([
+  [labPanel, openLabButton],
+  [buildingPanel, openBuildingButton],
+  [weaponryPanel, openWeaponryButton],
+  [encyclopediaPanel, openEncyclopediaButton],
+  [settingsPanel, openSettingsButton],
+])
+
+function setActiveMenuButton(activeButton = homeButton) {
+  document.querySelectorAll('.menu-system-button').forEach((button) => button.classList.toggle('is-active', button === activeButton))
+}
+
+function closeMenuPanelsForHome() {
+  hideMenuPanels()
+  menuContent.classList.remove('hidden')
+  setActiveMenuButton()
+}
+
+function openMenuPanel(panel, renderPanel) {
+  hideMenuPanels()
+  menuContent.classList.add('hidden')
+  panel.classList.remove('hidden')
+  setActiveMenuButton(menuPanelButtons.get(panel))
+  renderPanel?.()
+}
+
+homeButton.addEventListener('click', (event) => {
+  event.stopPropagation()
+  closeMenuPanelsForHome()
+})
+
 openLabButton.addEventListener('click', (event) => {
   event.stopPropagation()
   if (!tryUnlockFeature('researchLab', openLabButton)) return
-  menuContent.classList.add('hidden')
-  labPanel.classList.remove('hidden')
   setLabMessage()
-  renderResearchLab()
+  openMenuPanel(labPanel, renderResearchLab)
 })
-openSettingsButton.addEventListener('click', () => { menuContent.classList.add('hidden'); settingsPanel.classList.remove('hidden'); renderSettings() })
-openPatchNotesButton.addEventListener('click', () => { settingsPanel.classList.add('hidden'); patchNotesPanel.classList.remove('hidden') })
+openSettingsButton.addEventListener('click', (event) => { event.stopPropagation(); openMenuPanel(settingsPanel, renderSettings) })
+openPatchNotesButton.addEventListener('click', () => openMenuPanel(patchNotesPanel))
 exitGameButton?.addEventListener('click', () => {
   window.dispatchEvent(new Event('asteroid-belt:exit-requested'))
   if (window.steamShell?.quit) {
@@ -3547,9 +3593,9 @@ overlay.addEventListener('click', (event) => {
     menuContent.classList.remove('hidden')
   }
 })
-openBuildingButton.addEventListener('click', (event) => { event.stopPropagation(); if (!tryUnlockFeature('buildingSystem', openBuildingButton)) return; menuContent.classList.add('hidden'); buildingPanel.classList.remove('hidden'); renderBuildings() })
-openWeaponryButton.addEventListener('click', (event) => { event.stopPropagation(); if (!tryUnlockFeature('weaponry', openWeaponryButton)) return; menuContent.classList.add('hidden'); weaponryPanel.classList.remove('hidden'); renderWeaponry() })
-openEncyclopediaButton.addEventListener('click', (event) => { event.stopPropagation(); menuContent.classList.add('hidden'); encyclopediaPanel.classList.remove('hidden'); renderEncyclopedia() })
+openBuildingButton.addEventListener('click', (event) => { event.stopPropagation(); if (!tryUnlockFeature('buildingSystem', openBuildingButton)) return; openMenuPanel(buildingPanel, renderBuildings) })
+openWeaponryButton.addEventListener('click', (event) => { event.stopPropagation(); if (!tryUnlockFeature('weaponry', openWeaponryButton)) return; openMenuPanel(weaponryPanel, renderWeaponry) })
+openEncyclopediaButton.addEventListener('click', (event) => { event.stopPropagation(); openMenuPanel(encyclopediaPanel, renderEncyclopedia) })
 closeEncyclopediaButton.addEventListener('click', () => { encyclopediaPanel.classList.add('hidden'); menuContent.classList.remove('hidden') })
 closeWeaponryButton.addEventListener('click', () => { weaponryPanel.classList.add('hidden'); menuContent.classList.remove('hidden') })
 buyWeaponButton.addEventListener('click', () => buyWeapons(1))
@@ -3747,6 +3793,7 @@ renderMilestones()
 renderResearchLab()
 renderSettings()
 updateStartButton()
+setActiveMenuButton()
 resetGame()
 animate()
 setInterval(() => {

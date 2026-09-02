@@ -1,34 +1,35 @@
 const publicAsset = (path) => `${import.meta.env.BASE_URL}assets/${path}`
 
 const buildingAssets = {
-  chronoGenerator: publicAsset('buildings/chrono-generator.png'),
-  autocannon: publicAsset('buildings/autocannon.png'),
-  droneBay: publicAsset('buildings/drone-bay.png'),
-  barrierNode: publicAsset('buildings/barrier-node.png'),
-  overclockRelay: publicAsset('buildings/overclock-relay.png'),
-  salvageExtractor: publicAsset('buildings/salvage-extractor.png'),
+  chronoGenerator: publicAsset('buildings/chrono-generator.svg'),
+  autocannon: publicAsset('buildings/autocannon.svg'),
+  droneBay: publicAsset('buildings/drone-bay.svg'),
+  barrierNode: publicAsset('buildings/barrier-node.svg'),
+  overclockRelay: publicAsset('buildings/overclock-relay.svg'),
+  salvageExtractor: publicAsset('buildings/salvage-extractor.svg'),
 }
 
 const weaponAssets = {
-  nuke: publicAsset('weapons/nuke.png'),
-  megaMagnet: publicAsset('weapons/mega-magnet.png'),
-  atmosphereShield: publicAsset('weapons/atmosphere-shield.png'),
-  phaseDash: publicAsset('weapons/phase-dash.png'),
-  chronoFreeze: publicAsset('weapons/chrono-freeze.png'),
-  plasmaOrbital: publicAsset('weapons/plasma-orbital.png'),
-  cellOverdrive: publicAsset('weapons/cell-overdrive.png'),
-  demonMode: publicAsset('weapons/demon-mode.png'),
+  nuke: publicAsset('weapons/nuke.svg'),
+  megaMagnet: publicAsset('weapons/mega-magnet.svg'),
+  atmosphereShield: publicAsset('weapons/atmosphere-shield.svg'),
+  phaseDash: publicAsset('weapons/phase-dash.svg'),
+  chronoFreeze: publicAsset('weapons/chrono-freeze.svg'),
+  plasmaOrbital: publicAsset('weapons/plasma-orbital.svg'),
+  cellOverdrive: publicAsset('weapons/cell-overdrive.svg'),
+  demonMode: publicAsset('weapons/demon-mode.svg'),
 }
 
 const uiIconAssets = {
   researchLab: publicAsset('ui/research-lab.svg'),
   buildingSystem: publicAsset('ui/building-system.svg'),
   weaponry: publicAsset('ui/weaponry.svg'),
+  home: publicAsset('ui/home.svg'),
   encyclopedia: publicAsset('ui/encyclopedia.svg'),
   settings: publicAsset('ui/settings.svg'),
 }
 
-// Add a matching generated PNG here whenever a new model is introduced.
+// Add a matching SVG icon here whenever a new model is introduced.
 export function getBuildingAsset(type) {
   return buildingAssets[type] ?? ''
 }

@@ -116,11 +116,12 @@ h1.death-title { font-size: clamp(28px, 5vw, 54px); line-height: 1.05; max-width
 .milestone-claim-count { background: #63f5cd; box-shadow: 0 0 13px rgba(99, 245, 205, 0.9); color: #10232b; display: inline-grid; font: 700 11px 'Trebuchet MS', Arial, sans-serif; height: 19px; margin-left: 7px; min-width: 19px; place-items: center; }
 .milestone-claim-toast { background: rgba(17, 47, 53, 0.97); border: 1px solid #63f5cd; box-shadow: 0 0 24px rgba(99, 245, 205, 0.38); color: #d8fff3; font: 700 12px/1.45 'Trebuchet MS', Arial, sans-serif; left: 50%; max-width: min(440px, calc(100% - 36px)); padding: 15px 18px; position: absolute; text-align: center; top: 50%; transform: translate(-50%, -50%); z-index: 30; }
 .milestone-claim-toast.hidden { display: none; }
-.feature-lock-toast { background: rgba(18, 28, 47, 0.98); border: 1px solid #ffcf76; box-shadow: 0 0 18px rgba(255, 207, 118, 0.28); color: #fff4d2; font: 700 12px/1.35 'Trebuchet MS', Arial, sans-serif; max-width: min(280px, calc(100vw - 32px)); padding: 10px 12px; pointer-events: none; position: fixed; text-align: center; transform: translate(-50%, -100%); z-index: 60; }
+.feature-lock-toast { background: rgba(18, 28, 47, 0.98); border: 1px solid #ffcf76; box-shadow: 0 0 18px rgba(255, 207, 118, 0.28); color: #fff4d2; font: 700 12px/1.35 'Trebuchet MS', Arial, sans-serif; max-width: min(280px, calc(100vw - 32px)); padding: 10px 12px; pointer-events: none; position: fixed; text-align: center; transform: translateX(-50%); z-index: 60; }
 .feature-lock-toast.hidden { display: none; }
 .menu-actions { display: grid; gap: 12px; grid-template-columns: 240px; left: clamp(20px, 4vw, 64px); position: absolute; top: 50%; transform: translateY(-50%); }
 .menu-actions button { font-size: 12px; padding: 12px 18px; width: 240px; }
 .menu-system-button { position: relative; }
+.menu-home-button { display: none; }
 .menu-button-icon { display: none; }
 .menu-icon-fallback { align-items: center; font: 800 12px/1 'Trebuchet MS', Arial, sans-serif; justify-content: center; }
 .menu-button-lock { align-items: center; background: rgba(7, 16, 27, 0.68); color: #fff4d2; font: 800 12px/1 'Trebuchet MS', Arial, sans-serif; gap: 4px; justify-content: center; letter-spacing: 0.08em; position: absolute; inset: 0; }
@@ -148,6 +149,7 @@ h1.death-title { font-size: clamp(28px, 5vw, 54px); line-height: 1.05; max-width
 .menu-system-button.is-unlockable:hover { box-shadow: 2px 2px 0 #5c8525; }
 .menu-system-button.is-unlocked { background: #63f5cd; box-shadow: 4px 4px 0 #23715f; }
 .menu-system-button.is-unlocked:hover { box-shadow: 2px 2px 0 #23715f; }
+.menu-system-button.is-active { outline: 2px solid #63f5cd; outline-offset: -4px; }
 .secondary-button { background: #63f5cd; box-shadow: 4px 4px 0 #23715f; }
 .secondary-button:hover { box-shadow: 2px 2px 0 #23715f; }
 .milestones-panel { background: rgba(20, 25, 56, 0.99); color: #e7f0ec; inset: 0; min-height: 100svh; overflow: auto; padding: clamp(22px, 5vw, 56px); position: absolute; width: 100%; }
@@ -180,7 +182,7 @@ h1.death-title { font-size: clamp(28px, 5vw, 54px); line-height: 1.05; max-width
 .lab-panel { background: rgba(20, 25, 56, 0.97); border: 2px solid #6d67bb; box-shadow: 0 0 0 4px rgba(14, 17, 43, 0.85); color: #e7f0ec; max-height: min(84svh, 760px); max-width: 860px; overflow: auto; padding: 24px; text-align: left; width: min(100%, 860px); }
 .encyclopedia-panel { background: rgba(20, 25, 56, .98); border: 2px solid #6d67bb; box-shadow: 0 0 0 4px rgba(14, 17, 43, .85); color: #e7f0ec; max-height: min(84svh, 760px); max-width: 860px; overflow: auto; padding: 24px; text-align: left; width: min(100%, 860px); }.encyclopedia-panel.hidden { display: none; }.encyclopedia-list { display: grid; gap: 14px; grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 20px; }.encyclopedia-entry { align-content: start; background: #202755; border: 1px solid #484f89; display: grid; gap: 12px; min-width: 0; padding: 16px; text-align: center; }.encyclopedia-entry h3 { color: #fff4d2; font: 700 20px 'Trebuchet MS', Arial, sans-serif; margin: 0; }.encyclopedia-entry canvas, .encyclopedia-unknown-icon { height: 150px; justify-self: center; max-width: 100%; width: 210px; }.encyclopedia-unknown-icon { align-items: center; color: #8c91c7; display: flex; font: 800 116px/1 'Trebuchet MS', Arial, sans-serif; justify-content: center; text-shadow: 0 0 18px rgba(140, 145, 199, .28); }.encyclopedia-entry p { color: #c7d3cd; font-size: 13px; line-height: 1.45; margin: 0; }
 .lab-panel [hidden] { display: none !important; }
-.building-panel, .building-upgrade, .building-draft-modal { background: rgba(20, 25, 56, 0.97); border: 2px solid #6d67bb; box-shadow: 0 0 0 4px rgba(14, 17, 43, 0.85); max-height: 84svh; max-width: 720px; overflow: auto; padding: 24px; width: min(100%, 720px); }.building-upgrade, .building-draft-modal { left: 50%; position: absolute; top: 50%; transform: translate(-50%, -50%); z-index: 14; }.building-upgrade h3 { color: #63f5cd; margin-top: 0; }.building-upgrade button { display: block; margin: 8px 0; width: 100%; }
+.building-panel, .building-upgrade, .building-draft-modal { background: rgba(20, 25, 56, 0.97); border: 2px solid #6d67bb; box-shadow: 0 0 0 4px rgba(14, 17, 43, 0.85); max-height: 84svh; max-width: 720px; overflow: auto; padding: 24px; width: min(100%, 720px); }.building-upgrade, .building-draft-modal { left: 50%; position: absolute; top: 50%; transform: translate(-50%, -50%); z-index: 45; }.building-upgrade h3 { color: #63f5cd; margin-top: 0; }.building-upgrade button { display: block; margin: 8px 0; width: 100%; }
 .building-panel.hidden, .building-upgrade.hidden, .building-draft-modal.hidden, .build-bar.hidden { display: none; }
 .building-actions { display: flex; gap: 9px; margin: 18px 0; }.building-list { display: grid; gap: 10px; grid-template-columns: repeat(3, 1fr); }.building-card { background: #202755; border: 1px solid #484f89; display: grid; gap: 8px; padding: 13px; }.building-card strong { color: #fff4d2; font-family: 'Trebuchet MS', Arial, sans-serif; }.building-card small { color: #9ab6b8; }.building-card button { font-size: 11px; padding: 10px; }.building-unlocked-state { color: #63f5cd; font: 800 10px 'Trebuchet MS', Arial, sans-serif; letter-spacing: .08em; }.building-draft-modal h2 { color: #fff4d2; font-family: 'Trebuchet MS', Arial, sans-serif; margin: 3px 0 10px; }.building-draft-balance { color: #c7d3cd; font: 700 12px 'Trebuchet MS', Arial, sans-serif; margin: 0 0 20px; }.building-draft-balance span { color: #b59aff; }.building-draft-copy { color: #63f5cd; font: 800 11px 'Trebuchet MS', Arial, sans-serif; grid-column: 1 / -1; letter-spacing: .08em; margin: 0; }.building-offer { border-color: #63f5cd; box-shadow: 0 0 16px rgba(99, 245, 205, .16); }.building-offer button { background: #63f5cd; color: #10232b; }.building-offer button:disabled { background: #33465a; color: #9ab6b8; }
 .asset-card-art { filter: drop-shadow(0 0 8px rgba(99, 245, 205, .35)); height: 92px; justify-self: center; object-fit: contain; width: 100%; }.weapon-hud-art { filter: drop-shadow(0 0 5px rgba(99, 245, 205, .55)); height: 28px; object-fit: contain; width: 28px; }
@@ -274,7 +276,7 @@ button:focus-visible { outline: 2px solid #fff4d2; outline-offset: 4px; }
 .weapon-buy-button:hover { box-shadow:1px 1px 0 #65519c; }
 .weapon-buy-button:disabled { background:#4d536a; box-shadow:none; color:#a4acb1; cursor:not-allowed; transform:none; }
 .weapon-lucky-find-chance { background:linear-gradient(90deg, rgba(255,217,90,.14), rgba(107,255,184,.16), rgba(255,217,90,.14)); border:1px solid rgba(255,217,90,.72); color:#ffe98e; font:800 10px 'Trebuchet MS',Arial,sans-serif; letter-spacing:.12em; margin:10px 0 0; padding:8px 10px; text-align:center; text-shadow:0 0 10px rgba(255,217,90,.62); }
-.weapon-reveal-modal { align-items:center; background:rgba(7, 8, 28, .92); display:flex; inset:0; justify-content:center; padding:24px; position:absolute; z-index:24; }
+.weapon-reveal-modal { align-items:center; background:rgba(7, 8, 28, .92); display:flex; inset:0; justify-content:center; padding:24px; position:absolute; z-index:45; }
 .weapon-reveal-modal.hidden { display:none; }
 .weapon-reveal-card { align-items:center; background:radial-gradient(circle at 50% 35%, rgba(73, 196, 255, .23), rgba(20, 25, 56, .98) 58%); border:2px solid #63f5cd; box-shadow:0 0 30px rgba(99, 245, 205, .45), 0 0 0 5px rgba(20, 25, 56, .92); display:grid; isolation:isolate; justify-items:center; max-width:390px; overflow:hidden; padding:28px; position:relative; text-align:center; width:min(100%, 390px); }
 .weapon-reveal-card::before { background:radial-gradient(circle, rgba(233, 255, 250, .92) 0 4%, rgba(99, 245, 205, .54) 20%, transparent 64%); content:''; inset:-45%; opacity:0; pointer-events:none; position:absolute; z-index:-1; }
@@ -320,7 +322,7 @@ button:focus-visible { outline: 2px solid #fff4d2; outline-offset: 4px; }
 
 @media (max-width: 580px), (hover: none) and (pointer: coarse) {
   .overlay { align-items: stretch; justify-content: flex-start; overflow-y: auto; overscroll-behavior-y: contain; padding: 0 18px; }
-  .menu-content { flex: none; min-height: 100%; padding: clamp(116px, 17svh, 164px) 0 118px; }
+  .menu-content { flex: none; min-height: 0; padding: clamp(116px, 17svh, 164px) 0 0; }
   .menu-content.is-death-screen { min-height: 0; padding: 18px 0 14px; transform: none; }
   .menu-content.is-death-screen h1.death-title { font-size: clamp(22px, 7vw, 30px); }
   .menu-content.is-death-screen .death-killer-preview { height: 48px; margin-left: 5px; width: 61px; }
@@ -332,8 +334,8 @@ button:focus-visible { outline: 2px solid #fff4d2; outline-offset: 4px; }
   .menu-content.is-death-screen .highest-cell { margin: 4px 0; }
   .menu-content.is-death-screen .tier-requirement { margin: 4px 0 6px; }
   .menu-content.is-death-screen .milestone-button { font-size: 10px; padding: 8px 10px; }
-  .menu-content.is-death-screen .menu-actions { gap: 5px; margin-top: 5px; }
-  .menu-content.is-death-screen .menu-actions button { font-size: 10px; min-height: 34px; padding: 7px 4px; }
+  .menu-content.is-death-screen + .menu-actions { gap: 5px; margin-top: 5px; }
+  .menu-content.is-death-screen + .menu-actions button { font-size: 10px; min-height: 34px; padding: 7px 4px; }
   #overlay-title:not(.death-title) { font-size: clamp(30px, 9vw, 42px); margin-top: 0; text-align: center; }
   #overlay-copy { margin: 10px auto 16px; max-width: 300px; }
   .tier-selection { transform: none; }
@@ -375,10 +377,13 @@ button:focus-visible { outline: 2px solid #fff4d2; outline-offset: 4px; }
   .tier-selection { transform: none; }
   .menu-actions { gap: 8px; grid-template-columns: repeat(2, minmax(0, 1fr)); left: auto; margin-top: 12px; position: static; transform: none; width: min(100%, 360px); }
   .menu-actions button { font-size: 11px; min-height: 44px; padding: 10px 6px; width: 100%; }
-  .menu-actions .menu-system-button { --mobile-system-width: calc(100vw / 3); bottom: 0; height: 52px; margin: 0; min-height: 0; padding: 0; position: fixed; width: var(--mobile-system-width); z-index: 38; }
-  #open-lab-button { left: 0; }
-  #open-building-button { left: calc(50% - var(--mobile-system-width) / 2); }
-  #open-weaponry-button { right: 0; }
+  .menu-actions .menu-system-button { --mobile-system-width: 25vw; bottom: 0; height: 52px; margin: 0; min-height: 0; padding: 0; position: fixed; width: var(--mobile-system-width); z-index: 38; }
+  #home-button { background: #25444e; box-shadow: 3px 3px 0 #142a31; display: block; left: 0; }
+  #open-lab-button { left: var(--mobile-system-width); }
+  #open-weaponry-button { left: calc(var(--mobile-system-width) * 2); }
+  #open-building-button { right: 0; }
+  .menu-content.hidden + .menu-actions .menu-start-button { display: none; }
+  .menu-content.hidden + .menu-actions .menu-utility-button { display: none; }
   .menu-actions .menu-utility-button { bottom: auto; height: 42px; min-height: 0; padding: 0; right: 14px; width: 42px; z-index: 39; }
   #open-settings-button { top: 14px; }
   #open-encyclopedia-button { top: 64px; }
@@ -389,6 +394,7 @@ button:focus-visible { outline: 2px solid #fff4d2; outline-offset: 4px; }
   .menu-actions .menu-button-lock { display: flex; font-size: 11px; }
   .menu-actions .menu-system-button.is-locked, .menu-actions .menu-system-button.is-unlockable { opacity: 1; }
   .menu-actions .menu-system-button.is-locked { background: #273148; box-shadow: 3px 3px 0 #151c2b; }
+  .overlay > section .lab-header > .secondary-button { display: none; }
   .pause-actions button { font-size: 15px; padding: 17px 24px; }
   .milestones-panel { min-height: 100svh; padding: 22px 18px; }
   .milestones-header h2 { font-size: 28px; }
@@ -397,7 +403,7 @@ button:focus-visible { outline: 2px solid #fff4d2; outline-offset: 4px; }
   .milestone-card { gap: 10px; grid-template-columns: 45px 1fr; min-height: 67px; }
   .milestone-node { height: 45px; width: 45px; }
   .milestone-track::before { left: 21px; }
-  .lab-panel { max-height: 88svh; padding: 17px; }
+  .lab-panel, .building-panel, .weaponry-panel { background: rgba(20, 25, 56, 0.99); border: 0; bottom: 52px; box-shadow: none; box-sizing: border-box; inset: 0 0 52px; max-height: none; max-width: none; min-height: 0; overflow-y: auto; padding: 18px; position: absolute; width: 100%; z-index: 30; }
   .encyclopedia-panel { max-height: 88svh; padding: 17px; width: min(calc(100% - 28px), 860px); }.encyclopedia-list { grid-template-columns: 1fr; }
   .research-slots { grid-template-columns: 1fr; }
   .research-card { align-items: stretch; flex-direction: column; gap: 11px; }
@@ -414,6 +420,7 @@ button:focus-visible { outline: 2px solid #fff4d2; outline-offset: 4px; }
   .settings-options button { width: 100%; }
   .settings-toggle { grid-template-columns: 1fr auto; }
   .weaponry-panel { max-height:88svh; padding:17px; width:min(calc(100% - 28px),760px); }.weapon-card-list, .weapon-loadout { grid-template-columns:1fr; }.weapon-buy-actions { grid-template-columns:1fr; }.weapon-hud { bottom:18px; right:12px; }.weapon-hud button { font-size:9px; padding:6px 8px; }
+  .building-panel, .weaponry-panel { background: rgba(20, 25, 56, 0.99); border: 0; bottom: 52px; box-shadow: none; box-sizing: border-box; inset: 0 0 52px; max-height: none; max-width: none; min-height: 0; overflow-y: auto; padding: 18px; position: absolute; width: 100%; z-index: 30; }
 }
 
 @media (max-width: 580px) and (orientation: landscape), (hover: none) and (pointer: coarse) and (orientation: landscape) {
@@ -427,11 +434,23 @@ button:focus-visible { outline: 2px solid #fff4d2; outline-offset: 4px; }
   .highest-cell { padding-top: 7px; }
   .menu-actions { gap: 8px; margin-top: 8px; }
   .menu-actions button, .pause-actions button { font-size: 12px; padding: 12px 17px; }
-  .menu-actions { grid-template-columns: repeat(3, minmax(0, 1fr)); position: static; width: min(100%, 520px); }
+  .menu-actions { grid-template-columns: repeat(4, minmax(0, 1fr)); position: static; width: min(100%, 520px); }
   .menu-actions .menu-system-button, .menu-actions .menu-utility-button { bottom: auto; height: auto; left: auto; min-height: 42px; padding: 10px 8px; position: relative; right: auto; top: auto; width: 100%; }
+  .menu-actions .menu-home-button { display: block; }
   .menu-actions .menu-button-label { display: inline; }
   .menu-actions .menu-button-icon { display: none; }
   .menu-actions .menu-button-lock { display: none !important; }
   .menu-actions .menu-system-button.is-locked { background: #e25858; box-shadow: 4px 4px 0 #7d2828; color: #2b1515; opacity: 0.82; }
   .menu-actions .menu-system-button.is-unlockable { background: #b9ed53; box-shadow: 4px 4px 0 #5c8525; color: #171c21; }
 }
+
+@media (max-width: 580px) and (orientation: portrait), (hover: none) and (pointer: coarse) and (orientation: portrait) {
+  .menu-content { padding-top: clamp(136px, 21svh, 190px); }
+}
+
+#open-lab-button.is-unlocked { background: #5966a5; box-shadow: 4px 4px 0 #30375f; color: #f4f1dc; }
+#open-weaponry-button.is-unlocked { background: #a75d86; box-shadow: 4px 4px 0 #62334d; color: #fff0f6; }
+#open-building-button.is-unlocked { background: #c4874d; box-shadow: 4px 4px 0 #704427; color: #fff5df; }
+#open-lab-button.is-unlockable { background: #354865; box-shadow: 4px 4px 0 #202b3d; color: #e2edff; }
+#open-weaponry-button.is-unlockable { background: #623d55; box-shadow: 4px 4px 0 #3a2432; color: #ffe7f2; }
+#open-building-button.is-unlockable { background: #6c4b35; box-shadow: 4px 4px 0 #402c20; color: #fff0d8; }
