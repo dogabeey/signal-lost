@@ -3,6 +3,7 @@ import { ANIMATION, CAMERA, COLORS, DIFFICULTY, ENEMY_TYPES as OBSTACLE_TYPES, E
 import { RESEARCH_CONFIG } from './research_config.js'
 import { CHEAT_CONFIG } from './cheat_config.js'
 import { BUILD_INFO } from './build_info.js'
+import { ANOMALY_CONFIG } from './anomaly_config.js'
 import { trackTierStarted } from './analytics.js'
 import { BUILDING_CONFIG } from './building_config.js'
 import { createPlayerShip } from './three/player_ship.js'
@@ -90,6 +91,7 @@ document.querySelector('#app').innerHTML = `
         </div>
         <div class="menu-actions">
           <button class="menu-start-button" id="start-button" type="button">START RUN</button>
+          <button class="menu-start-button anomaly-run-button" id="anomaly-run-button" type="button">ANOMALY RUN</button>
           <button class="menu-system-button" id="open-lab-button" type="button">RESEARCH LAB</button>
           <button class="menu-system-button" id="open-building-button" type="button">BUILDING SYSTEM</button>
           <button class="menu-system-button" id="open-weaponry-button" type="button">WEAPONRY</button>
@@ -105,7 +107,7 @@ document.querySelector('#app').innerHTML = `
       </section>
       <section class="lab-panel hidden" id="lab-panel" aria-label="Research Lab">
         <div class="lab-header"><div><p class="eyebrow">PERMANENT UPGRADES</p><h2>RESEARCH LAB</h2></div><button class="secondary-button" id="close-lab-button" type="button">BACK</button></div>
-        <p class="lab-balance">CASH <span id="lab-cash">$0</span> · CHRONOSHARDS <span id="lab-chronoshards">✦ 0</span></p>
+        <p class="lab-balance">CASH <span id="lab-cash">$0</span><span id="lab-chronoshard-balance"> · CHRONOSHARDS <span id="lab-chronoshards">✦ 0</span></span></p>
         <p class="lab-message" id="lab-message" aria-live="polite"></p>
         <h3 id="research-slots-heading">ACTIVE SLOTS</h3><div class="research-slots" id="research-slots"></div>
         <h3>AVAILABLE RESEARCH</h3><label class="research-search"><span>SEARCH</span><input id="research-search" type="search" placeholder="Search research names" autocomplete="off"></label><div class="research-filters"><label><input id="hide-completed-researches" type="checkbox"> <span>Hide Completed Researches</span></label><label><input id="hide-locked-researches" type="checkbox"> <span>Hide Locked Researches</span></label></div><div class="research-list" id="research-list"></div>
@@ -118,6 +120,7 @@ document.querySelector('#app').innerHTML = `
       <section class="settings-panel hidden" id="settings-panel" aria-label="Settings"><div class="lab-header"><div><p class="eyebrow">PREFERENCES</p><h2>SETTINGS</h2></div><button class="secondary-button" id="close-settings-button" type="button">BACK</button></div><div class="settings-section"><h3>GRAPHICS</h3><div class="settings-row"><div><strong>Quality</strong><small>Changes render resolution and shadows.</small></div><div class="settings-options" id="graphics-quality-options"></div></div><label class="settings-row settings-toggle"><span><strong>Shadows</strong><small>Show dynamic object shadows.</small></span><input id="setting-shadows" type="checkbox"></label></div><div class="settings-section"><h3>GAMEPLAY</h3><label class="settings-row"><span><strong>Camera Distance</strong><small>Adjusts how far the camera sits from your ship.</small></span><output id="camera-distance-value"></output><input id="setting-camera-distance" type="range" min="80" max="130" step="5"></label><label class="settings-row settings-toggle"><span><strong>Auto Pause</strong><small>Pause the run when the game loses focus.</small></span><input id="setting-auto-pause" type="checkbox"></label><label class="settings-row settings-toggle"><span><strong>High Contrast HUD</strong><small>Improves HUD readability.</small></span><input id="setting-high-contrast" type="checkbox"></label></div><div class="settings-section"><h3>SOUND</h3><label class="settings-row"><span><strong>Master Volume</strong><small>Controls all game sound effects.</small></span><output id="master-volume-value"></output><input id="setting-master-volume" type="range" min="0" max="100" step="1"></label><label class="settings-row settings-toggle"><span><strong>Mute All</strong><small>Instantly silence all sound effects.</small></span><input id="setting-muted" type="checkbox"></label><label class="settings-row settings-toggle"><span><strong>Spatial Audio</strong><small>Pan sounds based on their world position.</small></span><input id="setting-spatial-audio" type="checkbox"></label></div><div class="settings-section settings-actions"><button id="open-patch-notes-button" type="button">PATCH NOTES</button></div></section>
       <section class="patch-notes-panel hidden" id="patch-notes-panel" aria-label="Patch notes"><div class="lab-header"><div><p class="eyebrow">VERSION ${BUILD_INFO.version} · BUILD ${BUILD_INFO.number}</p><h2>PATCH NOTES</h2></div><button class="secondary-button" id="close-patch-notes-button" type="button">BACK</button></div>${PATCH_NOTES.map((entry) => `<article class="patch-notes-entry"><h3>${entry.heading}</h3><ul>${entry.changes.map((change) => `<li>${change}</li>`).join('')}</ul></article>`).join('')}</section>
     </section>
+    <section class="anomaly-run-modal hidden" id="anomaly-run-modal" aria-label="Anomaly Run challenge"><div class="anomaly-run-card"><p class="eyebrow">WEEKLY ANOMALY</p><h2 id="anomaly-challenge-name"></h2><p id="anomaly-challenge-description"></p><p class="anomaly-reward" id="anomaly-reward"></p><div><button class="secondary-button" id="cancel-anomaly-run" type="button">BACK</button><button id="confirm-anomaly-run" type="button">START ANOMALY RUN</button></div></div></section>
     <div class="build-bar hidden" id="build-bar"><span id="build-status">SELECT A BUILDING</span><div id="build-options"></div><button id="exit-build-mode" type="button">DONE</button></div>
     <section class="building-upgrade hidden" id="building-upgrade"></section>
   </main>
@@ -135,6 +138,13 @@ const deathKillerCanvas = document.querySelector('#death-killer-canvas')
 const overlayCopy = document.querySelector('#overlay-copy')
 const gameOverTip = document.querySelector('#game-over-tip')
 const startButton = document.querySelector('#start-button')
+const anomalyRunButton = document.querySelector('#anomaly-run-button')
+const anomalyRunModal = document.querySelector('#anomaly-run-modal')
+const anomalyChallengeName = document.querySelector('#anomaly-challenge-name')
+const anomalyChallengeDescription = document.querySelector('#anomaly-challenge-description')
+const anomalyRewardElement = document.querySelector('#anomaly-reward')
+const confirmAnomalyRunButton = document.querySelector('#confirm-anomaly-run')
+const cancelAnomalyRunButton = document.querySelector('#cancel-anomaly-run')
 const menuContent = document.querySelector('#menu-content')
 const openMilestonesButton = document.querySelector('#open-milestones-button')
 const milestonesPanel = document.querySelector('#milestones-panel')
@@ -208,6 +218,7 @@ const exitBuildModeButton = document.querySelector('#exit-build-mode')
 const buildingUpgrade = document.querySelector('#building-upgrade')
 const closeLabButton = document.querySelector('#close-lab-button')
 const labCashElement = document.querySelector('#lab-cash')
+const labChronoshardBalanceElement = document.querySelector('#lab-chronoshard-balance')
 const labChronoshardsElement = document.querySelector('#lab-chronoshards')
 const labMessageElement = document.querySelector('#lab-message')
 const researchSlotsElement = document.querySelector('#research-slots')
@@ -247,7 +258,7 @@ function getGameOverTip() {
 const { cellBank: CELL_BANK_STORAGE_KEY, tier: TIER_STORAGE_KEY, tierHighScores: TIER_HIGH_SCORES_STORAGE_KEY, cash: CASH_STORAGE_KEY,
   chronoshards: CHRONOSHARDS_STORAGE_KEY, researchLab: RESEARCH_LAB_STORAGE_KEY, savedRound: SAVED_ROUND_STORAGE_KEY,
   buildings: BUILDINGS_STORAGE_KEY, featureUnlocks: FEATURE_UNLOCKS_STORAGE_KEY, milestones: MILESTONES_STORAGE_KEY,
-  settings: SETTINGS_STORAGE_KEY, weaponry: WEAPONRY_STORAGE_KEY } = STORAGE_KEYS
+  settings: SETTINGS_STORAGE_KEY, weaponry: WEAPONRY_STORAGE_KEY, anomalyRewards: ANOMALY_REWARDS_STORAGE_KEY } = STORAGE_KEYS
 migrateLegacyStorage()
 const tierKeys = Object.keys(DIFFICULTY)
 
@@ -320,6 +331,11 @@ let milestoneTierIndex = selectedTierIndex
 let cash = readStoredNumber(CASH_STORAGE_KEY)
 let chronoshards = readStoredNumber(CHRONOSHARDS_STORAGE_KEY)
 let savedRound = readSavedRound()
+const anomalyRewardState = (() => {
+  const stored = readStoredJson(ANOMALY_REWARDS_STORAGE_KEY, {})
+  return stored && typeof stored.claimedTiers === 'object' ? stored : { claimedTiers: {} }
+})()
+let anomalyRun = null
 let featureUnlocks = (() => { try { const saved = JSON.parse(localStorage.getItem(FEATURE_UNLOCKS_STORAGE_KEY)); return { researchLab: Boolean(saved?.researchLab), buildingSystem: Boolean(saved?.buildingSystem), weaponry: Boolean(saved?.weaponry) } } catch { return { researchLab: false, buildingSystem: false, weaponry: false } } })()
 if (milestoneState.claimed.includes('tier-1-10') && !featureUnlocks.researchLab) {
   featureUnlocks.researchLab = true
@@ -441,6 +457,7 @@ function renderResearchLab() {
   completeFinishedResearches()
   labCashElement.textContent = `$${formatCompactNumber(cash)}`
   labChronoshardsElement.textContent = `✦ ${formatCompactNumber(chronoshards)}`
+  labChronoshardBalanceElement.hidden = !RESEARCH_CONFIG.durationsEnabled
   const now = Date.now()
   researchSlotsHeading.hidden = !RESEARCH_CONFIG.durationsEnabled
   researchSlotsElement.hidden = !RESEARCH_CONFIG.durationsEnabled
@@ -469,6 +486,11 @@ function renderResearchLab() {
   }
   const normalizedSearch = researchSearchQuery.trim().toLocaleLowerCase()
   const visibleCategories = [...researchesByCategory.entries()]
+    .sort(([firstCategory], [secondCategory]) => {
+      const firstOrder = RESEARCH_CONFIG.categoryOrder.indexOf(firstCategory)
+      const secondOrder = RESEARCH_CONFIG.categoryOrder.indexOf(secondCategory)
+      return (firstOrder < 0 ? 1000 : firstOrder) - (secondOrder < 0 ? 1000 : secondOrder)
+    })
     .map(([category, researches]) => [category, researches
       .filter((research) => `${research.name} ${research.description}`.toLocaleLowerCase().includes(normalizedSearch))
       .filter((research) => !hideCompletedResearches || getResearchLevel(research.id) < research.maxLevel)
@@ -1116,6 +1138,15 @@ let playerTargetHeading = 0
 const ship = createPlayerShip({ THREE, COLORS, ENTITIES, GAME })
 const { player, playerCore, slowAuraRing, shieldBubble } = ship
 scene.add(player)
+const anomalyScoutShip = createPlayerShip({
+  THREE,
+  COLORS: { ...COLORS, player: '#ff4d4d', playerEmissive: '#9d1010', playerWing: '#ff6767', playerWingEmissive: '#9d1010', playerRing: '#ffaaa0', slowAura: '#ff4d4d' },
+  ENTITIES,
+  GAME,
+  opacity: 0.58,
+})
+const anomalyScout = { ...anomalyScoutShip, active: false }
+anomalyScout.player.visible = false
 const atmosphereShieldVisual = new THREE.Group()
 const atmosphereShieldRing = new THREE.Mesh(
   new THREE.TorusGeometry(1.3, 0.055, 10, 48),
@@ -1266,6 +1297,41 @@ function renderEncyclopediaModel(entry, canvas) {
   renderer.render(previewScene, previewCamera)
   material.dispose()
   renderer.dispose()
+}
+
+function getAnomalyWeekId(date = new Date()) {
+  const utcDate = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()))
+  const weekday = utcDate.getUTCDay() || 7
+  utcDate.setUTCDate(utcDate.getUTCDate() + 4 - weekday)
+  const yearStart = new Date(Date.UTC(utcDate.getUTCFullYear(), 0, 1))
+  const week = Math.ceil(((utcDate - yearStart) / 86_400_000 + 1) / 7)
+  return `${utcDate.getUTCFullYear()}-W${String(week).padStart(2, '0')}`
+}
+
+function getWeeklyAnomalyChallenge(weekId = getAnomalyWeekId()) {
+  const [year, week] = weekId.match(/\d+/g).map(Number)
+  return ANOMALY_CONFIG.challenges[(year * 53 + week) % ANOMALY_CONFIG.challenges.length]
+}
+
+function getAnomalyReward(tierIndex) {
+  return ANOMALY_CONFIG.rewardBaseChronoshards + tierIndex * ANOMALY_CONFIG.rewardChronoshardStepPerTier
+}
+
+function hasClaimedAnomalyReward(weekId = getAnomalyWeekId(), tierIndex = selectedTierIndex) {
+  return (anomalyRewardState.claimedTiers[weekId] ?? []).includes(String(tierIndex))
+}
+
+function claimAnomalyRewardIfEligible() {
+  if (!anomalyRun || score < ANOMALY_CONFIG.rewardCellTarget) return
+  const tierKey = String(selectedTierIndex)
+  const claimedTiers = anomalyRewardState.claimedTiers[anomalyRun.weekId] ?? []
+  if (claimedTiers.includes(tierKey)) return
+  anomalyRewardState.claimedTiers[anomalyRun.weekId] = [...claimedTiers, tierKey]
+  writeStoredJson(ANOMALY_REWARDS_STORAGE_KEY, anomalyRewardState)
+  const reward = getAnomalyReward(selectedTierIndex)
+  updateChronoshards(reward)
+  showCurrencyIndicator(player.position, `ANOMALY +✦${reward}`, 'chronoshard-indicator')
+  updateStartButton()
 }
 function renderEncyclopedia() {
   const unlockedTier = getUnlockedTierIndex() + 1
@@ -2066,6 +2132,43 @@ function detonateBanger(banger) {
   if (playerInRange) endGame('BANGER DETONATION')
 }
 
+function createAnomalyScout(savedScout) {
+  const challenge = ANOMALY_CONFIG.challenges.find((entry) => entry.id === anomalyRun?.challengeId)
+  if (!challenge || challenge.type !== 'cell-scout') return
+  const position = savedScout
+    ? new THREE.Vector3(savedScout.x, savedScout.y, savedScout.z)
+    : new THREE.Vector3().setFromCylindricalCoords(Math.min(getArenaLimit() - 1.2, 7.5), Math.random() * Math.PI * 2, GAME.playerStartHeight)
+  anomalyScout.player.position.copy(position)
+  anomalyScout.player.rotation.y = savedScout?.heading ?? 0
+  anomalyScout.player.visible = true
+  anomalyScout.slowAuraRing.visible = false
+  anomalyScout.shieldBubble.visible = false
+  anomalyScout.active = true
+  scene.add(anomalyScout.player)
+}
+
+function updateAnomalyScout(delta, total) {
+  if (!anomalyScout.active) return
+  const target = cells.reduce((closest, cell) => !closest || planarDistance(cell.position, anomalyScout.player.position) < planarDistance(closest.position, anomalyScout.player.position) ? cell : closest, null)
+  if (target) {
+    const direction = target.position.clone().sub(anomalyScout.player.position)
+    direction.y = 0
+    if (direction.lengthSq() > 0) {
+      direction.normalize()
+      anomalyScout.player.position.addScaledVector(direction, 3.65 * delta)
+      anomalyScout.player.rotation.y = Math.atan2(direction.x, direction.z)
+    }
+    if (anomalyScout.player.position.distanceTo(target.position) < GAME.cellPickupRadius) {
+      const cellIndex = cells.indexOf(target)
+      if (cellIndex >= 0) {
+        scene.remove(target)
+        cells.splice(cellIndex, 1)
+      }
+    }
+  }
+  anomalyScout.updateVisuals(delta, total, ANIMATION.playerRingSpinSpeed)
+}
+
 function resetGame(populateArena = true) {
   clearObjects(cells)
   clearObjects(chronoCells)
@@ -2104,6 +2207,9 @@ function resetGame(populateArena = true) {
   playerDeathEffects.length = 0
   for (const warning of obstacleSpawnWarnings) scene.remove(warning.ring, warning.glow, warning.beam)
   obstacleSpawnWarnings.length = 0
+  scene.remove(anomalyScout.player)
+  anomalyScout.player.visible = false
+  anomalyScout.active = false
   player.position.set(0, GAME.playerStartHeight, 0)
   player.rotation.y = 0
   playerTargetHeading = 0
@@ -2147,6 +2253,7 @@ function resetGame(populateArena = true) {
     for (const type of GAME.initialObstacleTypes) {
       if (getCurrentDifficulty().availableObstacleTypes.includes(type)) addObstacle(type)
     }
+    createAnomalyScout()
   }
 }
 
@@ -2157,6 +2264,8 @@ function serializePosition(position) {
 function saveCurrentRound() {
   savedRound = {
     tierIndex: selectedTierIndex,
+    anomalyRun,
+    anomalyScout: anomalyScout.active ? { ...serializePosition(anomalyScout.player.position), heading: anomalyScout.player.rotation.y } : null,
     player: serializePosition(player.position),
     playerHeading: player.rotation.y,
     score,
@@ -2203,6 +2312,7 @@ function clearSavedRound() {
 function restoreSavedRound() {
   if (!savedRound) return false
   selectedTierIndex = Math.min(savedRound.tierIndex ?? 0, getUnlockedTierIndex())
+  anomalyRun = ANOMALY_CONFIG.challenges.some((challenge) => challenge.id === savedRound.anomalyRun?.challengeId) ? savedRound.anomalyRun : null
   applyDifficulty()
   resetGame(false)
   player.position.set(savedRound.player.x, savedRound.player.y, savedRound.player.z)
@@ -2228,6 +2338,7 @@ function restoreSavedRound() {
     weaponRechargeTimers.set(id, Number.isFinite(savedTimer) ? Math.max(0, savedTimer) : 0)
   }
   shieldBubble.visible = shieldCharges > 0
+  createAnomalyScout(savedRound.anomalyScout)
   for (const cell of savedRound.cells ?? []) addCell(cell)
   for (const chronoCell of savedRound.chronoCells ?? []) addChronoCell(chronoCell)
   for (const obstacle of savedRound.obstacles ?? []) createObstacle(new THREE.Vector3(obstacle.position.x, obstacle.position.y, obstacle.position.z), obstacle.type, obstacle)
@@ -2261,6 +2372,18 @@ function restoreSavedRound() {
 
 function updateStartButton() {
   startButton.textContent = savedRound ? 'CONTINUE' : 'START RUN'
+  const rewardClaimed = hasClaimedAnomalyReward()
+  anomalyRunButton.textContent = rewardClaimed ? 'ANOMALY RUN (Reward Claimed)' : 'ANOMALY RUN'
+  anomalyRunButton.title = rewardClaimed ? 'This tier’s weekly Anomaly reward has already been claimed.' : 'View this week’s challenge.'
+  anomalyRunButton.disabled = Boolean(savedRound) || rewardClaimed
+}
+
+function openAnomalyRunDialog() {
+  const challenge = getWeeklyAnomalyChallenge()
+  anomalyChallengeName.textContent = `${challenge.name} (Tier ${selectedTierIndex + 1})`
+  anomalyChallengeDescription.textContent = challenge.description
+  anomalyRewardElement.textContent = `250 CELLS · REWARD ✦ ${getAnomalyReward(selectedTierIndex)}`
+  anomalyRunModal.classList.remove('hidden')
 }
 
 function returnToMainMenu() {
@@ -2329,7 +2452,7 @@ function endGame(cause = 'SIGNAL LOST') {
 
 function updateHud() {
   scoreElement.textContent = String(score).padStart(3, '0')
-  hudTierElement.textContent = `TIER ${selectedTierIndex + 1}`
+  hudTierElement.textContent = `TIER ${selectedTierIndex + 1}${anomalyRun ? ' · ANOMALY' : ''}`
   shieldIndicators.innerHTML = Array.from({ length: shieldCharges }, () => '<i aria-hidden="true"></i>').join('')
   shieldIndicators.hidden = shieldCharges === 0
 }
@@ -2449,6 +2572,7 @@ function updateGame(delta, total) {
     }
   }
   updateBuildings(delta, total)
+  updateAnomalyScout(delta, total)
 
   for (let index = cells.length - 1; index >= 0; index -= 1) {
     const cell = cells[index]
@@ -2471,6 +2595,7 @@ function updateGame(delta, total) {
       updateBankedCells(cellMultiplier)
       updateCash(cell.userData.cashValue * cellMultiplier)
       showCashIndicator(cell.position, cell.userData.cashValue * cellMultiplier)
+      claimAnomalyRewardIfEligible()
     }
   }
 
@@ -3106,12 +3231,15 @@ function renderSettings() {
 
 function persistSettings() { saveSettings(); soundSystem.setMasterVolume(); renderSettings() }
 
-startButton.addEventListener('click', async () => {
+async function startRound(isAnomalyRun = false) {
   await soundSystem.initialize()
   soundSystem.playButtonClick()
   const continuingRun = Boolean(savedRound)
   if (continuingRun) restoreSavedRound()
-  else resetGame()
+  else {
+    anomalyRun = isAnomalyRun ? { challengeId: getWeeklyAnomalyChallenge().id, weekId: getAnomalyWeekId() } : null
+    resetGame()
+  }
   started = true
   ended = false
   paused = false
@@ -3120,13 +3248,19 @@ startButton.addEventListener('click', async () => {
   labPanel.classList.add('hidden')
   menuContent.classList.remove('hidden')
   overlay.classList.add('hidden')
+  anomalyRunModal.classList.add('hidden')
   renderWeaponHud()
   if (!continuingRun) trackTierStarted({
     tier: selectedTierIndex + 1,
     buildVersion: BUILD_INFO.version,
     platform: window.steamShell ? 'steam' : 'web',
   })
-})
+}
+
+startButton.addEventListener('click', () => startRound())
+anomalyRunButton.addEventListener('click', openAnomalyRunDialog)
+cancelAnomalyRunButton.addEventListener('click', () => anomalyRunModal.classList.add('hidden'))
+confirmAnomalyRunButton.addEventListener('click', () => startRound(true))
 
 openLabButton.addEventListener('click', (event) => {
   event.stopPropagation()

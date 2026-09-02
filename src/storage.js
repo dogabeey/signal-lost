@@ -11,6 +11,7 @@ export const STORAGE_KEYS = Object.freeze({
   milestones: 'asteroid-belt-milestones',
   settings: 'asteroid-belt-settings',
   weaponry: 'asteroid-belt-weaponry',
+  anomalyRewards: 'asteroid-belt-anomaly-rewards',
 })
 
 const LEGACY_STORAGE_KEYS = [

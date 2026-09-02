@@ -1,4 +1,4 @@
-export function createPlayerShip({ THREE, COLORS, ENTITIES, GAME }) {
+export function createPlayerShip({ THREE, COLORS, ENTITIES, GAME, opacity = 1 }) {
   const player = new THREE.Group()
   const playerCore = new THREE.Mesh(
     new THREE.ConeGeometry(0.58, 1.45, 6),
@@ -9,7 +9,7 @@ export function createPlayerShip({ THREE, COLORS, ENTITIES, GAME }) {
   playerCore.castShadow = true
   player.add(playerCore)
 
-  const wingMaterial = new THREE.MeshStandardMaterial({ color: '#f6b05c', emissive: '#b9502d', emissiveIntensity: 0.55, metalness: 0.85, roughness: 0.16 })
+  const wingMaterial = new THREE.MeshStandardMaterial({ color: COLORS.playerWing ?? '#f6b05c', emissive: COLORS.playerWingEmissive ?? '#b9502d', emissiveIntensity: 0.55, metalness: 0.85, roughness: 0.16 })
   for (const side of [-1, 1]) {
     const wing = new THREE.Mesh(new THREE.BoxGeometry(0.82, 0.08, 0.58), wingMaterial)
     wing.position.set(side * 0.52, 0.12, -0.08)
@@ -45,6 +45,14 @@ export function createPlayerShip({ THREE, COLORS, ENTITIES, GAME }) {
   const shieldBubble = new THREE.Mesh(new THREE.SphereGeometry(GAME.playerRadius * 1.15, 20, 14), new THREE.MeshBasicMaterial({ color: COLORS.slowAura, transparent: true, opacity: 0.18, wireframe: true, depthWrite: false }))
   shieldBubble.visible = false
   player.add(shieldBubble)
+  if (opacity < 1) {
+    player.traverse((object) => {
+      if (!object.material) return
+      object.material.transparent = true
+      object.material.opacity *= opacity
+      object.material.depthWrite = false
+    })
+  }
   player.position.y = GAME.playerStartHeight
 
   return {
