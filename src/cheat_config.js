@@ -8,6 +8,7 @@ export const CHEAT_CONFIG = {
     freeResearch: 'free_research',
     unlockTiers: 'unlock_tiers',
     clearSave: 'clear_save',
+    sandbox: 'sandbox',
   },
   clearSaveTargets: ['currency', 'game_progress', 'milestones', 'research', 'buildings', 'weapons', 'all'],
 }

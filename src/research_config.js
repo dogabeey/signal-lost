@@ -15,7 +15,7 @@ export const RESEARCH_CONFIG = {
   featureUnlocks: {
     researchLab: { minTier: 1, chronoshardCost: 0, requiredMilestone: 'tier-1-10' },
     buildingSystem: { minTier: 4, chronoshardCost: 50 },
-    weaponry: { minTier: 5, chronoshardCost: 75 },
+    weaponry: { minTier: 2, chronoshardCost: 25 },
   },
   maxSlots: 3,
   slotUnlocks: [

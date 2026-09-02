@@ -50,12 +50,16 @@ const server = defineServer({
       if (origin && !allowedOrigins.has(origin)) return response.sendStatus(403)
       if (origin) response.setHeader('Access-Control-Allow-Origin', origin)
       response.setHeader('Vary', 'Origin')
-      response.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
+      response.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
       response.setHeader('Access-Control-Allow-Headers', 'Content-Type')
       if (request.method === 'OPTIONS') return response.sendStatus(204)
       next()
     })
     app.get('/health', (_request, response) => response.json({ ok: true }))
+    app.get('/time', (_request, response) => {
+      response.setHeader('Cache-Control', 'no-store')
+      response.json({ now: new Date().toISOString() })
+    })
     app.post('/analytics/event', (request, response) => {
       if (!posthog) return response.sendStatus(503)
       if (!isTierStartedPayload(request.body)) return response.sendStatus(400)

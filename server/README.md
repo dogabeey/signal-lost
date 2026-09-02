@@ -14,7 +14,13 @@ npm run dev
 The server listens on port `2567` by default. Set `PORT` when deploying it to a
 hosting provider.
 
-## Product analytics
+## Server time and product analytics
+
+`GET /time` returns the server's current UTC time as `{ "now": "..." }`. The
+game uses it to verify the current Weekly Anomaly before allowing a run to
+start. Set `VITE_SERVER_TIME_ENDPOINT` to this public endpoint, or omit it to
+derive `/time` from `VITE_ANALYTICS_ENDPOINT`. When neither is configured, the
+browser uses the public UTC fallback set by `VITE_PUBLIC_TIME_ENDPOINT`.
 
 The `POST /analytics/event` endpoint accepts the currently supported
 `tier_started` event and forwards it to PostHog. Keep the PostHog project token
@@ -31,6 +37,8 @@ browser game, for example:
 
 ```powershell
 $env:VITE_ANALYTICS_ENDPOINT = 'https://your-server.example.com/analytics/event'
+$env:VITE_SERVER_TIME_ENDPOINT = 'https://your-server.example.com/time'
+$env:VITE_PUBLIC_TIME_ENDPOINT = 'https://utctime.app/api/now'
 npm run build
 ```
 

@@ -5,6 +5,7 @@ import { CHEAT_CONFIG } from './cheat_config.js'
 import { BUILD_INFO } from './build_info.js'
 import { ANOMALY_CONFIG } from './anomaly_config.js'
 import { trackTierStarted } from './analytics.js'
+import { ANALYTICS_CONFIG, SERVER_TIME_CONFIG } from './analytics_config.js'
 import { BUILDING_CONFIG } from './building_config.js'
 import { createPlayerShip } from './three/player_ship.js'
 import { createBuildingVisual } from './three/buildings.js'
@@ -120,7 +121,7 @@ document.querySelector('#app').innerHTML = `
       <section class="settings-panel hidden" id="settings-panel" aria-label="Settings"><div class="lab-header"><div><p class="eyebrow">PREFERENCES</p><h2>SETTINGS</h2></div><button class="secondary-button" id="close-settings-button" type="button">BACK</button></div><div class="settings-section"><h3>GRAPHICS</h3><div class="settings-row"><div><strong>Quality</strong><small>Changes render resolution and shadows.</small></div><div class="settings-options" id="graphics-quality-options"></div></div><label class="settings-row settings-toggle"><span><strong>Shadows</strong><small>Show dynamic object shadows.</small></span><input id="setting-shadows" type="checkbox"></label></div><div class="settings-section"><h3>GAMEPLAY</h3><label class="settings-row"><span><strong>Camera Distance</strong><small>Adjusts how far the camera sits from your ship.</small></span><output id="camera-distance-value"></output><input id="setting-camera-distance" type="range" min="80" max="130" step="5"></label><label class="settings-row settings-toggle"><span><strong>Auto Pause</strong><small>Pause the run when the game loses focus.</small></span><input id="setting-auto-pause" type="checkbox"></label><label class="settings-row settings-toggle"><span><strong>High Contrast HUD</strong><small>Improves HUD readability.</small></span><input id="setting-high-contrast" type="checkbox"></label></div><div class="settings-section"><h3>SOUND</h3><label class="settings-row"><span><strong>Master Volume</strong><small>Controls all game sound effects.</small></span><output id="master-volume-value"></output><input id="setting-master-volume" type="range" min="0" max="100" step="1"></label><label class="settings-row settings-toggle"><span><strong>Mute All</strong><small>Instantly silence all sound effects.</small></span><input id="setting-muted" type="checkbox"></label><label class="settings-row settings-toggle"><span><strong>Spatial Audio</strong><small>Pan sounds based on their world position.</small></span><input id="setting-spatial-audio" type="checkbox"></label></div><div class="settings-section settings-actions"><button id="open-patch-notes-button" type="button">PATCH NOTES</button></div></section>
       <section class="patch-notes-panel hidden" id="patch-notes-panel" aria-label="Patch notes"><div class="lab-header"><div><p class="eyebrow">VERSION ${BUILD_INFO.version} · BUILD ${BUILD_INFO.number}</p><h2>PATCH NOTES</h2></div><button class="secondary-button" id="close-patch-notes-button" type="button">BACK</button></div>${PATCH_NOTES.map((entry) => `<article class="patch-notes-entry"><h3>${entry.heading}</h3><ul>${entry.changes.map((change) => `<li>${change}</li>`).join('')}</ul></article>`).join('')}</section>
     </section>
-    <section class="anomaly-run-modal hidden" id="anomaly-run-modal" aria-label="Anomaly Run challenge"><div class="anomaly-run-card"><p class="eyebrow">WEEKLY ANOMALY</p><h2 id="anomaly-challenge-name"></h2><p id="anomaly-challenge-description"></p><p class="anomaly-reward" id="anomaly-reward"></p><p class="anomaly-reset" id="anomaly-reset"></p><div><button class="secondary-button" id="cancel-anomaly-run" type="button">BACK</button><button id="confirm-anomaly-run" type="button">START ANOMALY RUN</button></div></div></section>
+    <section class="anomaly-run-modal hidden" id="anomaly-run-modal" aria-label="Anomaly Run challenge"><div class="anomaly-run-card"><p class="eyebrow">WEEKLY ANOMALY</p><h2 id="anomaly-challenge-name"></h2><p id="anomaly-challenge-description"></p><p class="anomaly-reward" id="anomaly-reward"></p><p class="anomaly-reset" id="anomaly-reset"></p><p class="anomaly-time-warning hidden" id="anomaly-time-warning" role="alert"></p><div><button class="secondary-button" id="cancel-anomaly-run" type="button">BACK</button><button id="confirm-anomaly-run" type="button">START ANOMALY RUN</button></div></div></section>
     <div class="build-bar hidden" id="build-bar"><span id="build-status">SELECT A BUILDING</span><div id="build-options"></div><button id="exit-build-mode" type="button">DONE</button></div>
     <section class="building-upgrade hidden" id="building-upgrade"></section>
   </main>
@@ -144,6 +145,7 @@ const anomalyChallengeName = document.querySelector('#anomaly-challenge-name')
 const anomalyChallengeDescription = document.querySelector('#anomaly-challenge-description')
 const anomalyRewardElement = document.querySelector('#anomaly-reward')
 const anomalyResetElement = document.querySelector('#anomaly-reset')
+const anomalyTimeWarning = document.querySelector('#anomaly-time-warning')
 const confirmAnomalyRunButton = document.querySelector('#confirm-anomaly-run')
 const cancelAnomalyRunButton = document.querySelector('#cancel-anomaly-run')
 const menuContent = document.querySelector('#menu-content')
@@ -332,6 +334,7 @@ let milestoneTierIndex = selectedTierIndex
 let cash = readStoredNumber(CASH_STORAGE_KEY)
 let chronoshards = readStoredNumber(CHRONOSHARDS_STORAGE_KEY)
 let savedRound = readSavedRound()
+let sandboxState = null
 const anomalyRewardState = (() => {
   const stored = readStoredJson(ANOMALY_REWARDS_STORAGE_KEY, {})
   return stored && typeof stored.claimedTiers === 'object' ? stored : { claimedTiers: {} }
@@ -570,6 +573,7 @@ function toggleCheatConsole(forceOpen) {
   const shouldOpen = forceOpen ?? cheatConsole.classList.contains('hidden')
   cheatConsole.classList.toggle('hidden', !shouldOpen)
   if (shouldOpen) {
+    keys.clear()
     cheatInput.focus()
     cheatInput.select()
   }
@@ -656,9 +660,77 @@ function clearBuildingsSave() {
   renderBuildings()
 }
 
+function startSandbox(tierIndex = 0) {
+  sandboxState = { tierIndex: THREE.MathUtils.clamp(tierIndex, 0, tierKeys.length - 1), simulation: new Set() }
+  anomalyRun = null
+  clearSavedRound()
+  applyDifficulty()
+  resetGame(false)
+  started = true
+  ended = false
+  paused = false
+  player.visible = true
+  menuContent.classList.remove('hidden')
+  overlay.classList.add('hidden')
+  pauseMenu.classList.add('hidden')
+  renderWeaponHud()
+  updateHud()
+}
+
+function runSandboxCommand(argumentsList) {
+  const [action, value] = argumentsList
+  if (!action) {
+    startSandbox()
+    setCheatOutput('Sandbox Tier 1 started. Use sandbox [tier], sandbox simulate [cell|enemies|all], or sandbox spawn [enemy] [count].')
+    return
+  }
+  const tierNumber = Number(action)
+  if (Number.isInteger(tierNumber)) {
+    if (!sandboxState) startSandbox(tierNumber - 1)
+    else {
+      sandboxState.tierIndex = THREE.MathUtils.clamp(tierNumber - 1, 0, tierKeys.length - 1)
+      applyDifficulty()
+      updateHud()
+    }
+    setCheatOutput(`Sandbox difficulty set to Tier ${sandboxState.tierIndex + 1}. Spawn simulation remains unchanged.`)
+    return
+  }
+  if (!sandboxState) {
+    setCheatOutput('Start Sandbox first with: sandbox')
+    return
+  }
+  if (action === 'simulate') {
+    if (!['cell', 'enemies', 'all'].includes(value)) {
+      setCheatOutput('Usage: sandbox simulate [cell|enemies|all]')
+      return
+    }
+    sandboxState.simulation = value === 'all' ? new Set(['cell', 'enemies', 'boosters']) : new Set([value])
+    setCheatOutput(`Sandbox ${value} simulation started for Tier ${sandboxState.tierIndex + 1}.`)
+    return
+  }
+  if (action === 'spawn') {
+    const enemyType = Object.keys(OBSTACLE_TYPES).find((type) => type.toLocaleLowerCase() === value?.toLocaleLowerCase())
+    const requestedCount = Number(argumentsList[2] ?? 1)
+    const count = Number.isInteger(requestedCount) ? THREE.MathUtils.clamp(requestedCount, 1, 100) : 0
+    if (!enemyType || !count) {
+      setCheatOutput(`Usage: sandbox spawn [${Object.keys(OBSTACLE_TYPES).join(', ')}] [count]`)
+      return
+    }
+    for (let index = 0; index < count; index += 1) createObstacle(randomArenaPosition(GAME.obstacleMinDistance), enemyType)
+    setCheatOutput(`Spawned ${count} ${enemyType}${count === 1 ? '' : ' enemies'}.`)
+    return
+  }
+  setCheatOutput('Usage: sandbox [tier] | sandbox simulate [cell|enemies|all] | sandbox spawn [enemy] [count]')
+}
+
 function runCheatCommand(rawCommand) {
-  const [command, argument] = rawCommand.trim().toLowerCase().split(/\s+/, 2)
+  const [command, ...argumentsList] = rawCommand.trim().toLowerCase().split(/\s+/)
+  const argument = argumentsList[0]
   if (!command) return
+  if (command === CHEAT_CONFIG.commands.sandbox) {
+    runSandboxCommand(argumentsList)
+    return
+  }
   const amount = Number(argument)
   if (command === CHEAT_CONFIG.commands.cash || command === CHEAT_CONFIG.commands.chrono) {
     if (!Number.isFinite(amount) || amount <= 0) {
@@ -712,7 +784,7 @@ function runCheatCommand(rawCommand) {
 }
 
 function getCurrentDifficulty() {
-  return DIFFICULTY[tierKeys[selectedTierIndex]]
+  return DIFFICULTY[tierKeys[sandboxState?.tierIndex ?? selectedTierIndex]]
 }
 
 function getActiveEnemyCapacity() {
@@ -759,6 +831,7 @@ function showCurrencyIndicator(position, text, className) {
 }
 
 function recordTierHighScore() {
+  if (sandboxState) return
   const tierKey = tierKeys[selectedTierIndex]
   if (score > (tierHighScores[tierKey] ?? 0)) {
     tierHighScores[tierKey] = score
@@ -1301,17 +1374,46 @@ function renderEncyclopediaModel(entry, canvas) {
   renderer.dispose()
 }
 
-function getAnomalyWeekIndex(date = new Date()) {
+let verifiedAnomalyTime = null
+let anomalyTimeVerificationPending = false
+
+function getAnomalyTimeEndpoint() {
+  if (SERVER_TIME_CONFIG.endpoint) return SERVER_TIME_CONFIG.endpoint
+  if (ANALYTICS_CONFIG.endpoint) {
+    try { return new URL('/time', ANALYTICS_CONFIG.endpoint).toString() } catch {}
+  }
+  return SERVER_TIME_CONFIG.publicEndpoint
+}
+
+async function fetchVerifiedAnomalyTime() {
+  const endpoint = getAnomalyTimeEndpoint()
+  if (!endpoint) throw new Error('Server time endpoint is not configured.')
+  const controller = new AbortController()
+  const timeout = window.setTimeout(() => controller.abort(), 8_000)
+  const requestStartedAt = performance.now()
+  try {
+    const response = await fetch(endpoint, { cache: 'no-store', signal: controller.signal })
+    if (!response.ok) throw new Error(`Server time request failed with ${response.status}.`)
+    const payload = await response.json()
+    const timestamp = Date.parse(payload?.now ?? payload?.utc_iso)
+    if (!Number.isFinite(timestamp)) throw new Error('Server returned an invalid time.')
+    return new Date(timestamp + (performance.now() - requestStartedAt) / 2)
+  } finally {
+    window.clearTimeout(timeout)
+  }
+}
+
+function getAnomalyWeekIndex(date = verifiedAnomalyTime ?? new Date()) {
   const anchor = new Date(`${ANOMALY_CONFIG.weeklyAnchorDate}T00:00:00Z`)
-  const utcDate = Date.UTC(date.getFullYear(), date.getMonth(), date.getDate())
+  const utcDate = Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())
   return Math.max(0, Math.floor((utcDate - anchor.getTime()) / (7 * 86_400_000)))
 }
 
-function getAnomalyWeekId(date = new Date()) {
+function getAnomalyWeekId(date = verifiedAnomalyTime ?? new Date()) {
   return String(getAnomalyWeekIndex(date))
 }
 
-function getNextAnomalyResetDate(date = new Date()) {
+function getNextAnomalyResetDate(date = verifiedAnomalyTime ?? new Date()) {
   const anchor = new Date(`${ANOMALY_CONFIG.weeklyAnchorDate}T00:00:00Z`)
   anchor.setUTCDate(anchor.getUTCDate() + (getAnomalyWeekIndex(date) + 1) * 7)
   return anchor
@@ -2388,19 +2490,66 @@ function updateStartButton() {
   const unlocked = isResearchTierUnlocked(ANOMALY_CONFIG.unlockTier)
   anomalyRunButton.textContent = !unlocked ? `ANOMALY RUN · TIER ${ANOMALY_CONFIG.unlockTier}` : rewardClaimed ? 'ANOMALY RUN (Reward Claimed)' : 'ANOMALY RUN'
   anomalyRunButton.title = !unlocked ? `Unlocks at Tier ${ANOMALY_CONFIG.unlockTier}.` : rewardClaimed ? 'This tier’s weekly Anomaly reward has already been claimed.' : 'View this week’s challenge.'
-  anomalyRunButton.disabled = Boolean(savedRound) || rewardClaimed || !unlocked
+  anomalyRunButton.disabled = Boolean(savedRound) || rewardClaimed || !unlocked || anomalyTimeVerificationPending
 }
 
-function openAnomalyRunDialog() {
-  const challenge = getWeeklyAnomalyChallenge()
-  anomalyChallengeName.textContent = `${challenge.name} (Tier ${selectedTierIndex + 1})`
-  anomalyChallengeDescription.textContent = challenge.description
-  anomalyRewardElement.textContent = `250 CELLS · REWARD ✦ ${getAnomalyReward(selectedTierIndex)}`
-  anomalyResetElement.textContent = `(New Anomaly in ${formatAnomalyDate(getNextAnomalyResetDate())})`
+async function openAnomalyRunDialog() {
+  if (anomalyTimeVerificationPending) return
+  anomalyTimeVerificationPending = true
+  verifiedAnomalyTime = null
+  anomalyChallengeName.textContent = 'VERIFYING TIME'
+  anomalyChallengeDescription.textContent = 'Checking the current Weekly Anomaly with the game server.'
+  anomalyRewardElement.hidden = true
+  anomalyResetElement.hidden = true
+  anomalyTimeWarning.hidden = true
+  confirmAnomalyRunButton.hidden = true
   anomalyRunModal.classList.remove('hidden')
+  updateStartButton()
+
+  try {
+    verifiedAnomalyTime = await fetchVerifiedAnomalyTime()
+    const weekId = getAnomalyWeekId(verifiedAnomalyTime)
+    const challenge = getWeeklyAnomalyChallenge(weekId)
+    anomalyChallengeName.textContent = `${challenge.name} (Tier ${selectedTierIndex + 1})`
+    anomalyChallengeDescription.textContent = challenge.description
+    anomalyRewardElement.textContent = `250 CELLS · REWARD ✦ ${getAnomalyReward(selectedTierIndex)}`
+    anomalyResetElement.textContent = `(New Anomaly in ${formatAnomalyDate(getNextAnomalyResetDate(verifiedAnomalyTime))})`
+    anomalyRewardElement.hidden = false
+    anomalyResetElement.hidden = false
+
+    if (hasClaimedAnomalyReward(weekId)) {
+      anomalyTimeWarning.textContent = 'This tier’s Weekly Anomaly reward has already been claimed.'
+      anomalyTimeWarning.hidden = false
+    } else {
+      confirmAnomalyRunButton.hidden = false
+    }
+  } catch {
+    anomalyChallengeName.textContent = 'TIME NOT VERIFIED'
+    anomalyChallengeDescription.textContent = 'The current Weekly Anomaly could not be verified.'
+    anomalyTimeWarning.textContent = 'We could not verify the server time or check your internet connection. Please check your connection and try again.'
+    anomalyTimeWarning.hidden = false
+  } finally {
+    anomalyTimeVerificationPending = false
+    updateStartButton()
+  }
 }
 
 function returnToMainMenu() {
+  if (sandboxState) {
+    clearSavedRound()
+    paused = false
+    started = false
+    pauseMenu.classList.add('hidden')
+    overlayTitle.textContent = 'ASTEROID BELT'
+    overlayTitle.classList.remove('death-title')
+    hideDeathEnemyPreview()
+    overlayCopy.textContent = 'Sandbox closed. No progress was saved.'
+    gameOverTip.hidden = true
+    menuContent.classList.remove('hidden')
+    labPanel.classList.add('hidden')
+    overlay.classList.remove('hidden')
+    return
+  }
   saveCurrentRound()
   paused = false
   started = false
@@ -2466,7 +2615,7 @@ function endGame(cause = 'SIGNAL LOST') {
 
 function updateHud() {
   scoreElement.textContent = String(score).padStart(3, '0')
-  hudTierElement.textContent = `TIER ${selectedTierIndex + 1}${anomalyRun ? ' · ANOMALY' : ''}`
+  hudTierElement.textContent = sandboxState ? `SANDBOX TIER ${sandboxState.tierIndex + 1}` : `TIER ${selectedTierIndex + 1}${anomalyRun ? ' · ANOMALY' : ''}`
   shieldIndicators.innerHTML = Array.from({ length: shieldCharges }, () => '<i aria-hidden="true"></i>').join('')
   shieldIndicators.hidden = shieldCharges === 0
 }
@@ -2606,9 +2755,11 @@ function updateGame(delta, total) {
       cells.splice(index, 1)
       const cellMultiplier = cellOverdriveTime > 0 ? 2 : 1
       score += cellMultiplier
-      updateBankedCells(cellMultiplier)
-      updateCash(cell.userData.cashValue * cellMultiplier)
-      showCashIndicator(cell.position, cell.userData.cashValue * cellMultiplier)
+      if (!sandboxState) {
+        updateBankedCells(cellMultiplier)
+        updateCash(cell.userData.cashValue * cellMultiplier)
+        showCashIndicator(cell.position, cell.userData.cashValue * cellMultiplier)
+      }
       claimAnomalyRewardIfEligible()
     }
   }
@@ -3127,11 +3278,14 @@ function updateGame(delta, total) {
   obstacleSpawnTimer += delta
   hazardTimer += delta
   const cellSpawnRateBonus = getResearchStatBonus('cellSpawnRate') + score * getResearchStatBonus('cellSpawnRatePerCell')
-  if (spawnTimer > GAME.cellSpawnInterval / (1 + cellSpawnRateBonus)) {
+  const simulatesCells = !sandboxState || sandboxState.simulation.has('cell')
+  const simulatesEnemies = !sandboxState || sandboxState.simulation.has('enemies')
+  const simulatesBoosters = !sandboxState || sandboxState.simulation.has('boosters')
+  if (simulatesCells && spawnTimer > GAME.cellSpawnInterval / (1 + cellSpawnRateBonus)) {
     addCell()
     spawnTimer = 0
   }
-  if (boosterTimer > GAME.boosterSpawnInterval) {
+  if (simulatesBoosters && boosterTimer > GAME.boosterSpawnInterval) {
     const availableBoosters = [
       getResearchLevel('unlock-speed-booster') > 0 && 'speed',
       getResearchLevel('thorn-shield') > 0 && 'thorn',
@@ -3140,11 +3294,11 @@ function updateGame(delta, total) {
     if (availableBoosters.length) addBooster(availableBoosters[Math.floor(Math.random() * availableBoosters.length)])
     boosterTimer = 0
   }
-  if (chronoCellTimer > GAME.chronoCellSpawnInterval / (1 + getResearchStatBonus('chronoSpawnRate'))) {
+  if (simulatesCells && chronoCellTimer > GAME.chronoCellSpawnInterval / (1 + getResearchStatBonus('chronoSpawnRate'))) {
     addChronoCell()
     chronoCellTimer = 0
   }
-  if (obstacleSpawnTimer > obstacleSpawnInterval) {
+  if (simulatesEnemies && obstacleSpawnTimer > obstacleSpawnInterval) {
     const availableSlots = Math.max(0, getActiveEnemyCapacity() - obstacles.length - obstacleSpawnWarnings.length)
     for (let index = 0; index < Math.min(obstacleSpawnCount, availableSlots); index += 1) scheduleObstacle()
     obstacleSpawnTimer = 0
@@ -3154,7 +3308,7 @@ function updateGame(delta, total) {
     (GAME.fallingBlockBaseInterval + difficulty.fallingRockSpawnIntervalOffset
       - score * (GAME.fallingBlockIntervalPerCell + difficulty.fallingRockSpawnDecreasePerCellOffset)) * (1 - tierPressure) / GAME.fallingRockSpawnFrequencyMultiplier,
   )
-  if (hazardTimer > fallingRockSpawnInterval) {
+  if (simulatesEnemies && hazardTimer > fallingRockSpawnInterval) {
     scheduleFallingObstacles()
     hazardTimer = 0
   }
@@ -3246,11 +3400,13 @@ function renderSettings() {
 function persistSettings() { saveSettings(); soundSystem.setMasterVolume(); renderSettings() }
 
 async function startRound(isAnomalyRun = false) {
+  if (isAnomalyRun && !verifiedAnomalyTime) return
   await soundSystem.initialize()
   soundSystem.playButtonClick()
   const continuingRun = Boolean(savedRound)
   if (continuingRun) restoreSavedRound()
   else {
+    sandboxState = null
     anomalyRun = isAnomalyRun ? { challengeId: getWeeklyAnomalyChallenge().id, weekId: getAnomalyWeekId() } : null
     resetGame()
   }
@@ -3380,7 +3536,7 @@ hideLockedResearchesInput.addEventListener('change', () => {
 
 resetRoundButton.addEventListener('click', () => {
   clearSavedRound()
-  resetGame()
+  resetGame(!sandboxState)
   paused = false
   started = true
   pauseMenu.classList.add('hidden')
@@ -3415,13 +3571,19 @@ document.addEventListener('click', (event) => {
 closeCheatConsoleButton.addEventListener('click', () => toggleCheatConsole(false))
 cheatInput.addEventListener('keydown', (event) => {
   if (event.key === 'Enter') {
+    event.preventDefault()
     runCheatCommand(cheatInput.value)
     cheatInput.value = ''
   }
-  if (event.key === 'Escape') toggleCheatConsole(false)
+  if (event.key === 'Escape') {
+    event.preventDefault()
+    toggleCheatConsole(false)
+  }
+  event.stopPropagation()
 })
 
 window.addEventListener('keydown', (event) => {
+  if (!cheatConsole.classList.contains('hidden')) return
   if (event.key === 'Escape' && started) {
     event.preventDefault()
     paused = !paused
