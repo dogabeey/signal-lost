@@ -1277,9 +1277,7 @@ function renderWeaponHud() {
   weaponHud.classList.toggle('hidden', !started || !available.length)
   weaponHud.innerHTML = available.map((id, index) => {
     const charges = getWeaponCharges(id)
-    const maxCharges = getWeaponMaxCharges()
-    const recharging = hasWeaponRecharge() && charges < maxCharges
-    const status = recharging ? `${charges}/${maxCharges} · RECHARGING` : `${charges}/${maxCharges} CHARGES`
+    const status = String(charges)
     return `<button class="${index === weaponState.selected ? 'selected' : ''} ${charges === 0 ? 'spent' : ''}" data-use-weapon="${id}" type="button" ${charges === 0 ? 'disabled' : ''}><span class="weapon-hud-icon ${WEAPON_CONFIG.weapons[id].duration ? 'has-duration' : ''}" data-weapon-duration="${WEAPON_CONFIG.weapons[id].duration ? id : ''}"><img class="weapon-hud-art" src="${getWeaponAsset(id)}" alt=""></span><b>${index + 1}</b><span class="weapon-hud-name">${WEAPON_CONFIG.weapons[id].name}</span><i>${status}</i></button>`
   }).join('')
   updateWeaponDurationIndicators()
