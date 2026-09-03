@@ -325,7 +325,8 @@ button:focus-visible { outline: 2px solid #fff4d2; outline-offset: 4px; }
 @media (max-width: 580px), (hover: none) and (pointer: coarse) {
   .overlay { align-items: stretch; justify-content: flex-start; overflow-y: auto; overscroll-behavior-y: contain; padding: 0 18px; }
   .menu-content { flex: none; min-height: 0; padding: clamp(116px, 17svh, 164px) 0 0; }
-  .menu-content.is-death-screen { min-height: 0; padding: 18px 0 14px; transform: none; }
+  /* Keep the death screen aligned with the regular start menu. */
+  .menu-content.is-death-screen { min-height: 0; transform: none; }
   .menu-content.is-death-screen h1.death-title { font-size: clamp(22px, 7vw, 30px); }
   .menu-content.is-death-screen .death-killer-preview { height: 48px; margin-left: 5px; width: 61px; }
   .menu-content.is-death-screen .death-killer-preview canvas { height: 48px; width: 61px; }

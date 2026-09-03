@@ -7,6 +7,7 @@ export const CHEAT_CONFIG = {
     chrono: 'chrono',
     freeResearch: 'free_research',
     unlockTiers: 'unlock_tiers',
+    gainArtifact: 'gain_artifact',
     clearSave: 'clear_save',
     sandbox: 'sandbox',
   },

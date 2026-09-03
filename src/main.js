@@ -836,12 +836,44 @@ function runSandboxCommand(argumentsList) {
   setCheatOutput('Usage: sandbox [tier] | sandbox simulate [cell|enemies|all] | sandbox spawn [enemy] [count]')
 }
 
+function runGainArtifactCommand(argumentsList) {
+  if (argumentsList.length < 2) {
+    setCheatOutput('Usage: gain_artifact <artifact_name> <stack>')
+    return
+  }
+  const stackCount = Number(argumentsList.at(-1))
+  const artifactName = argumentsList.slice(0, -1).join('-').replaceAll('_', '-').toLowerCase()
+  const artifact = ARTIFACT_CONFIG.artifacts.find((entry) => entry.id.toLowerCase() === artifactName || entry.name.replaceAll(' ', '-').toLowerCase() === artifactName)
+  if (!artifact) {
+    setCheatOutput(`Unknown Artifact: ${argumentsList.slice(0, -1).join(' ')}`)
+    return
+  }
+  if (!Number.isInteger(stackCount) || stackCount <= 0 || stackCount > 10_000) {
+    setCheatOutput('Stack must be a whole number from 1 to 10,000.')
+    return
+  }
+  if (artifact.repeatable) {
+    artifactState.stackCounts[artifact.id] = getArtifactStackCount(artifact) + stackCount
+    if (!artifactState.unlocked.includes(artifact.id)) artifactState.unlocked = [...artifactState.unlocked, artifact.id]
+    saveArtifactState()
+    renderArtifacts()
+    setCheatOutput(`Granted ${stackCount} ${artifact.name} stack${stackCount === 1 ? '' : 's'} (${getArtifactStackCount(artifact)} total).`)
+    return
+  }
+  if (!artifactState.unlocked.includes(artifact.id)) unlockArtifact(artifact)
+  setCheatOutput(`${artifact.name} is a unique Artifact and is now unlocked.`)
+}
+
 function runCheatCommand(rawCommand) {
   const [command, ...argumentsList] = rawCommand.trim().toLowerCase().split(/\s+/)
   const argument = argumentsList[0]
   if (!command) return
   if (command === CHEAT_CONFIG.commands.sandbox) {
     runSandboxCommand(argumentsList)
+    return
+  }
+  if (command === CHEAT_CONFIG.commands.gainArtifact) {
+    runGainArtifactCommand(argumentsList)
     return
   }
   const amount = Number(argument)
