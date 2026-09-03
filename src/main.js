@@ -3863,6 +3863,10 @@ overlay.addEventListener('click', (event) => {
     labPanel.classList.add('hidden')
     menuContent.classList.remove('hidden')
   }
+  if (!settingsPanel.classList.contains('hidden') && !clickPath.includes(settingsPanel)) {
+    settingsPanel.classList.add('hidden')
+    menuContent.classList.remove('hidden')
+  }
   if (!buildingPanel.classList.contains('hidden') && !clickPath.includes(buildingPanel) && !clickPath.includes(buildingDraftModal)) {
     buildingDraftModal.classList.add('hidden')
     buildingPanel.classList.add('hidden')
