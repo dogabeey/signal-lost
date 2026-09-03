@@ -24,7 +24,8 @@ import { formatCompactNumber, formatCurrency, formatDuration, formatResearchEffe
 import { TIPS } from './tips.js'
 import { MILESTONES } from './milestones.js'
 import { WEAPON_CONFIG } from './weapons_config.js'
-import { getBuildingAsset, getUiIconAsset, getWeaponAsset } from './asset_catalog.js'
+import { ARTIFACT_CONFIG } from './artifact_config.js'
+import { getArtifactAsset, getBuildingAsset, getUiIconAsset, getWeaponAsset } from './asset_catalog.js'
 import { DAMAGE_TYPES } from './damage_types.js'
 import './style.css'
 
@@ -114,6 +115,7 @@ document.querySelector('#app').innerHTML = `
           ${getSystemMenuButtonMarkup({ id: 'open-building-button', iconId: 'buildingSystem', fallback: 'BS', label: 'BUILDING SYSTEM' })}
           ${getUtilityMenuButtonMarkup({ id: 'open-encyclopedia-button', iconId: 'encyclopedia', fallback: 'E', label: 'ENCYCLOPEDIA' })}
           ${getUtilityMenuButtonMarkup({ id: 'open-settings-button', iconId: 'settings', fallback: 'S', label: 'SETTINGS' })}
+          ${getUtilityMenuButtonMarkup({ id: 'open-artifacts-button', iconId: 'artifacts', fallback: 'A', label: 'ARTIFACTS' })}
           ${IS_STEAM_BUILD ? '<button class="menu-exit-button" id="exit-game-button" type="button">EXIT GAME</button>' : ''}
       </div>
       <section class="milestones-panel hidden" id="milestones-panel" aria-label="Ascension">
@@ -129,6 +131,8 @@ document.querySelector('#app').innerHTML = `
         <h3>AVAILABLE RESEARCH</h3><label class="research-search"><span>SEARCH</span><input id="research-search" type="search" placeholder="Search research names" autocomplete="off"></label><div class="research-filters"><label><input id="hide-completed-researches" type="checkbox"> <span>Hide Completed Researches</span></label><label><input id="hide-locked-researches" type="checkbox"> <span>Hide Locked Researches</span></label></div><div class="research-list" id="research-list"></div>
       </section>
       <section class="encyclopedia-panel hidden" id="encyclopedia-panel" aria-label="Encyclopedia"><div class="lab-header"><div><p class="eyebrow">THREAT DATABASE</p><h2>ENCYCLOPEDIA</h2></div><button class="secondary-button" id="close-encyclopedia-button" type="button">BACK</button></div><div class="encyclopedia-list" id="encyclopedia-list"></div></section>
+      <section class="artifact-panel hidden" id="artifact-panel" aria-label="Artifacts"><div class="lab-header"><div><p class="eyebrow">PERMANENT ACHIEVEMENTS</p><h2>ARTIFACTS</h2></div><button class="secondary-button" id="close-artifacts-button" type="button">BACK</button></div><p class="artifact-intro">Artifacts are permanent rewards earned by reaching achievement goals.</p><div class="artifact-grid" id="artifact-grid"></div></section>
+      <section class="artifact-detail-modal hidden" id="artifact-detail-modal" aria-label="Artifact detail"><div id="artifact-detail-content"></div><button class="secondary-button" id="close-artifact-detail-button" type="button">BACK</button></section>
       <section class="building-panel hidden" id="building-panel"><div class="lab-header"><div><p class="eyebrow">PERMANENT DEFENSES</p><h2>BUILDING SYSTEM</h2></div><button class="secondary-button" id="close-building-button" type="button">BACK</button></div><p class="lab-balance">CASH <span id="building-cash"></span> · CHRONOSHARDS <span id="building-chronoshards"></span> · SLOTS <span id="building-slots"></span></p><div class="building-actions"><button id="enter-build-mode" type="button">BUILD MODE</button><button id="open-building-draft" type="button">UNLOCK A BUILDING</button></div><h3>UNLOCKED BUILDINGS</h3><div class="building-list" id="building-list"></div></section>
       <section class="building-draft-modal hidden" id="building-draft-modal" aria-label="Building Draft"><button class="upgrade-close" id="close-building-draft" type="button" aria-label="Close building draft">×</button><p class="eyebrow">PERMANENT DEFENSES</p><h2>BUILDING DRAFT</h2><p class="building-draft-balance">CHRONOSHARDS <span id="building-draft-chronoshards"></span></p><div class="building-list" id="building-draft-list"></div></section>
       <section class="weaponry-panel hidden" id="weaponry-panel" aria-label="Weaponry"><div class="lab-header"><div><p class="eyebrow">ACTIVE ARSENAL</p><h2>WEAPONRY</h2></div><button class="secondary-button" id="close-weaponry-button" type="button">BACK</button></div><p class="lab-balance">CHRONOSHARDS <span id="weaponry-chronoshards"></span></p><div class="weapon-buy-actions"><button class="weapon-buy-button" id="buy-weapon-button" type="button">BUY WEAPON · ✦ 35</button><button class="weapon-buy-button" id="buy-weapons-five-button" type="button">BUY WEAPON x5 · ✦ 175</button></div><p class="weapon-lucky-find-chance" id="weapon-lucky-find-chance" hidden>LUCKY FIND · 0% · 2 CARDS</p><h3>ROUND LOADOUT <span id="weapon-slot-count"></span></h3><div class="weapon-loadout" id="weapon-loadout"></div><h3>WEAPON CARDS</h3><div class="weapon-card-list" id="weapon-card-list"></div></section>
@@ -191,6 +195,13 @@ const openEncyclopediaButton = document.querySelector('#open-encyclopedia-button
 const encyclopediaPanel = document.querySelector('#encyclopedia-panel')
 const closeEncyclopediaButton = document.querySelector('#close-encyclopedia-button')
 const encyclopediaList = document.querySelector('#encyclopedia-list')
+const openArtifactsButton = document.querySelector('#open-artifacts-button')
+const artifactPanel = document.querySelector('#artifact-panel')
+const closeArtifactsButton = document.querySelector('#close-artifacts-button')
+const artifactGrid = document.querySelector('#artifact-grid')
+const artifactDetailModal = document.querySelector('#artifact-detail-modal')
+const artifactDetailContent = document.querySelector('#artifact-detail-content')
+const closeArtifactDetailButton = document.querySelector('#close-artifact-detail-button')
 const weaponryPanel = document.querySelector('#weaponry-panel')
 const closeWeaponryButton = document.querySelector('#close-weaponry-button')
 const weaponryChronoshards = document.querySelector('#weaponry-chronoshards')
@@ -285,7 +296,7 @@ function getGameOverTip() {
 const { cellBank: CELL_BANK_STORAGE_KEY, tier: TIER_STORAGE_KEY, tierHighScores: TIER_HIGH_SCORES_STORAGE_KEY, cash: CASH_STORAGE_KEY,
   chronoshards: CHRONOSHARDS_STORAGE_KEY, researchLab: RESEARCH_LAB_STORAGE_KEY, savedRound: SAVED_ROUND_STORAGE_KEY,
   buildings: BUILDINGS_STORAGE_KEY, featureUnlocks: FEATURE_UNLOCKS_STORAGE_KEY, milestones: MILESTONES_STORAGE_KEY,
-  settings: SETTINGS_STORAGE_KEY, weaponry: WEAPONRY_STORAGE_KEY, anomalyRewards: ANOMALY_REWARDS_STORAGE_KEY } = STORAGE_KEYS
+  settings: SETTINGS_STORAGE_KEY, weaponry: WEAPONRY_STORAGE_KEY, anomalyRewards: ANOMALY_REWARDS_STORAGE_KEY, artifacts: ARTIFACTS_STORAGE_KEY } = STORAGE_KEYS
 migrateLegacyStorage()
 const tierKeys = Object.keys(DIFFICULTY)
 
@@ -345,6 +356,14 @@ function isResearchTierUnlocked(tier) {
 
 let bankedCells = readStoredNumber(CELL_BANK_STORAGE_KEY)
 const tierHighScores = readStoredTierHighScores()
+let artifactState = (() => {
+  const stored = readStoredJson(ARTIFACTS_STORAGE_KEY, {})
+  const validIds = new Set(ARTIFACT_CONFIG.artifacts.map((artifact) => artifact.id))
+  return {
+    unlocked: Array.isArray(stored?.unlocked) ? stored.unlocked.filter((id) => validIds.has(id)) : [],
+    resetAtScores: stored?.resetAtScores && typeof stored.resetAtScores === 'object' ? stored.resetAtScores : {},
+  }
+})()
 const milestoneState = readMilestoneState()
 if (milestoneState.version !== 3) {
   milestoneState.claimed = MILESTONES
@@ -444,8 +463,18 @@ const researchRules = createResearchRules({
   getMilestoneState: () => milestoneState,
   getBankedCells: () => bankedCells,
 })
-const { getResearchById, getResearchLevel, getResearchStatBonus, getResearchCost, getResearchDuration,
+const { getResearchById, getResearchLevel, getResearchStatBonus: getResearchStatBonusBase, getResearchCost, getResearchDuration,
   getResearchLockReason, isResearchVisible, compareResearchProgression } = researchRules
+
+function getArtifactStatBonus(stat) {
+  return ARTIFACT_CONFIG.artifacts
+    .filter((artifact) => artifactState.unlocked.includes(artifact.id) && artifact.buff.stat === stat)
+    .reduce((total, artifact) => total + artifact.buff.amount, 0)
+}
+
+function getResearchStatBonus(stat) {
+  return getResearchStatBonusBase(stat) + getArtifactStatBonus(stat)
+}
 
 function getEffectiveEnemyRange(type, baseRange) {
   const debuffStat = { chaser: 'chaserRangeDebuff', banger: 'bangerRangeDebuff', shooter: 'shooterRangeDebuff' }[type]
@@ -838,6 +867,7 @@ function runCheatCommand(rawCommand) {
     if (argument === 'research' || argument === 'all') clearResearchSave()
     if (argument === 'buildings' || argument === 'all') clearBuildingsSave()
     if (argument === 'weapons' || argument === 'all') clearWeaponrySave()
+    if (argument === 'artifacts' || argument === 'all') clearArtifactSave()
     if (argument === 'all') clearFeatureUnlocks()
     setCheatOutput(`Cleared ${argument.replace('_', ' ')} save data.`)
     return
@@ -899,10 +929,63 @@ function recordTierHighScore() {
     tierHighScores[tierKey] = score
     writeStoredTierHighScores()
   }
+  checkArtifactUnlocks()
   saveMilestoneState()
   renderTierOptions()
   renderResearchLab()
   renderMilestones()
+}
+
+function saveArtifactState() { writeStoredJson(ARTIFACTS_STORAGE_KEY, artifactState) }
+
+function clearArtifactSave() {
+  artifactState = {
+    unlocked: [],
+    resetAtScores: Object.fromEntries(ARTIFACT_CONFIG.artifacts.map((artifact) => [artifact.id, artifact.requirement.type === 'tier-high-score' ? tierHighScores[tierKeys[artifact.requirement.tier - 1]] ?? 0 : 0])),
+  }
+  saveArtifactState()
+  renderArtifacts()
+}
+
+function getArtifactRequirementText(artifact) {
+  const { requirement } = artifact
+  if (requirement.type === 'tier-high-score') return `Reach ${requirement.cells} Cells in Tier ${requirement.tier}.`
+  return 'Complete this artifact achievement.'
+}
+
+function isArtifactRequirementMet(artifact) {
+  const { requirement } = artifact
+  if (requirement.type === 'tier-high-score') {
+    const highScore = tierHighScores[tierKeys[requirement.tier - 1]] ?? 0
+    return highScore >= requirement.cells && highScore > (artifactState.resetAtScores[artifact.id] ?? -1)
+  }
+  return false
+}
+
+function checkArtifactUnlocks() {
+  const newlyUnlocked = ARTIFACT_CONFIG.artifacts
+    .filter((artifact) => !artifactState.unlocked.includes(artifact.id) && isArtifactRequirementMet(artifact))
+    .map((artifact) => artifact.id)
+  if (!newlyUnlocked.length) return false
+  artifactState.unlocked = [...artifactState.unlocked, ...newlyUnlocked]
+  saveArtifactState()
+  renderArtifacts()
+  return true
+}
+
+function renderArtifacts() {
+  artifactGrid.innerHTML = ARTIFACT_CONFIG.artifacts.map((artifact) => {
+    const unlocked = artifactState.unlocked.includes(artifact.id)
+    return `<button class="artifact-card ${unlocked ? 'is-unlocked' : 'is-locked'}" data-artifact-id="${artifact.id}" type="button"><img src="${getArtifactAsset(artifact.icon)}" alt=""><span>${unlocked ? artifact.name : 'UNKNOWN ARTIFACT'}</span><small>${unlocked ? 'UNLOCKED' : 'LOCKED'}</small></button>`
+  }).join('')
+}
+
+function openArtifactDetail(artifactId) {
+  const artifact = ARTIFACT_CONFIG.artifacts.find((entry) => entry.id === artifactId)
+  if (!artifact) return
+  const unlocked = artifactState.unlocked.includes(artifact.id)
+  artifactDetailContent.innerHTML = `<img class="artifact-detail-icon ${unlocked ? '' : 'is-locked'}" src="${getArtifactAsset(artifact.icon)}" alt=""><p class="eyebrow">${unlocked ? 'ARTIFACT ACQUIRED' : 'ARTIFACT LOCKED'}</p><h2>${unlocked ? artifact.name : 'UNKNOWN ARTIFACT'}</h2><div class="artifact-detail-section"><strong>TO ACQUIRE</strong><p>${getArtifactRequirementText(artifact)}</p></div><div class="artifact-detail-section"><strong>PERMANENT BUFF</strong><p>${artifact.buff.label}</p></div>`
+  artifactDetailModal.classList.remove('hidden')
 }
 
 function renderTierOptions() {
@@ -3504,6 +3587,8 @@ function hideMenuPanels() {
   weaponryPanel.classList.add('hidden')
   weaponRevealModal.classList.add('hidden')
   encyclopediaPanel.classList.add('hidden')
+  artifactPanel.classList.add('hidden')
+  artifactDetailModal.classList.add('hidden')
   settingsPanel.classList.add('hidden')
   patchNotesPanel.classList.add('hidden')
   milestonesPanel.classList.add('hidden')
@@ -3516,6 +3601,7 @@ const menuPanelButtons = new Map([
   [buildingPanel, openBuildingButton],
   [weaponryPanel, openWeaponryButton],
   [encyclopediaPanel, openEncyclopediaButton],
+  [artifactPanel, openArtifactsButton],
   [settingsPanel, openSettingsButton],
 ])
 
@@ -3592,11 +3678,21 @@ overlay.addEventListener('click', (event) => {
     encyclopediaPanel.classList.add('hidden')
     menuContent.classList.remove('hidden')
   }
+  if (!artifactPanel.classList.contains('hidden') && !clickPath.includes(artifactPanel) && !clickPath.includes(artifactDetailModal)) {
+    artifactDetailModal.classList.add('hidden')
+    artifactPanel.classList.add('hidden')
+    menuContent.classList.remove('hidden')
+    setActiveMenuButton()
+  }
 })
 openBuildingButton.addEventListener('click', (event) => { event.stopPropagation(); if (!tryUnlockFeature('buildingSystem', openBuildingButton)) return; openMenuPanel(buildingPanel, renderBuildings) })
 openWeaponryButton.addEventListener('click', (event) => { event.stopPropagation(); if (!tryUnlockFeature('weaponry', openWeaponryButton)) return; openMenuPanel(weaponryPanel, renderWeaponry) })
 openEncyclopediaButton.addEventListener('click', (event) => { event.stopPropagation(); openMenuPanel(encyclopediaPanel, renderEncyclopedia) })
+openArtifactsButton.addEventListener('click', (event) => { event.stopPropagation(); openMenuPanel(artifactPanel, renderArtifacts) })
 closeEncyclopediaButton.addEventListener('click', () => { encyclopediaPanel.classList.add('hidden'); menuContent.classList.remove('hidden') })
+closeArtifactsButton.addEventListener('click', () => { artifactDetailModal.classList.add('hidden'); artifactPanel.classList.add('hidden'); menuContent.classList.remove('hidden'); setActiveMenuButton() })
+artifactGrid.addEventListener('click', (event) => { const card = event.target.closest('[data-artifact-id]'); if (card) openArtifactDetail(card.dataset.artifactId) })
+closeArtifactDetailButton.addEventListener('click', () => artifactDetailModal.classList.add('hidden'))
 closeWeaponryButton.addEventListener('click', () => { weaponryPanel.classList.add('hidden'); menuContent.classList.remove('hidden') })
 buyWeaponButton.addEventListener('click', () => buyWeapons(1))
 buyWeaponsFiveButton.addEventListener('click', () => buyWeapons(5))
@@ -3792,6 +3888,8 @@ updateChronoshards()
 renderMilestones()
 renderResearchLab()
 renderSettings()
+checkArtifactUnlocks()
+renderArtifacts()
 updateStartButton()
 setActiveMenuButton()
 resetGame()

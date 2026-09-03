@@ -10,5 +10,5 @@ export const CHEAT_CONFIG = {
     clearSave: 'clear_save',
     sandbox: 'sandbox',
   },
-  clearSaveTargets: ['currency', 'game_progress', 'milestones', 'research', 'buildings', 'weapons', 'all'],
+  clearSaveTargets: ['currency', 'game_progress', 'milestones', 'research', 'buildings', 'weapons', 'artifacts', 'all'],
 }

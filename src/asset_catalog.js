@@ -27,6 +27,11 @@ const uiIconAssets = {
   home: publicAsset('ui/home.svg'),
   encyclopedia: publicAsset('ui/encyclopedia.svg'),
   settings: publicAsset('ui/settings.svg'),
+  artifacts: publicAsset('ui/artifacts.svg'),
+}
+
+export function getArtifactAsset(icon) {
+  return publicAsset(`artifacts/${icon}`)
 }
 
 // Add a matching SVG icon here whenever a new model is introduced.
