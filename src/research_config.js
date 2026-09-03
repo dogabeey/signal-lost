@@ -13,16 +13,16 @@ export const RESEARCH_CONFIG = {
   durationsEnabled: false,
   categoryOrder: ['Player Enhancements', 'Economy', 'Boosters'],
   featureUnlocks: {
-    researchLab: { minTier: 1, chronoshardCost: 0, requiredMilestone: 'tier-1-10' },
-    buildingSystem: { minTier: 4, chronoshardCost: 50 },
-    weaponry: { minTier: 2, chronoshardCost: 25 },
+    researchLab: { minSector: 1, chronoshardCost: 0, requiredMilestone: 'sector-1-10' },
+    buildingSystem: { minSector: 4, chronoshardCost: 50 },
+    weaponry: { minSector: 2, chronoshardCost: 25 },
   },
   maxSlots: 3,
   slotUnlocks: [
-    { slot: 2, cost: { currency: 'chronoshards', amount: 50 }, requirements: { minTier: 2 } },
-    { slot: 3, cost: { currency: 'chronoshards', amount: 200 }, requirements: { minTier: 3 } },
-    { slot: 4, cost: { currency: 'chronoshards', amount: 500 }, requirements: { minTier: 4 } },
-    { slot: 5, cost: { currency: 'chronoshards', amount: 1500 }, requirements: { minTier: 4 } },
+    { slot: 2, cost: { currency: 'chronoshards', amount: 50 }, requirements: { minSector: 2 } },
+    { slot: 3, cost: { currency: 'chronoshards', amount: 200 }, requirements: { minSector: 3 } },
+    { slot: 4, cost: { currency: 'chronoshards', amount: 500 }, requirements: { minSector: 4 } },
+    { slot: 5, cost: { currency: 'chronoshards', amount: 1500 }, requirements: { minSector: 4 } },
   ],
   researches: [
     {

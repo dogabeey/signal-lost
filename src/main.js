@@ -4,7 +4,7 @@ import { RESEARCH_CONFIG } from './research_config.js'
 import { CHEAT_CONFIG } from './cheat_config.js'
 import { BUILD_INFO } from './build_info.js'
 import { ANOMALY_CONFIG } from './anomaly_config.js'
-import { trackTierStarted } from './analytics.js'
+import { trackSectorStarted } from './analytics.js'
 import { ANALYTICS_CONFIG, SERVER_TIME_CONFIG } from './analytics_config.js'
 import { BUILDING_CONFIG } from './building_config.js'
 import { createPlayerShip } from './three/player_ship.js'
@@ -53,7 +53,7 @@ document.querySelector('#app').innerHTML = `
         <div class="chronoshard-balance"><span class="currency-label">CHRONOSHARDS</span><span id="chronoshards">✦ 0</span></div>
       </div>
       <div class="shield-indicators" id="shield-indicators" aria-label="Shield charges"></div>
-      <div class="hud-tier" id="hud-tier" aria-label="Current difficulty tier"></div>
+      <div class="hud-sector" id="hud-sector" aria-label="Current difficulty sector"></div>
       <dl class="run-cell-counter"><div><dt>CELLS</dt><dd id="score">000</dd></div></dl>
       <button class="pause-button" id="pause-button" type="button" aria-label="Pause game">Ⅱ</button>
     </header>
@@ -95,15 +95,15 @@ document.querySelector('#app').innerHTML = `
         </div>
         <p id="overlay-copy"></p>
         <p class="game-over-tip" id="game-over-tip" hidden></p>
-        <div class="tier-selection" aria-label="Difficulty tier selection">
-          <div class="tier-heading">Difficulty</div>
-          <div class="tier-carousel">
-            <button class="tier-nav" id="previous-tier" type="button" aria-label="Select previous tier">‹</button>
-            <span class="tier-options" id="tier-options" aria-live="polite"></span>
-            <button class="tier-nav" id="next-tier" type="button" aria-label="Select next tier">›</button>
+        <div class="sector-selection" aria-label="Difficulty sector selection">
+          <div class="sector-heading">Difficulty</div>
+          <div class="sector-carousel">
+            <button class="sector-nav" id="previous-sector" type="button" aria-label="Select previous sector">‹</button>
+            <span class="sector-options" id="sector-options" aria-live="polite"></span>
+            <button class="sector-nav" id="next-sector" type="button" aria-label="Select next sector">›</button>
           </div>
           <p class="highest-cell">HIGHEST CELL: <span id="highest-cells">000</span></p>
-          <p class="tier-requirement" id="tier-requirement"></p>
+          <p class="sector-requirement" id="sector-requirement"></p>
           <button class="milestone-button" id="open-milestones-button" type="button">VIEW ASCENSION <span class="milestone-claim-count" id="milestone-claim-count" hidden>0</span></button>
         </div>
       </div>
@@ -121,7 +121,7 @@ document.querySelector('#app').innerHTML = `
       </div>
       <section class="milestones-panel hidden" id="milestones-panel" aria-label="Ascension">
         <div class="milestones-header"><div><p class="eyebrow">BEST SINGLE RUN</p><h2>ASCENSION</h2><p>MAX CELLS <strong id="milestone-max-cells">000</strong></p></div><button class="secondary-button" id="close-milestones-button" type="button">BACK</button></div>
-        <div class="milestone-tier-nav"><button id="previous-milestone-tier" type="button" aria-label="View previous milestone tier">‹</button><strong id="milestone-tier-label">TIER 1</strong><button id="next-milestone-tier" type="button" aria-label="View next milestone tier">›</button></div>
+        <div class="milestone-sector-nav"><button id="previous-milestone-sector" type="button" aria-label="View previous milestone sector">‹</button><strong id="milestone-sector-label">SECTOR 1</strong><button id="next-milestone-sector" type="button" aria-label="View next milestone sector">›</button></div>
         <div class="milestone-track" id="milestone-track"></div>
       </section>
       <section class="lab-panel hidden" id="lab-panel" aria-label="Research Lab">
@@ -156,7 +156,7 @@ for (const icon of document.querySelectorAll('[data-menu-icon]')) {
   })
 }
 const scoreElement = document.querySelector('#score')
-const hudTierElement = document.querySelector('#hud-tier')
+const hudSectorElement = document.querySelector('#hud-sector')
 const shieldIndicators = document.querySelector('#shield-indicators')
 const pauseButton = document.querySelector('#pause-button')
 const overlay = document.querySelector('#overlay')
@@ -185,9 +185,9 @@ const milestoneClaimCount = document.querySelector('#milestone-claim-count')
 const milestoneClaimToast = document.querySelector('#milestone-claim-toast')
 const featureLockToast = document.querySelector('#feature-lock-toast')
 const artifactUnlockToast = document.querySelector('#artifact-unlock-toast')
-const previousMilestoneTierButton = document.querySelector('#previous-milestone-tier')
-const nextMilestoneTierButton = document.querySelector('#next-milestone-tier')
-const milestoneTierLabel = document.querySelector('#milestone-tier-label')
+const previousMilestoneSectorButton = document.querySelector('#previous-milestone-sector')
+const nextMilestoneSectorButton = document.querySelector('#next-milestone-sector')
+const milestoneSectorLabel = document.querySelector('#milestone-sector-label')
 const labPanel = document.querySelector('#lab-panel')
 const openLabButton = document.querySelector('#open-lab-button')
 const homeButton = document.querySelector('#home-button')
@@ -280,10 +280,10 @@ const cashElement = document.querySelector('#cash')
 const chronoshardsElement = document.querySelector('#chronoshards')
 const cashIndicators = document.querySelector('#cash-indicators')
 const highestCellsElement = document.querySelector('#highest-cells')
-const tierRequirementElement = document.querySelector('#tier-requirement')
-const tierOptions = document.querySelector('#tier-options')
-const previousTierButton = document.querySelector('#previous-tier')
-const nextTierButton = document.querySelector('#next-tier')
+const sectorRequirementElement = document.querySelector('#sector-requirement')
+const sectorOptions = document.querySelector('#sector-options')
+const previousSectorButton = document.querySelector('#previous-sector')
+const nextSectorButton = document.querySelector('#next-sector')
 const virtualJoystick = document.querySelector('#virtual-joystick')
 
 let lastGameOverTip = ''
@@ -295,12 +295,12 @@ function getGameOverTip() {
   return tip
 }
 
-const { cellBank: CELL_BANK_STORAGE_KEY, tier: TIER_STORAGE_KEY, tierHighScores: TIER_HIGH_SCORES_STORAGE_KEY, cash: CASH_STORAGE_KEY,
+const { cellBank: CELL_BANK_STORAGE_KEY, sector: SECTOR_STORAGE_KEY, sectorHighScores: SECTOR_HIGH_SCORES_STORAGE_KEY, cash: CASH_STORAGE_KEY,
   chronoshards: CHRONOSHARDS_STORAGE_KEY, researchLab: RESEARCH_LAB_STORAGE_KEY, savedRound: SAVED_ROUND_STORAGE_KEY,
   buildings: BUILDINGS_STORAGE_KEY, featureUnlocks: FEATURE_UNLOCKS_STORAGE_KEY, milestones: MILESTONES_STORAGE_KEY,
   settings: SETTINGS_STORAGE_KEY, weaponry: WEAPONRY_STORAGE_KEY, anomalyRewards: ANOMALY_REWARDS_STORAGE_KEY, artifacts: ARTIFACTS_STORAGE_KEY } = STORAGE_KEYS
 migrateLegacyStorage()
-const tierKeys = Object.keys(DIFFICULTY)
+const sectorKeys = Object.keys(DIFFICULTY)
 
 function readSavedRound() {
   const savedRound = readStoredJson(SAVED_ROUND_STORAGE_KEY)
@@ -311,17 +311,17 @@ function persistSavedRound(round) {
   writeStoredJson(SAVED_ROUND_STORAGE_KEY, round)
 }
 
-function readStoredTierHighScores() {
-  const storedScores = readStoredJson(TIER_HIGH_SCORES_STORAGE_KEY, {})
+function readStoredSectorHighScores() {
+  const storedScores = readStoredJson(SECTOR_HIGH_SCORES_STORAGE_KEY, {})
   if (!storedScores || typeof storedScores !== 'object') return {}
-  return Object.fromEntries(tierKeys.map((tierKey) => [
-    tierKey,
-    Number.isFinite(storedScores[tierKey]) && storedScores[tierKey] >= 0 ? storedScores[tierKey] : 0,
+  return Object.fromEntries(sectorKeys.map((sectorKey) => [
+    sectorKey,
+    Number.isFinite(storedScores[sectorKey]) && storedScores[sectorKey] >= 0 ? storedScores[sectorKey] : 0,
   ]))
 }
 
-function writeStoredTierHighScores() {
-  writeStoredJson(TIER_HIGH_SCORES_STORAGE_KEY, tierHighScores)
+function writeStoredSectorHighScores() {
+  writeStoredJson(SECTOR_HIGH_SCORES_STORAGE_KEY, sectorHighScores)
 }
 
 function readMilestoneState() {
@@ -343,21 +343,21 @@ function saveMilestoneState() {
   writeStoredJson(MILESTONES_STORAGE_KEY, milestoneState)
 }
 
-function getUnlockedTierIndex() {
+function getUnlockedSectorIndex() {
   return MILESTONES
     .filter((milestone) => milestoneState.claimed.includes(milestone.id))
-    .flatMap((milestone) => milestone.rewards.filter((reward) => reward.type === 'tier').map((reward) => reward.tier - 1))
-    .reduce((highestTier, tierIndex) => Math.max(highestTier, tierIndex), 0)
+    .flatMap((milestone) => milestone.rewards.filter((reward) => reward.type === 'sector').map((reward) => reward.sector - 1))
+    .reduce((highestSector, sectorIndex) => Math.max(highestSector, sectorIndex), 0)
 }
 
-function isResearchTierUnlocked(tier) {
-  return getUnlockedTierIndex() + 1 >= tier
+function isResearchSectorUnlocked(sector) {
+  return getUnlockedSectorIndex() + 1 >= sector
 }
 
 
 
 let bankedCells = readStoredNumber(CELL_BANK_STORAGE_KEY)
-const tierHighScores = readStoredTierHighScores()
+const sectorHighScores = readStoredSectorHighScores()
 let artifactState = (() => {
   const stored = readStoredJson(ARTIFACTS_STORAGE_KEY, {})
   const validIds = new Set(ARTIFACT_CONFIG.artifacts.map((artifact) => artifact.id))
@@ -370,33 +370,33 @@ let artifactState = (() => {
 const milestoneState = readMilestoneState()
 if (milestoneState.version !== 3) {
   milestoneState.claimed = MILESTONES
-    .filter((milestone) => (tierHighScores[tierKeys[milestone.tier - 1]] ?? 0) >= milestone.cells)
+    .filter((milestone) => (sectorHighScores[sectorKeys[milestone.sector - 1]] ?? 0) >= milestone.cells)
     .map((milestone) => milestone.id)
   milestoneState.version = 3
   saveMilestoneState()
 }
-let selectedTierIndex = Math.min(readStoredNumber(TIER_STORAGE_KEY), getUnlockedTierIndex())
-let milestoneTierIndex = selectedTierIndex
+let selectedSectorIndex = Math.min(readStoredNumber(SECTOR_STORAGE_KEY), getUnlockedSectorIndex())
+let milestoneSectorIndex = selectedSectorIndex
 let cash = readStoredNumber(CASH_STORAGE_KEY)
 let chronoshards = readStoredNumber(CHRONOSHARDS_STORAGE_KEY)
 let savedRound = readSavedRound()
 let sandboxState = null
 const anomalyRewardState = (() => {
   const stored = readStoredJson(ANOMALY_REWARDS_STORAGE_KEY, {})
-  return stored && typeof stored.claimedTiers === 'object' ? stored : { claimedTiers: {} }
+  return stored && typeof stored.claimedSectors === 'object' ? stored : { claimedSectors: {} }
 })()
 // Existing saves predate repeatable Artifacts. Credit every distinct Anomaly
 // reward already claimed, then persist the migrated stack count.
 if (!artifactState.stackCounts) {
-  const historicalAnomalySuccesses = Object.values(anomalyRewardState.claimedTiers)
-    .reduce((total, tiers) => total + (Array.isArray(tiers) ? new Set(tiers).size : 0), 0)
+  const historicalAnomalySuccesses = Object.values(anomalyRewardState.claimedSectors)
+    .reduce((total, sectors) => total + (Array.isArray(sectors) ? new Set(sectors).size : 0), 0)
   artifactState.stackCounts = { 'dark-core': historicalAnomalySuccesses }
   if (historicalAnomalySuccesses > 0 && !artifactState.unlocked.includes('dark-core')) artifactState.unlocked.push('dark-core')
   writeStoredJson(ARTIFACTS_STORAGE_KEY, artifactState)
 }
 let anomalyRun = null
 let featureUnlocks = (() => { try { const saved = JSON.parse(localStorage.getItem(FEATURE_UNLOCKS_STORAGE_KEY)); return { researchLab: Boolean(saved?.researchLab), buildingSystem: Boolean(saved?.buildingSystem), weaponry: Boolean(saved?.weaponry) } } catch { return { researchLab: false, buildingSystem: false, weaponry: false } } })()
-if (milestoneState.claimed.includes('tier-1-10') && !featureUnlocks.researchLab) {
+if (milestoneState.claimed.includes('sector-1-10') && !featureUnlocks.researchLab) {
   featureUnlocks.researchLab = true
   saveFeatureUnlocks()
 }
@@ -551,10 +551,10 @@ function renderResearchLab() {
     }
     if (slotNumber <= researchState.unlockedSlots) return `<article class="research-slot"><span>SLOT ${slotNumber}</span><strong>AVAILABLE</strong><small>Select a research below.</small></article>`
     const unlock = RESEARCH_CONFIG.slotUnlocks.find((entry) => entry.slot === slotNumber)
-    const tierUnlocked = !unlock.requirements?.minTier || isResearchTierUnlocked(unlock.requirements.minTier)
+    const sectorUnlocked = !unlock.requirements?.minSector || isResearchSectorUnlocked(unlock.requirements.minSector)
     const canAfford = unlock.cost.currency === 'cash' ? cash >= unlock.cost.amount : chronoshards >= unlock.cost.amount
-    const disabled = tierUnlocked && canAfford ? '' : 'disabled'
-    const requirement = tierUnlocked ? `Unlock for ${formatCurrency(unlock.cost.currency, unlock.cost.amount)}` : `Unlock Tier ${unlock.requirements.minTier} research in Milestones`
+    const disabled = sectorUnlocked && canAfford ? '' : 'disabled'
+    const requirement = sectorUnlocked ? `Unlock for ${formatCurrency(unlock.cost.currency, unlock.cost.amount)}` : `Unlock Sector ${unlock.requirements.minSector} research in Milestones`
     return `<article class="research-slot locked"><span>SLOT ${slotNumber}</span><strong>LOCKED</strong><button data-unlock-slot="${slotNumber}" type="button" ${disabled}>${requirement}</button></article>`
   }).join('') : ''
 
@@ -628,7 +628,7 @@ function startResearch(researchId) {
 function unlockResearchSlot(slotNumber) {
   const unlock = RESEARCH_CONFIG.slotUnlocks.find((entry) => entry.slot === slotNumber)
   if (!unlock || slotNumber !== researchState.unlockedSlots + 1) return
-  if (unlock.requirements?.minTier && !isResearchTierUnlocked(unlock.requirements.minTier)) return
+  if (unlock.requirements?.minSector && !isResearchSectorUnlocked(unlock.requirements.minSector)) return
   const balance = unlock.cost.currency === 'cash' ? cash : chronoshards
   if (balance < unlock.cost.amount) return
   if (unlock.cost.currency === 'cash') updateCash(-unlock.cost.amount)
@@ -663,17 +663,17 @@ function clearCurrencySave() {
 
 function clearGameProgressSave() {
   bankedCells = 0
-  selectedTierIndex = 0
+  selectedSectorIndex = 0
   milestoneState.claimed = []
   milestoneState.researchUnlocks = []
   milestoneState.debugAscensionsGranted = false
-  for (const tierKey of tierKeys) tierHighScores[tierKey] = 0
+  for (const sectorKey of sectorKeys) sectorHighScores[sectorKey] = 0
   writeStoredNumber(CELL_BANK_STORAGE_KEY, bankedCells)
-  writeStoredNumber(TIER_STORAGE_KEY, selectedTierIndex)
-  writeStoredTierHighScores()
+  writeStoredNumber(SECTOR_STORAGE_KEY, selectedSectorIndex)
+  writeStoredSectorHighScores()
   saveMilestoneState()
   applyDifficulty()
-  renderTierOptions()
+  renderSectorOptions()
   renderMilestones()
   resetGame()
 }
@@ -683,13 +683,13 @@ function clearMilestonesSave() {
   milestoneState.researchUnlocks = []
   milestoneState.debugAscensionsGranted = false
   milestoneState.version = 3
-  for (const tierKey of tierKeys) tierHighScores[tierKey] = 0
-  selectedTierIndex = 0
-  writeStoredNumber(TIER_STORAGE_KEY, selectedTierIndex)
-  writeStoredTierHighScores()
+  for (const sectorKey of sectorKeys) sectorHighScores[sectorKey] = 0
+  selectedSectorIndex = 0
+  writeStoredNumber(SECTOR_STORAGE_KEY, selectedSectorIndex)
+  writeStoredSectorHighScores()
   saveMilestoneState()
   applyDifficulty()
-  renderTierOptions()
+  renderSectorOptions()
   renderMilestones()
   renderResearchLab()
   resetGame()
@@ -724,10 +724,10 @@ function showFeatureLockToast(button, message) {
 
 function getFeatureUnlockMessage(feature) {
   const unlock = RESEARCH_CONFIG.featureUnlocks[feature]
-  if (getUnlockedTierIndex() + 1 < unlock.minTier) return `You need to reach Tier ${unlock.minTier}.`
+  if (getUnlockedSectorIndex() + 1 < unlock.minSector) return `You need to reach Sector ${unlock.minSector}.`
   if (unlock.requiredMilestone && !milestoneState.claimed.includes(unlock.requiredMilestone)) {
     const milestone = MILESTONES.find((entry) => entry.id === unlock.requiredMilestone)
-    if (milestone) return `You need to collect ${milestone.cells} Cells in Tier ${milestone.tier}.`
+    if (milestone) return `You need to collect ${milestone.cells} Cells in Sector ${milestone.sector}.`
   }
   if (chronoshards < unlock.chronoshardCost) return `You need ✦ ${unlock.chronoshardCost} Chronoshards.`
   return 'This system is not available yet.'
@@ -743,21 +743,21 @@ function renderFeatureUnlockButtons() {
   for (const [feature, button] of [['researchLab', openLabButton], ['buildingSystem', openBuildingButton], ['weaponry', openWeaponryButton]]) {
     const unlock = RESEARCH_CONFIG.featureUnlocks[feature]
     const unlocked = featureUnlocks[feature]
-    const tierReady = getUnlockedTierIndex() + 1 >= unlock.minTier && (!unlock.requiredMilestone || milestoneState.claimed.includes(unlock.requiredMilestone))
+    const sectorReady = getUnlockedSectorIndex() + 1 >= unlock.minSector && (!unlock.requiredMilestone || milestoneState.claimed.includes(unlock.requiredMilestone))
     const name = feature === 'researchLab' ? 'RESEARCH LAB' : feature === 'buildingSystem' ? 'BUILDING SYSTEM' : 'WEAPONRY'
-    button.className = `menu-system-button ${unlocked ? 'is-unlocked' : tierReady ? 'is-unlockable' : 'is-locked'}${button.classList.contains('is-active') ? ' is-active' : ''}`
+    button.className = `menu-system-button ${unlocked ? 'is-unlocked' : sectorReady ? 'is-unlockable' : 'is-locked'}${button.classList.contains('is-active') ? ' is-active' : ''}`
     button.disabled = false
-    button.querySelector('.menu-button-label').textContent = unlocked ? name : tierReady ? `UNLOCK ${name} · ✦ ${unlock.chronoshardCost}` : `${name} · TIER ${unlock.minTier}`
+    button.querySelector('.menu-button-label').textContent = unlocked ? name : sectorReady ? `UNLOCK ${name} · ✦ ${unlock.chronoshardCost}` : `${name} · SECTOR ${unlock.minSector}`
     const lockOverlay = button.querySelector('.menu-button-lock')
     lockOverlay.hidden = unlocked || !shouldShowCompactSystemLocks()
-    lockOverlay.innerHTML = tierReady
+    lockOverlay.innerHTML = sectorReady
       ? `<span class="chronoshard-symbol" aria-hidden="true">✦</span><span>${unlock.chronoshardCost}</span>`
-      : `<span>TIER ${unlock.minTier}</span>`
+      : `<span>SECTOR ${unlock.minSector}</span>`
   }
 }
 function unlockFeature(feature) {
   const unlock = RESEARCH_CONFIG.featureUnlocks[feature]
-  if (featureUnlocks[feature] || getUnlockedTierIndex() + 1 < unlock.minTier || (unlock.requiredMilestone && !milestoneState.claimed.includes(unlock.requiredMilestone)) || chronoshards < unlock.chronoshardCost) return false
+  if (featureUnlocks[feature] || getUnlockedSectorIndex() + 1 < unlock.minSector || (unlock.requiredMilestone && !milestoneState.claimed.includes(unlock.requiredMilestone)) || chronoshards < unlock.chronoshardCost) return false
   updateChronoshards(-unlock.chronoshardCost)
   featureUnlocks[feature] = true
   saveFeatureUnlocks()
@@ -773,8 +773,8 @@ function clearBuildingsSave() {
   renderBuildings()
 }
 
-function startSandbox(tierIndex = 0) {
-  sandboxState = { tierIndex: THREE.MathUtils.clamp(tierIndex, 0, tierKeys.length - 1), simulation: new Set() }
+function startSandbox(sectorIndex = 0) {
+  sandboxState = { sectorIndex: THREE.MathUtils.clamp(sectorIndex, 0, sectorKeys.length - 1), simulation: new Set() }
   anomalyRun = null
   clearSavedRound()
   applyDifficulty()
@@ -794,18 +794,18 @@ function runSandboxCommand(argumentsList) {
   const [action, value] = argumentsList
   if (!action) {
     startSandbox()
-    setCheatOutput('Sandbox Tier 1 started. Use sandbox [tier], sandbox simulate [cell|enemies|all], or sandbox spawn [enemy] [count].')
+    setCheatOutput('Sandbox Sector 1 started. Use sandbox [sector], sandbox simulate [cell|enemies|all], or sandbox spawn [enemy] [count].')
     return
   }
-  const tierNumber = Number(action)
-  if (Number.isInteger(tierNumber)) {
-    if (!sandboxState) startSandbox(tierNumber - 1)
+  const sectorNumber = Number(action)
+  if (Number.isInteger(sectorNumber)) {
+    if (!sandboxState) startSandbox(sectorNumber - 1)
     else {
-      sandboxState.tierIndex = THREE.MathUtils.clamp(tierNumber - 1, 0, tierKeys.length - 1)
+      sandboxState.sectorIndex = THREE.MathUtils.clamp(sectorNumber - 1, 0, sectorKeys.length - 1)
       applyDifficulty()
       updateHud()
     }
-    setCheatOutput(`Sandbox difficulty set to Tier ${sandboxState.tierIndex + 1}. Spawn simulation remains unchanged.`)
+    setCheatOutput(`Sandbox difficulty set to Sector ${sandboxState.sectorIndex + 1}. Spawn simulation remains unchanged.`)
     return
   }
   if (!sandboxState) {
@@ -818,7 +818,7 @@ function runSandboxCommand(argumentsList) {
       return
     }
     sandboxState.simulation = value === 'all' ? new Set(['cell', 'enemies', 'boosters']) : new Set([value])
-    setCheatOutput(`Sandbox ${value} simulation started for Tier ${sandboxState.tierIndex + 1}.`)
+    setCheatOutput(`Sandbox ${value} simulation started for Sector ${sandboxState.sectorIndex + 1}.`)
     return
   }
   if (action === 'spawn') {
@@ -833,7 +833,7 @@ function runSandboxCommand(argumentsList) {
     setCheatOutput(`Spawned ${count} ${enemyType}${count === 1 ? '' : ' enemies'}.`)
     return
   }
-  setCheatOutput('Usage: sandbox [tier] | sandbox simulate [cell|enemies|all] | sandbox spawn [enemy] [count]')
+  setCheatOutput('Usage: sandbox [sector] | sandbox simulate [cell|enemies|all] | sandbox spawn [enemy] [count]')
 }
 
 function runGainArtifactCommand(argumentsList) {
@@ -893,7 +893,7 @@ function runCheatCommand(rawCommand) {
     setCheatOutput('Free research enabled for this session.')
     return
   }
-  if (command === CHEAT_CONFIG.commands.unlockTiers) {
+  if (command === CHEAT_CONFIG.commands.unlockSectors) {
     const newlyClaimed = MILESTONES.filter((milestone) => !milestoneState.claimed.includes(milestone.id))
     const rewardMilestones = milestoneState.debugAscensionsGranted ? newlyClaimed : MILESTONES
     milestoneState.claimed = MILESTONES.map((milestone) => milestone.id)
@@ -904,10 +904,10 @@ function runCheatCommand(rawCommand) {
     if (grantedCash) updateCash(grantedCash)
     if (grantedChronoshards) updateChronoshards(grantedChronoshards)
     saveMilestoneState()
-    renderTierOptions()
+    renderSectorOptions()
     renderResearchLab()
     renderMilestones()
-    setCheatOutput(`All tiers and Ascension rewards unlocked.${grantedCash || grantedChronoshards ? ` +$${formatCompactNumber(grantedCash)} · +✦ ${formatCompactNumber(grantedChronoshards)}` : ''}`)
+    setCheatOutput(`All sectors and Ascension rewards unlocked.${grantedCash || grantedChronoshards ? ` +$${formatCompactNumber(grantedCash)} · +✦ ${formatCompactNumber(grantedChronoshards)}` : ''}`)
     return
   }
   if (command === CHEAT_CONFIG.commands.clearSave) {
@@ -930,7 +930,7 @@ function runCheatCommand(rawCommand) {
 }
 
 function getCurrentDifficulty() {
-  return DIFFICULTY[tierKeys[sandboxState?.tierIndex ?? selectedTierIndex]]
+  return DIFFICULTY[sectorKeys[sandboxState?.sectorIndex ?? selectedSectorIndex]]
 }
 
 function getActiveEnemyCapacity() {
@@ -944,7 +944,7 @@ function getActiveEnemyCapacity() {
 function updateBankedCells(amount = 0) {
   bankedCells += amount
   writeStoredNumber(CELL_BANK_STORAGE_KEY, bankedCells)
-  renderTierOptions()
+  renderSectorOptions()
 }
 
 function updateCash(amount = 0) {
@@ -978,16 +978,16 @@ function showCurrencyIndicator(position, text, className) {
   cashIndicators.append(indicator)
 }
 
-function recordTierHighScore() {
+function recordSectorHighScore() {
   if (sandboxState) return
-  const tierKey = tierKeys[selectedTierIndex]
-  if (score > (tierHighScores[tierKey] ?? 0)) {
-    tierHighScores[tierKey] = score
-    writeStoredTierHighScores()
+  const sectorKey = sectorKeys[selectedSectorIndex]
+  if (score > (sectorHighScores[sectorKey] ?? 0)) {
+    sectorHighScores[sectorKey] = score
+    writeStoredSectorHighScores()
   }
   checkArtifactUnlocks()
   saveMilestoneState()
-  renderTierOptions()
+  renderSectorOptions()
   renderResearchLab()
   renderMilestones()
 }
@@ -997,7 +997,7 @@ function saveArtifactState() { writeStoredJson(ARTIFACTS_STORAGE_KEY, artifactSt
 function clearArtifactSave() {
   artifactState = {
     unlocked: [],
-    resetAtScores: Object.fromEntries(ARTIFACT_CONFIG.artifacts.map((artifact) => [artifact.id, artifact.requirement.type === 'tier-high-score' ? tierHighScores[tierKeys[artifact.requirement.tier - 1]] ?? 0 : 0])),
+    resetAtScores: Object.fromEntries(ARTIFACT_CONFIG.artifacts.map((artifact) => [artifact.id, artifact.requirement.type === 'sector-high-score' ? sectorHighScores[sectorKeys[artifact.requirement.sector - 1]] ?? 0 : 0])),
     stackCounts: {},
   }
   saveArtifactState()
@@ -1006,8 +1006,8 @@ function clearArtifactSave() {
 
 function getArtifactRequirementText(artifact) {
   const { requirement } = artifact
-  if (requirement.type === 'tier-high-score') return `Reach ${requirement.cells} Cells in Tier ${requirement.tier}.`
-  if (requirement.type === 'milestone-claimed') return `Claim the Tier ${requirement.tier} · ${requirement.cells} Cells Ascension reward.`
+  if (requirement.type === 'sector-high-score') return `Reach ${requirement.cells} Cells in Sector ${requirement.sector}.`
+  if (requirement.type === 'milestone-claimed') return `Claim the Sector ${requirement.sector} · ${requirement.cells} Cells Ascension reward.`
   if (requirement.type === 'anomaly-run-success') return `Complete a unique Anomaly Run with ${requirement.cells} Cells. Each success grants one stack.`
   if (requirement.type === 'hidden-world-map') return 'Hidden condition.'
   return 'Complete this artifact achievement.'
@@ -1015,8 +1015,8 @@ function getArtifactRequirementText(artifact) {
 
 function isArtifactRequirementMet(artifact) {
   const { requirement } = artifact
-  if (requirement.type === 'tier-high-score') {
-    const highScore = tierHighScores[tierKeys[requirement.tier - 1]] ?? 0
+  if (requirement.type === 'sector-high-score') {
+    const highScore = sectorHighScores[sectorKeys[requirement.sector - 1]] ?? 0
     return highScore >= requirement.cells && highScore > (artifactState.resetAtScores[artifact.id] ?? -1)
   }
   if (requirement.type === 'milestone-claimed') return milestoneState.claimed.includes(requirement.milestoneId)
@@ -1076,47 +1076,47 @@ function openArtifactDetail(artifactId) {
   artifactDetailModal.classList.remove('hidden')
 }
 
-function renderTierOptions() {
-  const unlockedTierIndex = getUnlockedTierIndex()
-  if (selectedTierIndex > unlockedTierIndex) selectedTierIndex = unlockedTierIndex
-  tierOptions.textContent = `Tier ${selectedTierIndex + 1}`
-  highestCellsElement.textContent = String(tierHighScores[tierKeys[selectedTierIndex]] ?? 0).padStart(3, '0')
-  const nextMilestone = MILESTONES.find((milestone) => milestone.tier === selectedTierIndex + 1 && !milestoneState.claimed.includes(milestone.id))
-  const tierBestCells = tierHighScores[tierKeys[selectedTierIndex]] ?? 0
-  tierRequirementElement.textContent = nextMilestone ? tierBestCells >= nextMilestone.cells ? 'ASCENSION REWARD READY TO CLAIM' : `NEXT ASCENSION: ${nextMilestone.cells} CELLS` : 'ASCENSION COMPLETE'
-  previousTierButton.disabled = selectedTierIndex === 0
-  nextTierButton.disabled = selectedTierIndex >= unlockedTierIndex
-  const claimableCount = MILESTONES.filter((milestone) => !milestoneState.claimed.includes(milestone.id) && (tierHighScores[tierKeys[milestone.tier - 1]] ?? 0) >= milestone.cells).length
+function renderSectorOptions() {
+  const unlockedSectorIndex = getUnlockedSectorIndex()
+  if (selectedSectorIndex > unlockedSectorIndex) selectedSectorIndex = unlockedSectorIndex
+  sectorOptions.textContent = `Sector ${selectedSectorIndex + 1}`
+  highestCellsElement.textContent = String(sectorHighScores[sectorKeys[selectedSectorIndex]] ?? 0).padStart(3, '0')
+  const nextMilestone = MILESTONES.find((milestone) => milestone.sector === selectedSectorIndex + 1 && !milestoneState.claimed.includes(milestone.id))
+  const sectorBestCells = sectorHighScores[sectorKeys[selectedSectorIndex]] ?? 0
+  sectorRequirementElement.textContent = nextMilestone ? sectorBestCells >= nextMilestone.cells ? 'ASCENSION REWARD READY TO CLAIM' : `NEXT ASCENSION: ${nextMilestone.cells} CELLS` : 'ASCENSION COMPLETE'
+  previousSectorButton.disabled = selectedSectorIndex === 0
+  nextSectorButton.disabled = selectedSectorIndex >= unlockedSectorIndex
+  const claimableCount = MILESTONES.filter((milestone) => !milestoneState.claimed.includes(milestone.id) && (sectorHighScores[sectorKeys[milestone.sector - 1]] ?? 0) >= milestone.cells).length
   milestoneClaimCount.textContent = String(claimableCount)
   milestoneClaimCount.hidden = claimableCount === 0
   renderFeatureUnlockButtons()
   updateStartButton()
 }
 
-function selectTier(tierIndex) {
-  if (tierIndex < 0 || tierIndex > getUnlockedTierIndex()) return
-  selectedTierIndex = tierIndex
-  writeStoredNumber(TIER_STORAGE_KEY, selectedTierIndex)
+function selectSector(sectorIndex) {
+  if (sectorIndex < 0 || sectorIndex > getUnlockedSectorIndex()) return
+  selectedSectorIndex = sectorIndex
+  writeStoredNumber(SECTOR_STORAGE_KEY, selectedSectorIndex)
   applyDifficulty()
-  renderTierOptions()
+  renderSectorOptions()
 }
 
-previousTierButton.addEventListener('click', () => selectTier(selectedTierIndex - 1))
-nextTierButton.addEventListener('click', () => selectTier(selectedTierIndex + 1))
+previousSectorButton.addEventListener('click', () => selectSector(selectedSectorIndex - 1))
+nextSectorButton.addEventListener('click', () => selectSector(selectedSectorIndex + 1))
 openMilestonesButton.addEventListener('click', () => {
-  milestoneTierIndex = selectedTierIndex
+  milestoneSectorIndex = selectedSectorIndex
   openMenuPanel(milestonesPanel, renderMilestones)
 })
 closeMilestonesButton.addEventListener('click', () => {
   milestonesPanel.classList.add('hidden')
   menuContent.classList.remove('hidden')
 })
-previousMilestoneTierButton.addEventListener('click', () => {
-  milestoneTierIndex = Math.max(0, milestoneTierIndex - 1)
+previousMilestoneSectorButton.addEventListener('click', () => {
+  milestoneSectorIndex = Math.max(0, milestoneSectorIndex - 1)
   renderMilestones()
 })
-nextMilestoneTierButton.addEventListener('click', () => {
-  milestoneTierIndex = Math.min(getUnlockedTierIndex(), milestoneTierIndex + 1)
+nextMilestoneSectorButton.addEventListener('click', () => {
+  milestoneSectorIndex = Math.min(getUnlockedSectorIndex(), milestoneSectorIndex + 1)
   renderMilestones()
 })
 milestoneTrack.addEventListener('click', (event) => {
@@ -1127,7 +1127,7 @@ milestoneTrack.addEventListener('click', (event) => {
 function formatMilestoneReward(reward) {
   if (reward.type === 'cash') return `+$${reward.amount.toLocaleString()} cash`
   if (reward.type === 'chronoshards') return `+✦ ${reward.amount} Chronoshards`
-  if (reward.type === 'tier') return `Unlock Tier ${reward.tier}`
+  if (reward.type === 'sector') return `Unlock Sector ${reward.sector}`
   if (reward.type === 'feature') return `Unlock ${reward.featureId === 'researchLab' ? 'Research Lab' : reward.featureId}`
   if (reward.type === 'research') return `Unlock: ${reward.researchIds.map((id) => getResearchById(id)?.name ?? id).join(', ')}`
   return 'Reward'
@@ -1137,7 +1137,7 @@ let milestoneToastTimer
 
 function claimMilestone(milestoneId) {
   const milestone = MILESTONES.find((entry) => entry.id === milestoneId)
-  const bestCells = milestone ? tierHighScores[tierKeys[milestone.tier - 1]] ?? 0 : 0
+  const bestCells = milestone ? sectorHighScores[sectorKeys[milestone.sector - 1]] ?? 0 : 0
   if (!milestone || milestoneState.claimed.includes(milestone.id) || bestCells < milestone.cells) return
   milestoneState.claimed.push(milestone.id)
   milestoneState.researchUnlocks = [...new Set([...milestoneState.researchUnlocks, ...milestone.rewards.filter((reward) => reward.type === 'research').flatMap((reward) => reward.researchIds)])]
@@ -1153,26 +1153,26 @@ function claimMilestone(milestoneId) {
   milestoneClaimToast.classList.remove('hidden')
   clearTimeout(milestoneToastTimer)
   milestoneToastTimer = setTimeout(() => milestoneClaimToast.classList.add('hidden'), 3600)
-  renderTierOptions()
+  renderSectorOptions()
   renderResearchLab()
   renderMilestones()
 }
 
 function renderMilestones() {
-  const tier = milestoneTierIndex + 1
-  const bestCells = tierHighScores[tierKeys[milestoneTierIndex]] ?? 0
+  const sector = milestoneSectorIndex + 1
+  const bestCells = sectorHighScores[sectorKeys[milestoneSectorIndex]] ?? 0
   milestoneMaxCells.textContent = String(bestCells).padStart(3, '0')
-  milestoneTierLabel.textContent = `TIER ${tier}`
-  previousMilestoneTierButton.disabled = milestoneTierIndex === 0
-  nextMilestoneTierButton.disabled = milestoneTierIndex >= getUnlockedTierIndex()
-  milestoneTrack.innerHTML = MILESTONES.filter((milestone) => milestone.tier === tier).map((milestone) => {
+  milestoneSectorLabel.textContent = `SECTOR ${sector}`
+  previousMilestoneSectorButton.disabled = milestoneSectorIndex === 0
+  nextMilestoneSectorButton.disabled = milestoneSectorIndex >= getUnlockedSectorIndex()
+  milestoneTrack.innerHTML = MILESTONES.filter((milestone) => milestone.sector === sector).map((milestone) => {
     const claimed = milestoneState.claimed.includes(milestone.id)
     const reached = bestCells >= milestone.cells
     const progress = Math.min(100, bestCells / milestone.cells * 100)
-    return `<article class="milestone-card ${claimed ? 'claimed' : reached ? 'reached' : ''}"><div class="milestone-node">${claimed ? '✓' : milestone.cells}</div><div><strong>${claimed ? 'REWARD SECURED' : `${milestone.cells} CELLS`}</strong><p>${milestone.rewards.map(formatMilestoneReward).join(' · ')}</p><div class="milestone-progress"><i style="width:${progress}%"></i></div><small>${claimed ? 'Claimed automatically' : `${bestCells}/${milestone.cells} best cells in Tier ${tier}`}</small></div></article>`
+    return `<article class="milestone-card ${claimed ? 'claimed' : reached ? 'reached' : ''}"><div class="milestone-node">${claimed ? '✓' : milestone.cells}</div><div><strong>${claimed ? 'REWARD SECURED' : `${milestone.cells} CELLS`}</strong><p>${milestone.rewards.map(formatMilestoneReward).join(' · ')}</p><div class="milestone-progress"><i style="width:${progress}%"></i></div><small>${claimed ? 'Claimed automatically' : `${bestCells}/${milestone.cells} best cells in Sector ${sector}`}</small></div></article>`
   }).join('')
-  const tierMilestones = MILESTONES.filter((milestone) => milestone.tier === tier)
-  for (const [index, milestone] of tierMilestones.entries()) {
+  const sectorMilestones = MILESTONES.filter((milestone) => milestone.sector === sector)
+  for (const [index, milestone] of sectorMilestones.entries()) {
     const claimed = milestoneState.claimed.includes(milestone.id)
     const reached = bestCells >= milestone.cells
     const card = milestoneTrack.children[index]
@@ -1658,36 +1658,36 @@ function getWeeklyAnomalyChallenge(weekId = getAnomalyWeekId()) {
   return ANOMALY_CONFIG.challenges[Number(weekId) % ANOMALY_CONFIG.challenges.length]
 }
 
-function getAnomalyReward(tierIndex) {
-  return ANOMALY_CONFIG.rewardBaseChronoshards + tierIndex * ANOMALY_CONFIG.rewardChronoshardStepPerTier
+function getAnomalyReward(sectorIndex) {
+  return ANOMALY_CONFIG.rewardBaseChronoshards + sectorIndex * ANOMALY_CONFIG.rewardChronoshardStepPerSector
 }
 
-function hasClaimedAnomalyReward(weekId = getAnomalyWeekId(), tierIndex = selectedTierIndex) {
-  return (anomalyRewardState.claimedTiers[weekId] ?? []).includes(String(tierIndex))
+function hasClaimedAnomalyReward(weekId = getAnomalyWeekId(), sectorIndex = selectedSectorIndex) {
+  return (anomalyRewardState.claimedSectors[weekId] ?? []).includes(String(sectorIndex))
 }
 
 function claimAnomalyRewardIfEligible() {
   if (!anomalyRun || score < ANOMALY_CONFIG.rewardCellTarget) return
-  const tierKey = String(selectedTierIndex)
-  const claimedTiers = anomalyRewardState.claimedTiers[anomalyRun.weekId] ?? []
-  if (claimedTiers.includes(tierKey)) return
-  anomalyRewardState.claimedTiers[anomalyRun.weekId] = [...claimedTiers, tierKey]
+  const sectorKey = String(selectedSectorIndex)
+  const claimedSectors = anomalyRewardState.claimedSectors[anomalyRun.weekId] ?? []
+  if (claimedSectors.includes(sectorKey)) return
+  anomalyRewardState.claimedSectors[anomalyRun.weekId] = [...claimedSectors, sectorKey]
   writeStoredJson(ANOMALY_REWARDS_STORAGE_KEY, anomalyRewardState)
   const darkCore = ARTIFACT_CONFIG.artifacts.find((artifact) => artifact.requirement.type === 'anomaly-run-success' && score >= artifact.requirement.cells)
   if (darkCore) {
     addArtifactStack(darkCore)
     showCurrencyIndicator(player.position, `ARTIFACT · ${darkCore.name.toUpperCase()} STACK`, 'chronoshard-indicator')
   }
-  const reward = getAnomalyReward(selectedTierIndex)
+  const reward = getAnomalyReward(selectedSectorIndex)
   const rewardedChronoshards = updateChronoshards(reward)
   showCurrencyIndicator(player.position, `ANOMALY +✦${formatCompactNumber(rewardedChronoshards)}`, 'chronoshard-indicator')
   updateStartButton()
 }
 function renderEncyclopedia() {
-  const unlockedTier = getUnlockedTierIndex() + 1
+  const unlockedSector = getUnlockedSectorIndex() + 1
   const maskDescription = (description) => [...description].map((character) => character === ' ' ? ' ' : '?').join('')
   encyclopediaList.innerHTML = ENCYCLOPEDIA_ENTRIES.map((entry) => {
-    const unlocked = entry.firstTier <= unlockedTier
+    const unlocked = entry.firstSector <= unlockedSector
     const icon = unlocked
       ? `<canvas data-encyclopedia-model="${entry.id}" width="210" height="150" aria-label="${entry.name} model"></canvas>`
       : '<div class="encyclopedia-unknown-icon" role="img" aria-label="Unknown enemy">?</div>'
@@ -1998,7 +1998,7 @@ function addCell(savedCell) {
 function addChronoCell(savedCell) {
   if (chronoCells.length > 0) return
   const mapToEarth = ARTIFACT_CONFIG.artifacts.find((artifact) => artifact.requirement.type === 'hidden-world-map')
-  const isMapToEarth = Boolean(savedCell?.isMapToEarth) || Boolean(!savedCell && mapToEarth && selectedTierIndex + 1 >= mapToEarth.requirement.minTier && !artifactState.unlocked.includes(mapToEarth.id) && Math.random() < mapToEarth.requirement.chance)
+  const isMapToEarth = Boolean(savedCell?.isMapToEarth) || Boolean(!savedCell && mapToEarth && selectedSectorIndex + 1 >= mapToEarth.requirement.minSector && !artifactState.unlocked.includes(mapToEarth.id) && Math.random() < mapToEarth.requirement.chance)
   const chronoCell = isMapToEarth ? createWorldMapArtifactVisual() : createChronoCellVisual()
   if (savedCell) chronoCell.position.set(savedCell.position.x, savedCell.position.y, savedCell.position.z)
   else chronoCell.position.copy(randomArenaPosition(GAME.chronoCellMinDistance))
@@ -2626,7 +2626,7 @@ function serializePosition(position) {
 
 function saveCurrentRound() {
   savedRound = {
-    tierIndex: selectedTierIndex,
+    sectorIndex: selectedSectorIndex,
     anomalyRun,
     anomalyScout: anomalyScout.active ? { ...serializePosition(anomalyScout.player.position), heading: anomalyScout.player.rotation.y } : null,
     player: serializePosition(player.position),
@@ -2674,7 +2674,7 @@ function clearSavedRound() {
 
 function restoreSavedRound() {
   if (!savedRound) return false
-  selectedTierIndex = Math.min(savedRound.tierIndex ?? 0, getUnlockedTierIndex())
+  selectedSectorIndex = Math.min(savedRound.sectorIndex ?? 0, getUnlockedSectorIndex())
   anomalyRun = ANOMALY_CONFIG.challenges.some((challenge) => challenge.id === savedRound.anomalyRun?.challengeId) ? savedRound.anomalyRun : null
   applyDifficulty()
   resetGame(false)
@@ -2736,9 +2736,9 @@ function restoreSavedRound() {
 function updateStartButton() {
   startButton.textContent = savedRound ? 'CONTINUE' : 'START RUN'
   const rewardClaimed = hasClaimedAnomalyReward()
-  const unlocked = isResearchTierUnlocked(ANOMALY_CONFIG.unlockTier)
-  anomalyRunButton.textContent = !unlocked ? `ANOMALY RUN · TIER ${ANOMALY_CONFIG.unlockTier}` : rewardClaimed ? 'ANOMALY RUN (Reward Claimed)' : 'ANOMALY RUN'
-  anomalyRunButton.title = !unlocked ? `Unlocks at Tier ${ANOMALY_CONFIG.unlockTier}.` : rewardClaimed ? 'This tier’s weekly Anomaly reward has already been claimed.' : 'View this week’s challenge.'
+  const unlocked = isResearchSectorUnlocked(ANOMALY_CONFIG.unlockSector)
+  anomalyRunButton.textContent = !unlocked ? `ANOMALY RUN · SECTOR ${ANOMALY_CONFIG.unlockSector}` : rewardClaimed ? 'ANOMALY RUN (Reward Claimed)' : 'ANOMALY RUN'
+  anomalyRunButton.title = !unlocked ? `Unlocks at Sector ${ANOMALY_CONFIG.unlockSector}.` : rewardClaimed ? 'This sector’s weekly Anomaly reward has already been claimed.' : 'View this week’s challenge.'
   anomalyRunButton.disabled = Boolean(savedRound) || rewardClaimed || !unlocked || anomalyTimeVerificationPending
 }
 
@@ -2759,15 +2759,15 @@ async function openAnomalyRunDialog() {
     verifiedAnomalyTime = await fetchVerifiedAnomalyTime()
     const weekId = getAnomalyWeekId(verifiedAnomalyTime)
     const challenge = getWeeklyAnomalyChallenge(weekId)
-    anomalyChallengeName.textContent = `${challenge.name} (Tier ${selectedTierIndex + 1})`
+    anomalyChallengeName.textContent = `${challenge.name} (Sector ${selectedSectorIndex + 1})`
     anomalyChallengeDescription.textContent = challenge.description
-    anomalyRewardElement.textContent = `250 CELLS · REWARD ✦ ${getAnomalyReward(selectedTierIndex)}`
+    anomalyRewardElement.textContent = `250 CELLS · REWARD ✦ ${getAnomalyReward(selectedSectorIndex)}`
     anomalyResetElement.textContent = `(New Anomaly in ${formatAnomalyDate(getNextAnomalyResetDate(verifiedAnomalyTime))})`
     anomalyRewardElement.hidden = false
     anomalyResetElement.hidden = false
 
     if (hasClaimedAnomalyReward(weekId)) {
-      anomalyTimeWarning.textContent = 'This tier’s Weekly Anomaly reward has already been claimed.'
+      anomalyTimeWarning.textContent = 'This sector’s Weekly Anomaly reward has already been claimed.'
       anomalyTimeWarning.hidden = false
     } else {
       confirmAnomalyRunButton.hidden = false
@@ -2850,7 +2850,7 @@ function endGame(cause = 'SIGNAL LOST') {
   weaponHud.classList.add('hidden')
   pauseMenu.classList.add('hidden')
   clearSavedRound()
-  recordTierHighScore()
+  recordSectorHighScore()
   const hasEnemyPreview = showDeathEnemyPreview(cause)
   const shortCause = cause.toLocaleLowerCase().replace(/\s+(collision|detonation|projectile|impact|damage)$/, '')
   overlayTitle.textContent = hasEnemyPreview ? 'KILLED BY' : `KILLED BY ${shortCause.toUpperCase()}`
@@ -2864,7 +2864,7 @@ function endGame(cause = 'SIGNAL LOST') {
 
 function updateHud() {
   scoreElement.textContent = String(score).padStart(3, '0')
-  hudTierElement.textContent = sandboxState ? `SANDBOX TIER ${sandboxState.tierIndex + 1}` : `TIER ${selectedTierIndex + 1}${anomalyRun ? ' · ANOMALY' : ''}`
+  hudSectorElement.textContent = sandboxState ? `SANDBOX SECTOR ${sandboxState.sectorIndex + 1}` : `SECTOR ${selectedSectorIndex + 1}${anomalyRun ? ' · ANOMALY' : ''}`
   shieldIndicators.innerHTML = Array.from({ length: shieldCharges }, () => '<i aria-hidden="true"></i>').join('')
   shieldIndicators.hidden = shieldCharges === 0
 }
@@ -2876,7 +2876,7 @@ function getEffectivePlayerSpeed() {
 function updateGame(delta, total) {
   for (const state of playerDamageStates.values()) state.exposed = false
   const difficulty = getCurrentDifficulty()
-  const tierPressure = THREE.MathUtils.lerp(0.16, 0.03, selectedTierIndex / Math.max(tierKeys.length - 1, 1))
+  const sectorPressure = THREE.MathUtils.lerp(0.16, 0.03, selectedSectorIndex / Math.max(sectorKeys.length - 1, 1))
   const baseObstacleLifetime = (GAME.regularObstacleLifetime + difficulty.obstacleLifetimeOffset
     + score * (GAME.regularObstacleLifetimeIncreasePerCell + difficulty.obstacleLifetimeIncreasePerCellOffset)
   ) * Math.max(0.5, 1 - getResearchStatBonus('regularLifetimeDebuff'))
@@ -2884,7 +2884,7 @@ function updateGame(delta, total) {
   const obstacleSpawnInterval = Math.max(
     GAME.obstacleSpawnWarningDuration,
     (GAME.obstacleSpawnInterval + difficulty.obstacleSpawnIntervalOffset
-      - score * (GAME.obstacleSpawnDecreasePerCell + difficulty.obstacleSpawnDecreasePerCellOffset)) * (1 - tierPressure),
+      - score * (GAME.obstacleSpawnDecreasePerCell + difficulty.obstacleSpawnDecreasePerCellOffset)) * (1 - sectorPressure),
   )
   const obstacleSpawnCount = Math.max(
     1,
@@ -3569,7 +3569,7 @@ function updateGame(delta, total) {
   const fallingRockSpawnInterval = Math.max(
     GAME.fallingBlockMinInterval / GAME.fallingRockSpawnFrequencyMultiplier,
     (GAME.fallingBlockBaseInterval + difficulty.fallingRockSpawnIntervalOffset
-      - score * (GAME.fallingBlockIntervalPerCell + difficulty.fallingRockSpawnDecreasePerCellOffset)) * (1 - tierPressure) / GAME.fallingRockSpawnFrequencyMultiplier,
+      - score * (GAME.fallingBlockIntervalPerCell + difficulty.fallingRockSpawnDecreasePerCellOffset)) * (1 - sectorPressure) / GAME.fallingRockSpawnFrequencyMultiplier,
   )
   if (simulatesEnemies && hazardTimer > fallingRockSpawnInterval) {
     scheduleFallingObstacles()
@@ -3683,8 +3683,8 @@ async function startRound(isAnomalyRun = false) {
   overlay.classList.add('hidden')
   anomalyRunModal.classList.add('hidden')
   renderWeaponHud()
-  if (!continuingRun) trackTierStarted({
-    tier: selectedTierIndex + 1,
+  if (!continuingRun) trackSectorStarted({
+    sector: selectedSectorIndex + 1,
     buildVersion: BUILD_INFO.version,
     platform: window.steamShell ? 'steam' : 'web',
   })

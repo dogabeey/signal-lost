@@ -23,7 +23,7 @@ derive `/time` from `VITE_ANALYTICS_ENDPOINT`. When neither is configured, the
 browser uses the public UTC fallback set by `VITE_PUBLIC_TIME_ENDPOINT`.
 
 The `POST /analytics/event` endpoint accepts the currently supported
-`tier_started` event and forwards it to PostHog. Keep the PostHog project token
+`sector_started` event and forwards it to PostHog. Keep the PostHog project token
 server-side in `server/.env`:
 
 ```env
@@ -42,5 +42,5 @@ $env:VITE_PUBLIC_TIME_ENDPOINT = 'https://utctime.app/api/now'
 npm run build
 ```
 
-The browser only sends an anonymous per-tab session ID, tier, build version and
+The browser only sends an anonymous per-tab session ID, sector, build version and
 platform. It never receives the PostHog project token.

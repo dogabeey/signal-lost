@@ -6,7 +6,7 @@ export const CHEAT_CONFIG = {
     cash: 'cash',
     chrono: 'chrono',
     freeResearch: 'free_research',
-    unlockTiers: 'unlock_tiers',
+    unlockSectors: 'unlock_sectors',
     gainArtifact: 'gain_artifact',
     clearSave: 'clear_save',
     sandbox: 'sandbox',

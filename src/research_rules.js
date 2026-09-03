@@ -23,7 +23,7 @@ export function createResearchRules({ config, milestones, getResearchState, getM
   function getResearchLockReason(research) {
     const requirements = research.requirements ?? {}
     const ascensionMilestone = getAscensionMilestone(research.id)
-    if (ascensionMilestone && !getMilestoneState().debugAscensionsGranted && !isMilestoneUnlocked(research.id)) return `Requires ${ascensionMilestone.cells} Cells in Tier ${ascensionMilestone.tier}`
+    if (ascensionMilestone && !getMilestoneState().debugAscensionsGranted && !isMilestoneUnlocked(research.id)) return `Requires ${ascensionMilestone.cells} Cells in Sector ${ascensionMilestone.sector}`
     if (requirements.minBankedCells && getBankedCells() < requirements.minBankedCells) return `Requires ${requirements.minBankedCells} banked cells`
     if (requirements.researchId && getResearchLevel(requirements.researchId) < 1) return `Requires ${getResearchById(requirements.researchId).name}`
     for (const [researchId, level] of Object.entries(requirements.researchLevels ?? {})) {
@@ -33,18 +33,18 @@ export function createResearchRules({ config, milestones, getResearchState, getM
   }
 
   function getProgressionOrder(research, visited = new Set()) {
-    const ascensionTier = getAscensionMilestone(research.id)?.tier ?? 0
-    if (visited.has(research.id)) return { tier: ascensionTier, depth: 0 }
+    const ascensionSector = getAscensionMilestone(research.id)?.sector ?? 0
+    if (visited.has(research.id)) return { sector: ascensionSector, depth: 0 }
     const requirements = research.requirements ?? {}
     const prerequisiteIds = [...(requirements.researchId ? [requirements.researchId] : []), ...Object.keys(requirements.researchLevels ?? {})]
     const prerequisiteOrders = prerequisiteIds.map(getResearchById).filter(Boolean).map((entry) => getProgressionOrder(entry, new Set(visited).add(research.id)))
-    return { tier: Math.max(ascensionTier, ...prerequisiteOrders.map((order) => order.tier)), depth: prerequisiteOrders.length ? Math.max(...prerequisiteOrders.map((order) => order.depth)) + 1 : 0 }
+    return { sector: Math.max(ascensionSector, ...prerequisiteOrders.map((order) => order.sector)), depth: prerequisiteOrders.length ? Math.max(...prerequisiteOrders.map((order) => order.depth)) + 1 : 0 }
   }
 
   function compareResearchProgression(first, second) {
     const firstOrder = getProgressionOrder(first)
     const secondOrder = getProgressionOrder(second)
-    return firstOrder.tier - secondOrder.tier || firstOrder.depth - secondOrder.depth || first.name.localeCompare(second.name)
+    return firstOrder.sector - secondOrder.sector || firstOrder.depth - secondOrder.depth || first.name.localeCompare(second.name)
   }
 
   return {

@@ -76,9 +76,9 @@ export const GAME = {
 }
 
 export const DIFFICULTY = {
-  tier1: {
-    extraArenaPadding: 0, // Extra padding added to the arena size and playable area for this difficulty tier. A positive value increases the arena size, while a negative value decreases it.
-    cellsRequiredToAdvance: 30, // Number of cells the player must collect to advance to the next difficulty tier.
+  sector1: {
+    extraArenaPadding: 0, // Extra padding added to the arena size and playable area for this difficulty sector. A positive value increases the arena size, while a negative value decreases it.
+    cellsRequiredToAdvance: 30, // Number of cells the player must collect to advance to the next difficulty sector.
 
     cashValueMultiplier: 1, // Multiplier applied to the base cell cash value defined in the GAME constant. A positive value increases the cash value, while a negative value decreases it.
 
@@ -103,7 +103,7 @@ export const DIFFICULTY = {
 
     stoneRockSpawnWeight: 1,
   },
-  tier2: {
+  sector2: {
     extraArenaPadding: 1,
     cellsRequiredToAdvance: 100,
 
@@ -129,7 +129,7 @@ export const DIFFICULTY = {
     stoneRockSpawnWeight: 0.8,
     splinterSpawnWeight: 0.2,
   },
-  tier3: {
+  sector3: {
     extraArenaPadding: 2,
     cellsRequiredToAdvance: 200,
 
@@ -158,7 +158,7 @@ export const DIFFICULTY = {
     fieryRockSpawnWeight: 0.2,
     splinterSpawnWeight: 0.2,
   },
-  tier4: {
+  sector4: {
     extraArenaPadding: 3,
     cellsRequiredToAdvance: 300,
 
@@ -187,7 +187,7 @@ export const DIFFICULTY = {
     fieryRockSpawnWeight: 0.35,
     splinterSpawnWeight: 0.25,
   },
-  tier5: {
+  sector5: {
     extraArenaPadding: 4,
     cellsRequiredToAdvance: 300,
     cashValueMultiplier: 16,
@@ -213,7 +213,7 @@ export const DIFFICULTY = {
     fieryRockSpawnWeight: 0.42,
     splinterSpawnWeight: 0.28,
   },
-  tier6: {
+  sector6: {
     extraArenaPadding: 5,
     cellsRequiredToAdvance: 300,
     cashValueMultiplier: 32,
@@ -240,7 +240,7 @@ export const DIFFICULTY = {
     fieryRockSpawnWeight: 0.47,
     splinterSpawnWeight: 0.29,
   },
-  tier7: {
+  sector7: {
     extraArenaPadding: 6,
     cellsRequiredToAdvance: 300,
     cashValueMultiplier: 64,
@@ -268,7 +268,7 @@ export const DIFFICULTY = {
     fieryRockSpawnWeight: 0.51,
     splinterSpawnWeight: 0.31,
   },
-  tier8: {
+  sector8: {
     extraArenaPadding: 7,
     cellsRequiredToAdvance: 300,
     cashValueMultiplier: 128,
@@ -296,7 +296,7 @@ export const DIFFICULTY = {
     fieryRockSpawnWeight: 0.54,
     splinterSpawnWeight: 0.32,
   },
-  tier9: {
+  sector9: {
     extraArenaPadding: 8,
     cellsRequiredToAdvance: 400,
     cashValueMultiplier: 256,

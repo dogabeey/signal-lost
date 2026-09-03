@@ -12,27 +12,27 @@ const allowedOrigins = new Set(
 const recentEvents = new Map<string, number>()
 const eventCooldownMs = 1_000
 
-type TierStartedPayload = {
-  event: 'tier_started'
+type SectorStartedPayload = {
+  event: 'sector_started'
   sessionId: string
   properties: {
-    tier: number
+    sector: number
     buildVersion: string
     platform: 'web' | 'steam'
   }
 }
 
-function isTierStartedPayload(value: unknown): value is TierStartedPayload {
+function isSectorStartedPayload(value: unknown): value is SectorStartedPayload {
   if (!value || typeof value !== 'object') return false
-  const payload = value as Partial<TierStartedPayload>
-  const properties = payload.properties as Partial<TierStartedPayload['properties']> | undefined
-  return payload.event === 'tier_started'
+  const payload = value as Partial<SectorStartedPayload>
+  const properties = payload.properties as Partial<SectorStartedPayload['properties']> | undefined
+  return payload.event === 'sector_started'
     && typeof payload.sessionId === 'string'
     && /^[a-zA-Z0-9_-]{16,128}$/.test(payload.sessionId)
-    && typeof properties?.tier === 'number'
-    && Number.isInteger(properties.tier)
-    && properties.tier >= 1
-    && properties.tier <= 8
+    && typeof properties?.sector === 'number'
+    && Number.isInteger(properties.sector)
+    && properties.sector >= 1
+    && properties.sector <= 8
     && typeof properties.buildVersion === 'string'
     && properties.buildVersion.length <= 32
     && (properties.platform === 'web' || properties.platform === 'steam')
@@ -62,7 +62,7 @@ const server = defineServer({
     })
     app.post('/analytics/event', (request, response) => {
       if (!posthog) return response.sendStatus(503)
-      if (!isTierStartedPayload(request.body)) return response.sendStatus(400)
+      if (!isSectorStartedPayload(request.body)) return response.sendStatus(400)
       const now = Date.now()
       const lastEventAt = recentEvents.get(request.body.sessionId) ?? 0
       if (now - lastEventAt < eventCooldownMs) return response.sendStatus(429)

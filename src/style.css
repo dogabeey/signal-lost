@@ -34,8 +34,8 @@ button { font: inherit; }
 .brand { align-items: center; color: #f5f0d7; display: flex; font-size: 15px; font-weight: 700; gap: 10px; }
 .brand-mark { background: #ff795f; box-shadow: 0 0 18px #ff795f; clip-path: polygon(50% 0, 100% 100%, 0 100%); display: block; height: 18px; width: 18px; }
 .hud-left { display: grid; gap: 9px; }
-.hud-tier { color: #ffcf76; font-family: 'Trebuchet MS', Arial, sans-serif; font-size: clamp(22px, 3vw, 42px); font-weight: 700; left: 50%; letter-spacing: 0.1em; opacity: 0; pointer-events: none; position: absolute; text-shadow: 0 0 14px rgba(255, 207, 118, 0.25); top: 28px; transform: translateX(-50%); transition: opacity 180ms ease; }
-.game-shell:has(.overlay.hidden) .hud-tier { opacity: 1; }
+.hud-sector { color: #ffcf76; font-family: 'Trebuchet MS', Arial, sans-serif; font-size: clamp(22px, 3vw, 42px); font-weight: 700; left: 50%; letter-spacing: 0.1em; opacity: 0; pointer-events: none; position: absolute; text-shadow: 0 0 14px rgba(255, 207, 118, 0.25); top: 28px; transform: translateX(-50%); transition: opacity 180ms ease; }
+.game-shell:has(.overlay.hidden) .hud-sector { opacity: 1; }
 .shield-indicators { align-items: center; display: flex; gap: 4px; left: 205px; pointer-events: none; position: absolute; top: 34px; }
 .shield-indicators i { background: linear-gradient(180deg, #d7fff3, #63f5cd); border: 1px solid #c6fff0; box-shadow: 0 0 7px rgba(99, 245, 205, 0.65); clip-path: polygon(20% 0, 80% 0, 100% 24%, 82% 100%, 50% 82%, 18% 100%, 0 24%); display: block; height: 23px; width: 14px; }
 .run-cell-counter { left: 50%; margin: 0; pointer-events: none; position: absolute; text-align: center; top: 78px; transform: translateX(-50%); }
@@ -98,19 +98,19 @@ h1.death-title { font-size: clamp(28px, 5vw, 54px); line-height: 1.05; max-width
 #overlay-copy:empty { display: none; }
 .overlay > p:not(.eyebrow) { color: #c7d3cd; font-size: 16px; margin: 20px 0 28px; max-width: 320px; }
 .game-over-tip { background: rgba(99, 245, 205, 0.08); border: 1px solid rgba(99, 245, 205, 0.34); color: #c9fff1 !important; font: 700 11px/1.45 'Trebuchet MS', Arial, sans-serif !important; letter-spacing: 0.04em; margin: -8px 0 22px !important; max-width: 390px !important; padding: 10px 13px; }
-.tier-selection { background: linear-gradient(135deg, rgba(23, 49, 61, 0.98), rgba(12, 27, 38, 0.98)); border: 1px solid #3c8190; box-shadow: inset 0 0 0 3px rgba(11, 25, 35, 0.82), 0 0 22px rgba(41, 181, 168, 0.14); color: #e7f0ec; margin: 0 0 24px; padding: 13px 16px 15px; position: relative; width: min(100%, 338px); }
-.tier-selection::before { background: #ff795f; content: ''; height: 3px; left: 14px; position: absolute; top: 0; width: 64px; }
-.tier-heading { align-items: center; color: #63f5cd; display: flex; font-family: 'Trebuchet MS', Arial, sans-serif; font-size: 14px; font-weight: 700; justify-content: center; letter-spacing: 0.14em; line-height: 1; margin-bottom: 15px; text-transform: uppercase; }
-.tier-icon { align-items: center; background: rgba(99, 245, 205, 0.1); border: 1px solid #63f5cd; color: #ffcf76; display: flex; font-size: 18px; height: 29px; justify-content: center; line-height: 1; width: 29px; }
-.tier-carousel { align-items: center; display: grid; grid-template-columns: 42px 1fr 42px; margin: 0 auto 13px; max-width: 248px; }
-.tier-options { color: #fff4d2; font-family: 'Trebuchet MS', Arial, sans-serif; font-size: 27px; font-weight: 700; letter-spacing: 0.04em; text-align: center; text-shadow: 0 0 14px rgba(255, 207, 118, 0.3); }
-.tier-nav { align-items: center; background: rgba(48, 102, 112, 0.34); border: 1px solid #3c8190; box-shadow: none; color: #63f5cd; display: flex; font-family: Arial, sans-serif; font-size: 40px; font-weight: 400; height: 34px; justify-content: center; line-height: 0.6; padding: 0 0 4px; transform: none; width: 34px; }
-.tier-nav:hover { background: #63f5cd; box-shadow: 0 0 14px rgba(99, 245, 205, 0.42); color: #10232b; transform: none; }
-.tier-nav:disabled { border-color: #315766; color: #52727b; cursor: not-allowed; opacity: 0.65; }
-.tier-nav:disabled:hover { background: rgba(48, 102, 112, 0.34); box-shadow: none; color: #52727b; }
+.sector-selection { background: linear-gradient(135deg, rgba(23, 49, 61, 0.98), rgba(12, 27, 38, 0.98)); border: 1px solid #3c8190; box-shadow: inset 0 0 0 3px rgba(11, 25, 35, 0.82), 0 0 22px rgba(41, 181, 168, 0.14); color: #e7f0ec; margin: 0 0 24px; padding: 13px 16px 15px; position: relative; width: min(100%, 338px); }
+.sector-selection::before { background: #ff795f; content: ''; height: 3px; left: 14px; position: absolute; top: 0; width: 64px; }
+.sector-heading { align-items: center; color: #63f5cd; display: flex; font-family: 'Trebuchet MS', Arial, sans-serif; font-size: 14px; font-weight: 700; justify-content: center; letter-spacing: 0.14em; line-height: 1; margin-bottom: 15px; text-transform: uppercase; }
+.sector-icon { align-items: center; background: rgba(99, 245, 205, 0.1); border: 1px solid #63f5cd; color: #ffcf76; display: flex; font-size: 18px; height: 29px; justify-content: center; line-height: 1; width: 29px; }
+.sector-carousel { align-items: center; display: grid; grid-template-columns: 42px 1fr 42px; margin: 0 auto 13px; max-width: 248px; }
+.sector-options { color: #fff4d2; font-family: 'Trebuchet MS', Arial, sans-serif; font-size: 27px; font-weight: 700; letter-spacing: 0.04em; text-align: center; text-shadow: 0 0 14px rgba(255, 207, 118, 0.3); }
+.sector-nav { align-items: center; background: rgba(48, 102, 112, 0.34); border: 1px solid #3c8190; box-shadow: none; color: #63f5cd; display: flex; font-family: Arial, sans-serif; font-size: 40px; font-weight: 400; height: 34px; justify-content: center; line-height: 0.6; padding: 0 0 4px; transform: none; width: 34px; }
+.sector-nav:hover { background: #63f5cd; box-shadow: 0 0 14px rgba(99, 245, 205, 0.42); color: #10232b; transform: none; }
+.sector-nav:disabled { border-color: #315766; color: #52727b; cursor: not-allowed; opacity: 0.65; }
+.sector-nav:disabled:hover { background: rgba(48, 102, 112, 0.34); box-shadow: none; color: #52727b; }
 .highest-cell { border-top: 1px solid rgba(99, 245, 205, 0.23); color: #9ab6b8; font-family: 'Trebuchet MS', Arial, sans-serif; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; margin: 0; padding-top: 10px; text-align: center; }
 .highest-cell span { color: #63f5cd; font-size: 17px; letter-spacing: 0.04em; margin-left: 4px; }
-.tier-requirement { color: #ffcf76; font-family: 'Trebuchet MS', Arial, sans-serif; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; margin: 7px 0 0; text-align: center; }
+.sector-requirement { color: #ffcf76; font-family: 'Trebuchet MS', Arial, sans-serif; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; margin: 7px 0 0; text-align: center; }
 .milestone-button { background: rgba(99, 245, 205, 0.12); border: 1px solid #63f5cd; box-shadow: none; color: #63f5cd; display: block; font-size: 10px; letter-spacing: 0.1em; margin: 13px auto 0; padding: 10px; width: 100%; }
 .milestone-button:hover { background: #63f5cd; box-shadow: none; color: #10232b; transform: none; }
 .milestone-claim-count { background: #63f5cd; box-shadow: 0 0 13px rgba(99, 245, 205, 0.9); color: #10232b; display: inline-grid; font: 700 11px 'Trebuchet MS', Arial, sans-serif; height: 19px; margin-left: 7px; min-width: 19px; place-items: center; }
@@ -160,11 +160,11 @@ h1.death-title { font-size: clamp(28px, 5vw, 54px); line-height: 1.05; max-width
 .milestones-header p:not(.eyebrow) { color: #aeb0d2; font: 700 11px 'Trebuchet MS', Arial, sans-serif; letter-spacing: 0.1em; margin: 9px 0 0; }
 .milestones-header strong { color: #63f5cd; font-size: 19px; margin-left: 5px; }
 .milestones-header button { font-size: 10px; padding: 10px 12px; }
-.milestone-tier-nav { align-items: center; background: #202755; border: 1px solid #484f89; display: grid; grid-template-columns: 42px 1fr 42px; margin: 18px auto; max-width: 430px; padding: 7px; }
-.milestone-tier-nav strong { color: #fff4d2; font: 700 17px 'Trebuchet MS', Arial, sans-serif; letter-spacing: 0.08em; text-align: center; }
-.milestone-tier-nav button { align-items: center; background: rgba(48, 102, 112, 0.34); border: 1px solid #3c8190; box-shadow: none; color: #63f5cd; display: flex; font: 28px/0.7 Arial, sans-serif; height: 31px; justify-content: center; padding: 0 0 4px; width: 31px; }
-.milestone-tier-nav button:hover { background: #63f5cd; box-shadow: none; color: #10232b; transform: none; }
-.milestone-tier-nav button:disabled { border-color: #484f89; color: #5b658d; cursor: not-allowed; opacity: 0.6; }
+.milestone-sector-nav { align-items: center; background: #202755; border: 1px solid #484f89; display: grid; grid-template-columns: 42px 1fr 42px; margin: 18px auto; max-width: 430px; padding: 7px; }
+.milestone-sector-nav strong { color: #fff4d2; font: 700 17px 'Trebuchet MS', Arial, sans-serif; letter-spacing: 0.08em; text-align: center; }
+.milestone-sector-nav button { align-items: center; background: rgba(48, 102, 112, 0.34); border: 1px solid #3c8190; box-shadow: none; color: #63f5cd; display: flex; font: 28px/0.7 Arial, sans-serif; height: 31px; justify-content: center; padding: 0 0 4px; width: 31px; }
+.milestone-sector-nav button:hover { background: #63f5cd; box-shadow: none; color: #10232b; transform: none; }
+.milestone-sector-nav button:disabled { border-color: #484f89; color: #5b658d; cursor: not-allowed; opacity: 0.6; }
 .milestone-track { display: grid; gap: 12px; margin: 20px auto 2px; max-width: 680px; position: relative; }
 .milestone-track::before { background: linear-gradient(#3c8190, #63f5cd); bottom: 24px; content: ''; left: 25px; position: absolute; top: 24px; width: 2px; }
 .milestone-card { align-items: center; display: grid; gap: 13px; grid-template-columns: 52px 1fr; min-height: 75px; position: relative; }
@@ -331,17 +331,17 @@ button:focus-visible { outline: 2px solid #fff4d2; outline-offset: 4px; }
   .menu-content.is-death-screen .death-killer-preview { height: 48px; margin-left: 5px; width: 61px; }
   .menu-content.is-death-screen .death-killer-preview canvas { height: 48px; width: 61px; }
   .menu-content.is-death-screen #overlay-copy { font-size: 13px; margin: 5px auto 7px; }
-  .menu-content.is-death-screen .tier-selection { margin-bottom: 7px; padding: 7px 10px 8px; }
-  .menu-content.is-death-screen .tier-heading { margin-bottom: 6px; }
-  .menu-content.is-death-screen .tier-carousel { margin-bottom: 6px; }
+  .menu-content.is-death-screen .sector-selection { margin-bottom: 7px; padding: 7px 10px 8px; }
+  .menu-content.is-death-screen .sector-heading { margin-bottom: 6px; }
+  .menu-content.is-death-screen .sector-carousel { margin-bottom: 6px; }
   .menu-content.is-death-screen .highest-cell { margin: 4px 0; }
-  .menu-content.is-death-screen .tier-requirement { margin: 4px 0 6px; }
+  .menu-content.is-death-screen .sector-requirement { margin: 4px 0 6px; }
   .menu-content.is-death-screen .milestone-button { font-size: 10px; padding: 8px 10px; }
   .menu-content.is-death-screen + .menu-actions { gap: 5px; margin-top: 5px; }
   .menu-content.is-death-screen + .menu-actions button { font-size: 10px; min-height: 34px; padding: 7px 4px; }
   #overlay-title:not(.death-title) { font-size: clamp(30px, 9vw, 42px); margin-top: 0; text-align: center; }
   #overlay-copy { margin: 10px auto 16px; max-width: 300px; }
-  .tier-selection { transform: none; }
+  .sector-selection { transform: none; }
   .game-shell:has(.overlay:not(.hidden)) .instructions { display: none; }
   .hud { padding: 14px 16px; }
   .cash-balance { font-size: 10px; }
@@ -354,19 +354,19 @@ button:focus-visible { outline: 2px solid #fff4d2; outline-offset: 4px; }
   .run-cell-counter dt { font-size: 8px; }
   .run-cell-counter dd { font-size: 17px; }
   .pause-button { font-size: 20px; height: 42px; right: 16px; top: 12px; width: 42px; }
-  .hud-tier { font-size: clamp(13px, 4vw, 18px); letter-spacing: 0.06em; top: 15px; }
+  .hud-sector { font-size: clamp(13px, 4vw, 18px); letter-spacing: 0.06em; top: 15px; }
   .shield-indicators { gap: 2px; left: 132px; top: 18px; }
   .shield-indicators i { height: 14px; width: 9px; }
-  .tier-selection { margin-bottom: 14px; max-width: 300px; padding: 10px 12px 11px; }
-  .tier-selection::before { left: 12px; width: 48px; }
-  .tier-heading { font-size: 11px; margin-bottom: 10px; }
-  .tier-icon { font-size: 15px; height: 24px; width: 24px; }
-  .tier-carousel { grid-template-columns: 34px 1fr 34px; margin-bottom: 9px; max-width: 220px; }
-  .tier-options { font-size: 22px; }
-  .tier-nav { font-size: 32px; height: 29px; width: 29px; }
+  .sector-selection { margin-bottom: 14px; max-width: 300px; padding: 10px 12px 11px; }
+  .sector-selection::before { left: 12px; width: 48px; }
+  .sector-heading { font-size: 11px; margin-bottom: 10px; }
+  .sector-icon { font-size: 15px; height: 24px; width: 24px; }
+  .sector-carousel { grid-template-columns: 34px 1fr 34px; margin-bottom: 9px; max-width: 220px; }
+  .sector-options { font-size: 22px; }
+  .sector-nav { font-size: 32px; height: 29px; width: 29px; }
   .highest-cell { font-size: 9px; padding-top: 7px; }
   .highest-cell span { font-size: 14px; }
-  .tier-requirement { font-size: 8px; margin-top: 5px; }
+  .sector-requirement { font-size: 8px; margin-top: 5px; }
   .milestone-button { font-size: 9px; margin-top: 9px; padding: 8px; }
   .instructions { bottom: 43px; font-size: 9px; left: auto; right: 20px; }
   .controls-desktop { display: none; }
@@ -377,7 +377,7 @@ button:focus-visible { outline: 2px solid #fff4d2; outline-offset: 4px; }
   .virtual-joystick { background: radial-gradient(circle, rgba(239, 245, 241, 0.14) 0 42%, rgba(222, 232, 228, 0.09) 43% 66%, rgba(190, 207, 200, 0.2) 67% 100%); border: 1px solid rgba(236, 244, 240, 0.24); border-radius: 50%; box-shadow: inset 0 0 20px rgba(255, 255, 255, 0.12), 0 5px 16px rgba(0, 0, 0, 0.2); display: block; height: 116px; left: 0; opacity: 0; pointer-events: none; position: absolute; top: 0; transform: translate(-50%, -50%) scale(0.86); transition: opacity 120ms ease, transform 120ms ease; width: 116px; z-index: 4; }
   .virtual-joystick.active { opacity: 1; transform: translate(-50%, -50%) scale(1); }
   .virtual-joystick-knob { background: radial-gradient(circle at 36% 30%, rgba(255, 255, 255, 0.32), rgba(191, 200, 196, 0.26) 52%, rgba(106, 117, 115, 0.38)); border: 2px solid rgba(255, 255, 255, 0.45); border-radius: 50%; box-shadow: inset 0 1px 5px rgba(255, 255, 255, 0.35), 0 2px 8px rgba(0, 0, 0, 0.28); height: 52px; left: 31px; position: absolute; top: 31px; width: 52px; will-change: transform; }
-  .tier-selection { transform: none; }
+  .sector-selection { transform: none; }
   .menu-actions { gap: 8px; grid-template-columns: repeat(2, minmax(0, 1fr)); left: auto; margin-top: 12px; position: static; transform: none; width: min(100%, 360px); }
   .menu-actions button { font-size: 11px; min-height: 44px; padding: 10px 6px; width: 100%; }
   .menu-actions .menu-system-button { --mobile-system-width: 25vw; bottom: 0; height: 52px; margin: 0; min-height: 0; padding: 0; position: fixed; width: var(--mobile-system-width); z-index: 38; }
@@ -433,9 +433,9 @@ button:focus-visible { outline: 2px solid #fff4d2; outline-offset: 4px; }
   .overlay .eyebrow { font-size: 9px; margin-bottom: 7px; }
   .overlay h1 { font-size: clamp(42px, 6vw, 66px); }
   .overlay > p:not(.eyebrow) { font-size: 13px; margin: 10px 0 14px; }
-  .tier-selection { margin-bottom: 15px; padding: 10px 13px 12px; transform: scale(0.88); transform-origin: top center; }
-  .tier-heading { font-size: 12px; margin-bottom: 10px; }
-  .tier-carousel { margin-bottom: 8px; }
+  .sector-selection { margin-bottom: 15px; padding: 10px 13px 12px; transform: scale(0.88); transform-origin: top center; }
+  .sector-heading { font-size: 12px; margin-bottom: 10px; }
+  .sector-carousel { margin-bottom: 8px; }
   .highest-cell { padding-top: 7px; }
   .menu-actions { gap: 8px; margin-top: 8px; }
   .menu-actions button, .pause-actions button { font-size: 12px; padding: 12px 17px; }

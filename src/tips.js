@@ -7,7 +7,7 @@ export const TIPS = [
   'Chronoshards are rare, valuable and short-lived. Make sure to grab them before they disappear.',
   'Watch enemy range rings before committing to a path through the arena.',
   'You can unlock boosters later in the game from Research Lab.',
-  'After reaching Tier 4, you can unlock the ability to build Buildings to help you in the arena.',
+  'After reaching Sector 4, you can unlock the ability to build Buildings to help you in the arena.',
   'Purple enemies are called creepers and they speed up gradually over time. They can be slowed down by static collisions with obstacles.',
   'Red enemies are called chasers and they will actively pursue you. They can be slowed down by static collisions with obstacles.',
   'Yellow enemies are called bangers and they explode after a few seconds.',
