@@ -1,6 +1,15 @@
 // Add a new object here for each update. The newest entry should be first.
 export const PATCH_NOTES = [
   {
+    heading: 'ASCENSION ARTIFACTS',
+    changes: [
+      'Added Broken Radar at Tier 2 · 500 Cells: +10% Cell spawn rate.',
+      'Added Supply Depot at Tier 4 · 500 Cells: +5 initial Cells.',
+      'Added Construction Bot at Tier 6 · 500 Cells: -10% Building prices.',
+      'Added Broken Hard-Drive at Tier 8 · 500 Cells: +1 Weapon Slot.',
+    ],
+  },
+  {
     heading: 'DARK CORE STACKS',
     changes: [
       'Dark Core is now a repeatable Artifact, with one stack awarded for every unique successful Anomaly Run.',

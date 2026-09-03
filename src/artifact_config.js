@@ -2,6 +2,13 @@
 export const ARTIFACT_CONFIG = {
   artifacts: [
     {
+      id: 'broken-radar',
+      name: 'Broken Radar',
+      icon: 'broken-radar.svg',
+      requirement: { type: 'milestone-claimed', milestoneId: 'tier-2-500', tier: 2, cells: 500 },
+      buff: { stat: 'cellSpawnRate', amount: 0.1, label: '+10% Cell spawn rate' },
+    },
+    {
       id: 'ftl-schematics',
       name: 'FTL Schematics',
       icon: 'ftl-schematics.svg',
@@ -9,11 +16,46 @@ export const ARTIFACT_CONFIG = {
       buff: { stat: 'playerSpeedMultiplier', amount: 0.1, label: '+10% player movement speed' },
     },
     {
+      id: 'supply-depot',
+      name: 'Supply Depot',
+      icon: 'supply-depot.svg',
+      requirement: { type: 'milestone-claimed', milestoneId: 'tier-4-500', tier: 4, cells: 500 },
+      buff: { stat: 'initialCellCount', amount: 5, label: '+5 initial Cells' },
+    },
+    {
       id: 'broken-extractor',
       name: 'Broken Extractor',
       icon: 'broken-extractor.svg',
       requirement: { type: 'milestone-claimed', milestoneId: 'tier-5-500', tier: 5, cells: 500 },
       buff: { stat: 'cashMultiplier', amount: 0.1, label: '+10% cash earned from Cells' },
+    },
+    {
+      id: 'construction-bot',
+      name: 'Construction Bot',
+      icon: 'construction-bot.svg',
+      requirement: { type: 'milestone-claimed', milestoneId: 'tier-6-500', tier: 6, cells: 500 },
+      buff: { stat: 'buildingCostReduction', amount: 0.1, label: '-10% Building prices' },
+    },
+    {
+      id: 'alientech-gizmo',
+      name: 'Alientech Gizmo',
+      icon: 'alientech-gizmo.svg',
+      requirement: { type: 'milestone-claimed', milestoneId: 'tier-7-500', tier: 7, cells: 500 },
+      buff: { stat: 'researchCostReduction', amount: 0.2, label: '-20% Research cost' },
+    },
+    {
+      id: 'broken-hard-drive',
+      name: 'Broken Hard-Drive',
+      icon: 'broken-hard-drive.svg',
+      requirement: { type: 'milestone-claimed', milestoneId: 'tier-8-500', tier: 8, cells: 500 },
+      buff: { stat: 'weaponSlotCount', amount: 1, label: '+1 Weapon Slot' },
+    },
+    {
+      id: 'hubble-telescope',
+      name: 'Hubble Telescope',
+      icon: 'hubble-telescope.svg',
+      requirement: { type: 'milestone-claimed', milestoneId: 'tier-9-500', tier: 9, cells: 500 },
+      buff: { stat: 'effectRange', amount: 0.2, label: '+20% player effect range' },
     },
     {
       id: 'dark-core',
@@ -29,20 +71,6 @@ export const ARTIFACT_CONFIG = {
       icon: 'map-to-earth.svg',
       requirement: { type: 'hidden-world-map', minTier: 6, chance: 0.01 },
       buff: { stat: 'arenaSizeMultiplier', amount: 0.2, label: '+20% arena size in every Tier' },
-    },
-    {
-      id: 'alientech-gizmo',
-      name: 'Alientech Gizmo',
-      icon: 'alientech-gizmo.svg',
-      requirement: { type: 'milestone-claimed', milestoneId: 'tier-7-500', tier: 7, cells: 500 },
-      buff: { stat: 'researchCostReduction', amount: 0.2, label: '-20% Research cost' },
-    },
-    {
-      id: 'hubble-telescope',
-      name: 'Hubble Telescope',
-      icon: 'hubble-telescope.svg',
-      requirement: { type: 'milestone-claimed', milestoneId: 'tier-9-500', tier: 9, cells: 500 },
-      buff: { stat: 'effectRange', amount: 0.2, label: '+20% player effect range' },
     },
   ],
 }

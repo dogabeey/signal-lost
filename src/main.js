@@ -1199,7 +1199,7 @@ function applyGraphicsSettings() {
 }
 
 function saveWeaponState() { writeStoredJson(WEAPONRY_STORAGE_KEY, weaponState) }
-function getWeaponSlots() { return 1 + getResearchLevel('weapon-slots') }
+function getWeaponSlots() { return 1 + getResearchLevel('weapon-slots') + getArtifactStatBonus('weaponSlotCount') }
 function getWeaponEntry(id) { return weaponState.cards[id] }
 const WEAPON_RECHARGE_BASE_SECONDS = 8 * 60
 const WEAPON_RECHARGE_REDUCTION_PER_LEVEL = 30
@@ -1763,7 +1763,8 @@ function randomArenaPosition(minDistance = 0) {
 }
 
 function saveBuildings() { writeStoredJson(BUILDINGS_STORAGE_KEY, buildingState) }
-function getBuildingUnlockCost() { return 60 + buildingState.unlockCount * 30 }
+function applyBuildingCostReduction(cost, round = Math.ceil) { return round(cost * Math.max(0, 1 - getArtifactStatBonus('buildingCostReduction'))) }
+function getBuildingUnlockCost() { return applyBuildingCostReduction(60 + buildingState.unlockCount * 30) }
 function getBuildingUnlockOffers() {
   const remaining = Object.keys(BUILDING_CONFIG.types).filter((type) => !buildingState.unlocked.includes(type))
   const validOffers = buildingState.unlockOffers.filter((type) => remaining.includes(type))
@@ -1793,7 +1794,7 @@ function renderBuildingDraft() {
 }
 function getBuildingSlotLimit() { return 3 + getResearchLevel('building-slots') }
 function getBuildingTypeLevel(type) { return 1 + buildingState.placed.filter((building) => building.type === type).reduce((total, building) => total + Object.values(building.upgrades).reduce((sum, level) => sum + level, 0), 0) }
-function getBuildingUpgradeCost(building, key) { const entry = BUILDING_CONFIG.types[building.type].upgrades[key]; const level = building.upgrades[key] ?? 0; return Math.ceil(entry.base * 1.65 ** level) }
+function getBuildingUpgradeCost(building, key) { const entry = BUILDING_CONFIG.types[building.type].upgrades[key]; const level = building.upgrades[key] ?? 0; return applyBuildingCostReduction(entry.base * 1.65 ** level) }
 function getBuildingRefund(building) { return Math.round((building.spent ?? BUILDING_CONFIG.types[building.type].baseCost) * 100) / 100 }
 function createBuildingMesh(building) {
   const config = BUILDING_CONFIG.types[building.type]
@@ -1804,7 +1805,7 @@ function createBuildingMesh(building) {
   buildingRuntime.set(building.id, { timer: 0, active: 0, effectRing, barrierField })
 }
 function syncBuildings() { for (const mesh of buildingMeshes.values()) scene.remove(mesh); buildingMeshes.clear(); buildingRuntime.clear(); for (const building of buildingState.placed) createBuildingMesh(building) }
-function buildingCost(type) { const config = BUILDING_CONFIG.types[type]; return Math.ceil(config.baseCost * config.costMultiplier ** buildingState.placed.filter((b) => b.type === type).length) }
+function buildingCost(type) { const config = BUILDING_CONFIG.types[type]; return applyBuildingCostReduction(config.baseCost * config.costMultiplier ** buildingState.placed.filter((b) => b.type === type).length) }
 function getBuildSites() {
   const sites = []
   for (let x = -10; x <= 10; x += 2) for (let z = -10; z <= 10; z += 2) if (Math.hypot(x, z) <= BUILDING_CONFIG.placementRadius && Math.hypot(x, z) >= BUILDING_CONFIG.spawnClearance) sites.push({ x, z })
