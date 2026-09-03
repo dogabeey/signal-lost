@@ -122,6 +122,11 @@ h1.death-title { font-size: clamp(28px, 5vw, 54px); line-height: 1.05; max-width
 .menu-actions { display: grid; gap: 12px; grid-template-columns: 240px; left: clamp(20px, 4vw, 64px); position: absolute; top: 50%; transform: translateY(-50%); }
 .menu-actions button { font-size: 12px; padding: 12px 18px; width: 240px; }
 .menu-system-button { position: relative; }
+/* Desktop panels must take precedence over the main-menu action rail. */
+.milestones-panel, .lab-panel, .encyclopedia-panel, .artifact-panel, .building-panel, .weaponry-panel, .settings-panel, .patch-notes-panel { position: relative; z-index: 20; }
+@media (min-width: 581px) {
+  .overlay:has(.milestones-panel:not(.hidden), .lab-panel:not(.hidden), .encyclopedia-panel:not(.hidden), .artifact-panel:not(.hidden), .building-panel:not(.hidden), .weaponry-panel:not(.hidden), .settings-panel:not(.hidden), .patch-notes-panel:not(.hidden)) .menu-actions { display: none; }
+}
 .menu-home-button { display: none; }
 .menu-button-icon { display: none; }
 .menu-icon-fallback { align-items: center; font: 800 12px/1 'Trebuchet MS', Arial, sans-serif; justify-content: center; }
