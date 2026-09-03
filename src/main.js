@@ -3949,8 +3949,23 @@ resetRoundButton.addEventListener('click', () => {
 })
 
 surrenderButton.addEventListener('click', () => {
+  if (buildMode) exitBuildMode()
+  clearSavedRound()
+  resetGame(!sandboxState)
+  sandboxState = null
+  anomalyRun = null
+  paused = false
+  started = false
+  ended = false
   pauseMenu.classList.add('hidden')
-  endGame('RUN ABANDONED')
+  weaponHud.classList.add('hidden')
+  overlayTitle.textContent = 'ASTEROID BELT'
+  overlayTitle.classList.remove('death-title')
+  hideDeathEnemyPreview()
+  overlayCopy.textContent = 'Run surrendered. No progress was saved.'
+  gameOverTip.hidden = true
+  closeMenuPanelsForHome()
+  overlay.classList.remove('hidden')
 })
 
 resumeGameButton.addEventListener('click', () => {
