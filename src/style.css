@@ -60,9 +60,10 @@ button { font: inherit; }
   to { opacity: 0; transform: translate(-50%, -180%) scale(1); }
 }
 .game-shell:has(.overlay:not(.hidden)) .run-cell-counter, .game-shell:has(.overlay:not(.hidden)) .pause-button { display: none; }
-.instructions { bottom: 48px; color: #a7c0bf; font-size: 10px; font-weight: 700; letter-spacing: .06em; position: absolute; right: 32px; text-align: right; }
+.instructions { bottom: 48px; color: #a7c0bf; font-size: 10px; font-weight: 700; left: 32px; letter-spacing: .06em; position: absolute; text-align: left; }
 .instructions b { color: #63f5cd; }
-.instructions i { color: #526e79; font-style: normal; margin: 0 6px; }
+.controls-desktop, .controls-mobile { gap: 4px; }
+.controls-desktop { display: grid; }
 .controls-mobile { display: none; }
 .build-footer { bottom: 9px; color: #8ca7a7; display: flex; font-family: 'Trebuchet MS', Arial, sans-serif; font-size: 7px; font-weight: 700; gap: 6px; left: 50%; letter-spacing: 0.08em; opacity: 0.72; pointer-events: none; position: absolute; transform: translateX(-50%); white-space: nowrap; z-index: 3; }
 .build-footer span + span::before { color: #42636a; content: '•'; margin-right: 10px; }
@@ -379,9 +380,9 @@ button:focus-visible { outline: 2px solid #fff4d2; outline-offset: 4px; }
   .highest-cell span { font-size: 14px; }
   .sector-requirement { font-size: 8px; margin-top: 5px; }
   .milestone-button { font-size: 9px; margin-top: 9px; padding: 8px; }
-  .instructions { bottom: 43px; font-size: 9px; left: auto; right: 20px; }
+  .instructions { bottom: 43px; font-size: 9px; left: 20px; right: auto; }
   .controls-desktop { display: none; }
-  .controls-mobile { display: inline; }
+  .controls-mobile { display: grid; }
   .build-footer { bottom: 7px; font-size: 7px; gap: 5px; }
   .build-footer span + span::before { margin-right: 6px; }
   #game { touch-action: none; }

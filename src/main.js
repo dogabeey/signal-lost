@@ -64,7 +64,7 @@ document.querySelector('#app').innerHTML = `
     </header>
     <div class="shield-indicators" id="shield-indicators" aria-label="Shield charges"></div>
     <div class="weapon-hud hidden" id="weapon-hud"></div>
-    <aside class="instructions" aria-label="Game controls"><span class="controls-desktop"><b>MOVE</b> WASD <i>·</i> <b>NAVIGATE</b> ↑↓ <i>·</i> <b>USE WEAPON</b> SPACE</span><span class="controls-mobile"><b>MOVE</b> JOYSTICK <i>·</i> <b>SELECT / USE WEAPON</b> TAP A CARD</span></aside>
+    <aside class="instructions" aria-label="Game controls"><span class="controls-desktop"><span><b>MOVE</b> WASD</span><span><b>NAVIGATE</b> ↑↓</span><span><b>USE WEAPON</b> SPACE</span></span><span class="controls-mobile"><span><b>MOVE</b> JOYSTICK</span><span><b>SELECT / USE WEAPON</b> TAP A CARD</span></span></aside>
     <footer class="build-footer" aria-label="Build information">
       <span>v${BUILD_INFO.version}</span><span>BUILD ${BUILD_INFO.number}</span>
     </footer>
