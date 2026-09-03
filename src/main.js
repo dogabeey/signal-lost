@@ -1206,7 +1206,7 @@ let renderComposer
 let hdrBloomPass
 function applyGraphicsSettings() {
   const pixelRatioCap = { low: 1, medium: 1.5, high: GAME.maxPixelRatio }[settings.graphics.quality] ?? GAME.maxPixelRatio
-  const hdrEmissionIntensity = THREE.MathUtils.clamp(settings.graphics.hdrEmissionIntensity ?? 0.5, 0, 1)
+  const hdrEmissionIntensity = THREE.MathUtils.clamp(settings.graphics.hdrEmissionIntensity ?? 0.5, 0, 1) * 0.5
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, pixelRatioCap))
   renderComposer?.setPixelRatio(renderer.getPixelRatio())
   renderer.shadowMap.enabled = settings.graphics.shadows && settings.graphics.quality !== 'low'
@@ -3189,10 +3189,10 @@ function updateGame(delta, total) {
       for (const star of stunStars.children) {
         star.rotation.x += delta * 8
         star.rotation.z += delta * 5
-        star.material.opacity = 0.12 + stunStrength * 0.88
+        star.material.opacity = 0.08 + stunStrength * 0.32
       }
       obstacle.userData.material.emissive.set('#5eeeff')
-      obstacle.userData.material.emissiveIntensity = 2.3 + Math.sin(total * 26) * 0.9
+      obstacle.userData.material.emissiveIntensity = 0.8 + Math.sin(total * 26) * 0.3
       obstacle.rotation.y += delta * 1.5
       continue
     }
