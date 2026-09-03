@@ -3,9 +3,11 @@ export function createEnemyVisualFactory({ THREE, ENTITIES }) {
   const spikeGeometry = new THREE.ConeGeometry(ENTITIES.obstacleSpikeRadius, ENTITIES.obstacleSpikeHeight, ENTITIES.obstacleSpikeSegments)
   const chaserSpikeGeometry = new THREE.ConeGeometry(ENTITIES.obstacleSpikeRadius * 0.72, ENTITIES.obstacleSpikeHeight * 0.7, ENTITIES.obstacleSpikeSegments)
   const chaserTipGeometry = new THREE.ConeGeometry(ENTITIES.obstacleSpikeRadius * 0.27, ENTITIES.obstacleSpikeHeight * 0.22, ENTITIES.obstacleSpikeSegments)
+  const creeperTipGeometry = new THREE.ConeGeometry(ENTITIES.obstacleSpikeRadius * 0.32, ENTITIES.obstacleSpikeHeight * 0.27, ENTITIES.obstacleSpikeSegments)
   const shooterSpikeGeometry = new THREE.CylinderGeometry(ENTITIES.obstacleSpikeRadius * 0.32, ENTITIES.obstacleSpikeRadius, ENTITIES.obstacleSpikeHeight * 0.82, ENTITIES.obstacleSpikeSegments)
   const shooterSocketGeometry = new THREE.CircleGeometry(ENTITIES.obstacleSpikeRadius * 0.32, ENTITIES.obstacleSpikeSegments)
   const chaserTipMaterial = new THREE.MeshStandardMaterial({ color: '#ff3b30', emissive: '#8c0b06', emissiveIntensity: 1.7, metalness: 0.35, roughness: 0.28 })
+  const creeperTipMaterial = new THREE.MeshStandardMaterial({ color: '#c88cff', emissive: '#7a18ff', emissiveIntensity: 1.75, metalness: 0.2, roughness: 0.22 })
   const shooterSocketMaterial = new THREE.MeshBasicMaterial({ color: '#050505', side: THREE.DoubleSide })
   const chaserDirections = [
     [0, 1, 0], [0, -1, 0], [1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1],
@@ -24,6 +26,7 @@ export function createEnemyVisualFactory({ THREE, ENTITIES }) {
     core.castShadow = true
     enemy.add(core)
     const spikes = []
+    const creeperTipMaterials = []
     const directions = type === 'chaser' ? chaserDirections : spikeDirections
     for (const [index, direction] of directions.entries()) {
       const spikeHeight = type === 'chaser' ? ENTITIES.obstacleSpikeHeight * 0.7 : ENTITIES.obstacleSpikeHeight
@@ -40,6 +43,14 @@ export function createEnemyVisualFactory({ THREE, ENTITIES }) {
         tip.castShadow = true
         spikeRoot.add(tip)
       }
+      if (type === 'creeper' || type === 'poisonCreeper') {
+        const tipMaterial = creeperTipMaterial.clone()
+        const tip = new THREE.Mesh(creeperTipGeometry, tipMaterial)
+        tip.position.y = spikeHeight * 0.47
+        tip.castShadow = true
+        spikeRoot.add(tip)
+        creeperTipMaterials.push(tipMaterial)
+      }
       if (type === 'shooter') {
         const socket = new THREE.Mesh(shooterSocketGeometry, shooterSocketMaterial)
         socket.rotation.x = -Math.PI / 2
@@ -51,6 +62,7 @@ export function createEnemyVisualFactory({ THREE, ENTITIES }) {
     }
     enemy.userData.material = material
     enemy.userData.spikes = spikes
+    enemy.userData.creeperTipMaterials = creeperTipMaterials
     return enemy
   }
 }
