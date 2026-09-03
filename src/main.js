@@ -21,6 +21,7 @@ import { createResearchRules } from './research_rules.js'
 import { ENCYCLOPEDIA_ENTRIES } from './encyclopedia_config.js'
 import { PATCH_NOTES } from './patch_notes_config.js'
 import { formatCompactNumber, formatCurrency, formatDuration, formatResearchEffect } from './formatters.js'
+import { formatSectorNumber } from './sector_format.js'
 import { TIPS } from './tips.js'
 import { MILESTONES } from './milestones.js'
 import { WEAPON_CONFIG } from './weapons_config.js'
@@ -121,7 +122,7 @@ document.querySelector('#app').innerHTML = `
       </div>
       <section class="milestones-panel hidden" id="milestones-panel" aria-label="Ascension">
         <div class="milestones-header"><div><p class="eyebrow">BEST SINGLE RUN</p><h2>ASCENSION</h2><p>MAX CELLS <strong id="milestone-max-cells">000</strong></p></div><button class="secondary-button" id="close-milestones-button" type="button">BACK</button></div>
-        <div class="milestone-sector-nav"><button id="previous-milestone-sector" type="button" aria-label="View previous milestone sector">‹</button><strong id="milestone-sector-label">SECTOR 1</strong><button id="next-milestone-sector" type="button" aria-label="View next milestone sector">›</button></div>
+        <div class="milestone-sector-nav"><button id="previous-milestone-sector" type="button" aria-label="View previous milestone sector">‹</button><strong id="milestone-sector-label">SECTOR I</strong><button id="next-milestone-sector" type="button" aria-label="View next milestone sector">›</button></div>
         <div class="milestone-track" id="milestone-track"></div>
       </section>
       <section class="lab-panel hidden" id="lab-panel" aria-label="Research Lab">
@@ -554,7 +555,7 @@ function renderResearchLab() {
     const sectorUnlocked = !unlock.requirements?.minSector || isResearchSectorUnlocked(unlock.requirements.minSector)
     const canAfford = unlock.cost.currency === 'cash' ? cash >= unlock.cost.amount : chronoshards >= unlock.cost.amount
     const disabled = sectorUnlocked && canAfford ? '' : 'disabled'
-    const requirement = sectorUnlocked ? `Unlock for ${formatCurrency(unlock.cost.currency, unlock.cost.amount)}` : `Unlock Sector ${unlock.requirements.minSector} research in Milestones`
+    const requirement = sectorUnlocked ? `Unlock for ${formatCurrency(unlock.cost.currency, unlock.cost.amount)}` : `Unlock Sector ${formatSectorNumber(unlock.requirements.minSector)} research in Milestones`
     return `<article class="research-slot locked"><span>SLOT ${slotNumber}</span><strong>LOCKED</strong><button data-unlock-slot="${slotNumber}" type="button" ${disabled}>${requirement}</button></article>`
   }).join('') : ''
 
@@ -724,10 +725,10 @@ function showFeatureLockToast(button, message) {
 
 function getFeatureUnlockMessage(feature) {
   const unlock = RESEARCH_CONFIG.featureUnlocks[feature]
-  if (getUnlockedSectorIndex() + 1 < unlock.minSector) return `You need to reach Sector ${unlock.minSector}.`
+  if (getUnlockedSectorIndex() + 1 < unlock.minSector) return `You need to reach Sector ${formatSectorNumber(unlock.minSector)}.`
   if (unlock.requiredMilestone && !milestoneState.claimed.includes(unlock.requiredMilestone)) {
     const milestone = MILESTONES.find((entry) => entry.id === unlock.requiredMilestone)
-    if (milestone) return `You need to collect ${milestone.cells} Cells in Sector ${milestone.sector}.`
+    if (milestone) return `You need to collect ${milestone.cells} Cells in Sector ${formatSectorNumber(milestone.sector)}.`
   }
   if (chronoshards < unlock.chronoshardCost) return `You need ✦ ${unlock.chronoshardCost} Chronoshards.`
   return 'This system is not available yet.'
@@ -747,12 +748,12 @@ function renderFeatureUnlockButtons() {
     const name = feature === 'researchLab' ? 'RESEARCH LAB' : feature === 'buildingSystem' ? 'BUILDING SYSTEM' : 'WEAPONRY'
     button.className = `menu-system-button ${unlocked ? 'is-unlocked' : sectorReady ? 'is-unlockable' : 'is-locked'}${button.classList.contains('is-active') ? ' is-active' : ''}`
     button.disabled = false
-    button.querySelector('.menu-button-label').textContent = unlocked ? name : sectorReady ? `UNLOCK ${name} · ✦ ${unlock.chronoshardCost}` : `${name} · SECTOR ${unlock.minSector}`
+    button.querySelector('.menu-button-label').textContent = unlocked ? name : sectorReady ? `UNLOCK ${name} · ✦ ${unlock.chronoshardCost}` : `${name} · SECTOR ${formatSectorNumber(unlock.minSector)}`
     const lockOverlay = button.querySelector('.menu-button-lock')
     lockOverlay.hidden = unlocked || !shouldShowCompactSystemLocks()
     lockOverlay.innerHTML = sectorReady
       ? `<span class="chronoshard-symbol" aria-hidden="true">✦</span><span>${unlock.chronoshardCost}</span>`
-      : `<span>SECTOR ${unlock.minSector}</span>`
+      : `<span>SECTOR ${formatSectorNumber(unlock.minSector)}</span>`
   }
 }
 function unlockFeature(feature) {
@@ -794,7 +795,7 @@ function runSandboxCommand(argumentsList) {
   const [action, value] = argumentsList
   if (!action) {
     startSandbox()
-    setCheatOutput('Sandbox Sector 1 started. Use sandbox [sector], sandbox simulate [cell|enemies|all], or sandbox spawn [enemy] [count].')
+    setCheatOutput('Sandbox Sector I started. Use sandbox [sector], sandbox simulate [cell|enemies|all], or sandbox spawn [enemy] [count].')
     return
   }
   const sectorNumber = Number(action)
@@ -805,7 +806,7 @@ function runSandboxCommand(argumentsList) {
       applyDifficulty()
       updateHud()
     }
-    setCheatOutput(`Sandbox difficulty set to Sector ${sandboxState.sectorIndex + 1}. Spawn simulation remains unchanged.`)
+    setCheatOutput(`Sandbox difficulty set to Sector ${formatSectorNumber(sandboxState.sectorIndex + 1)}. Spawn simulation remains unchanged.`)
     return
   }
   if (!sandboxState) {
@@ -818,7 +819,7 @@ function runSandboxCommand(argumentsList) {
       return
     }
     sandboxState.simulation = value === 'all' ? new Set(['cell', 'enemies', 'boosters']) : new Set([value])
-    setCheatOutput(`Sandbox ${value} simulation started for Sector ${sandboxState.sectorIndex + 1}.`)
+    setCheatOutput(`Sandbox ${value} simulation started for Sector ${formatSectorNumber(sandboxState.sectorIndex + 1)}.`)
     return
   }
   if (action === 'spawn') {
@@ -1006,8 +1007,8 @@ function clearArtifactSave() {
 
 function getArtifactRequirementText(artifact) {
   const { requirement } = artifact
-  if (requirement.type === 'sector-high-score') return `Reach ${requirement.cells} Cells in Sector ${requirement.sector}.`
-  if (requirement.type === 'milestone-claimed') return `Claim the Sector ${requirement.sector} · ${requirement.cells} Cells Ascension reward.`
+  if (requirement.type === 'sector-high-score') return `Reach ${requirement.cells} Cells in Sector ${formatSectorNumber(requirement.sector)}.`
+  if (requirement.type === 'milestone-claimed') return `Claim the Sector ${formatSectorNumber(requirement.sector)} · ${requirement.cells} Cells Ascension reward.`
   if (requirement.type === 'anomaly-run-success') return `Complete a unique Anomaly Run with ${requirement.cells} Cells. Each success grants one stack.`
   if (requirement.type === 'hidden-world-map') return 'Hidden condition.'
   return 'Complete this artifact achievement.'
@@ -1079,7 +1080,7 @@ function openArtifactDetail(artifactId) {
 function renderSectorOptions() {
   const unlockedSectorIndex = getUnlockedSectorIndex()
   if (selectedSectorIndex > unlockedSectorIndex) selectedSectorIndex = unlockedSectorIndex
-  sectorOptions.textContent = `Sector ${selectedSectorIndex + 1}`
+  sectorOptions.textContent = `Sector ${formatSectorNumber(selectedSectorIndex + 1)}`
   highestCellsElement.textContent = String(sectorHighScores[sectorKeys[selectedSectorIndex]] ?? 0).padStart(3, '0')
   const nextMilestone = MILESTONES.find((milestone) => milestone.sector === selectedSectorIndex + 1 && !milestoneState.claimed.includes(milestone.id))
   const sectorBestCells = sectorHighScores[sectorKeys[selectedSectorIndex]] ?? 0
@@ -1127,7 +1128,7 @@ milestoneTrack.addEventListener('click', (event) => {
 function formatMilestoneReward(reward) {
   if (reward.type === 'cash') return `+$${reward.amount.toLocaleString()} cash`
   if (reward.type === 'chronoshards') return `+✦ ${reward.amount} Chronoshards`
-  if (reward.type === 'sector') return `Unlock Sector ${reward.sector}`
+  if (reward.type === 'sector') return `Unlock Sector ${formatSectorNumber(reward.sector)}`
   if (reward.type === 'feature') return `Unlock ${reward.featureId === 'researchLab' ? 'Research Lab' : reward.featureId}`
   if (reward.type === 'research') return `Unlock: ${reward.researchIds.map((id) => getResearchById(id)?.name ?? id).join(', ')}`
   return 'Reward'
@@ -1162,14 +1163,14 @@ function renderMilestones() {
   const sector = milestoneSectorIndex + 1
   const bestCells = sectorHighScores[sectorKeys[milestoneSectorIndex]] ?? 0
   milestoneMaxCells.textContent = String(bestCells).padStart(3, '0')
-  milestoneSectorLabel.textContent = `SECTOR ${sector}`
+  milestoneSectorLabel.textContent = `SECTOR ${formatSectorNumber(sector)}`
   previousMilestoneSectorButton.disabled = milestoneSectorIndex === 0
   nextMilestoneSectorButton.disabled = milestoneSectorIndex >= getUnlockedSectorIndex()
   milestoneTrack.innerHTML = MILESTONES.filter((milestone) => milestone.sector === sector).map((milestone) => {
     const claimed = milestoneState.claimed.includes(milestone.id)
     const reached = bestCells >= milestone.cells
     const progress = Math.min(100, bestCells / milestone.cells * 100)
-    return `<article class="milestone-card ${claimed ? 'claimed' : reached ? 'reached' : ''}"><div class="milestone-node">${claimed ? '✓' : milestone.cells}</div><div><strong>${claimed ? 'REWARD SECURED' : `${milestone.cells} CELLS`}</strong><p>${milestone.rewards.map(formatMilestoneReward).join(' · ')}</p><div class="milestone-progress"><i style="width:${progress}%"></i></div><small>${claimed ? 'Claimed automatically' : `${bestCells}/${milestone.cells} best cells in Sector ${sector}`}</small></div></article>`
+    return `<article class="milestone-card ${claimed ? 'claimed' : reached ? 'reached' : ''}"><div class="milestone-node">${claimed ? '✓' : milestone.cells}</div><div><strong>${claimed ? 'REWARD SECURED' : `${milestone.cells} CELLS`}</strong><p>${milestone.rewards.map(formatMilestoneReward).join(' · ')}</p><div class="milestone-progress"><i style="width:${progress}%"></i></div><small>${claimed ? 'Claimed automatically' : `${bestCells}/${milestone.cells} best cells in Sector ${formatSectorNumber(sector)}`}</small></div></article>`
   }).join('')
   const sectorMilestones = MILESTONES.filter((milestone) => milestone.sector === sector)
   for (const [index, milestone] of sectorMilestones.entries()) {
@@ -2737,8 +2738,8 @@ function updateStartButton() {
   startButton.textContent = savedRound ? 'CONTINUE' : 'START RUN'
   const rewardClaimed = hasClaimedAnomalyReward()
   const unlocked = isResearchSectorUnlocked(ANOMALY_CONFIG.unlockSector)
-  anomalyRunButton.textContent = !unlocked ? `ANOMALY RUN · SECTOR ${ANOMALY_CONFIG.unlockSector}` : rewardClaimed ? 'ANOMALY RUN (Reward Claimed)' : 'ANOMALY RUN'
-  anomalyRunButton.title = !unlocked ? `Unlocks at Sector ${ANOMALY_CONFIG.unlockSector}.` : rewardClaimed ? 'This sector’s weekly Anomaly reward has already been claimed.' : 'View this week’s challenge.'
+  anomalyRunButton.textContent = !unlocked ? `ANOMALY RUN · SECTOR ${formatSectorNumber(ANOMALY_CONFIG.unlockSector)}` : rewardClaimed ? 'ANOMALY RUN (Reward Claimed)' : 'ANOMALY RUN'
+  anomalyRunButton.title = !unlocked ? `Unlocks at Sector ${formatSectorNumber(ANOMALY_CONFIG.unlockSector)}.` : rewardClaimed ? 'This sector’s weekly Anomaly reward has already been claimed.' : 'View this week’s challenge.'
   anomalyRunButton.disabled = Boolean(savedRound) || rewardClaimed || !unlocked || anomalyTimeVerificationPending
 }
 
@@ -2759,7 +2760,7 @@ async function openAnomalyRunDialog() {
     verifiedAnomalyTime = await fetchVerifiedAnomalyTime()
     const weekId = getAnomalyWeekId(verifiedAnomalyTime)
     const challenge = getWeeklyAnomalyChallenge(weekId)
-    anomalyChallengeName.textContent = `${challenge.name} (Sector ${selectedSectorIndex + 1})`
+    anomalyChallengeName.textContent = `${challenge.name} (Sector ${formatSectorNumber(selectedSectorIndex + 1)})`
     anomalyChallengeDescription.textContent = challenge.description
     anomalyRewardElement.textContent = `250 CELLS · REWARD ✦ ${getAnomalyReward(selectedSectorIndex)}`
     anomalyResetElement.textContent = `(New Anomaly in ${formatAnomalyDate(getNextAnomalyResetDate(verifiedAnomalyTime))})`
@@ -2864,7 +2865,7 @@ function endGame(cause = 'SIGNAL LOST') {
 
 function updateHud() {
   scoreElement.textContent = String(score).padStart(3, '0')
-  hudSectorElement.textContent = sandboxState ? `SANDBOX SECTOR ${sandboxState.sectorIndex + 1}` : `SECTOR ${selectedSectorIndex + 1}${anomalyRun ? ' · ANOMALY' : ''}`
+  hudSectorElement.textContent = sandboxState ? `SANDBOX SECTOR ${formatSectorNumber(sandboxState.sectorIndex + 1)}` : `SECTOR ${formatSectorNumber(selectedSectorIndex + 1)}${anomalyRun ? ' · ANOMALY' : ''}`
   shieldIndicators.innerHTML = Array.from({ length: shieldCharges }, () => '<i aria-hidden="true"></i>').join('')
   shieldIndicators.hidden = shieldCharges === 0
 }

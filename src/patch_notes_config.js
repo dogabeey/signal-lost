@@ -9,10 +9,10 @@ export const PATCH_NOTES = [
   {
     heading: 'ASCENSION ARTIFACTS',
     changes: [
-      'Added Broken Radar at Sector 2 · 500 Cells: +10% Cell spawn rate.',
-      'Added Supply Depot at Sector 4 · 500 Cells: +5 initial Cells.',
-      'Added Construction Bot at Sector 6 · 500 Cells: -10% Building prices.',
-      'Added Broken Hard-Drive at Sector 8 · 500 Cells: +1 Weapon Slot.',
+      'Added Broken Radar at Sector II · 500 Cells: +10% Cell spawn rate.',
+      'Added Supply Depot at Sector IV · 500 Cells: +5 initial Cells.',
+      'Added Construction Bot at Sector VI · 500 Cells: -10% Building prices.',
+      'Added Broken Hard-Drive at Sector VIII · 500 Cells: +1 Weapon Slot.',
     ],
   },
   {
@@ -26,7 +26,7 @@ export const PATCH_NOTES = [
   {
     heading: 'ANOMALY UPDATE',
     changes: [
-      'Added Anomaly Run, unlocked after reaching Sector 3.',
+      'Added Anomaly Run, unlocked after reaching Sector III.',
       'Anomaly challenges and their sector-specific rewards now refresh every week.',
       'Reach 250 Cells in an Anomaly Run to earn a weekly Chronoshard reward for the selected sector.',
       'Made some balance changes in Research Lab as always.'

@@ -23,7 +23,7 @@ export function createResearchRules({ config, milestones, getResearchState, getM
   function getResearchLockReason(research) {
     const requirements = research.requirements ?? {}
     const ascensionMilestone = getAscensionMilestone(research.id)
-    if (ascensionMilestone && !getMilestoneState().debugAscensionsGranted && !isMilestoneUnlocked(research.id)) return `Requires ${ascensionMilestone.cells} Cells in Sector ${ascensionMilestone.sector}`
+    if (ascensionMilestone && !getMilestoneState().debugAscensionsGranted && !isMilestoneUnlocked(research.id)) return `Requires ${ascensionMilestone.cells} Cells in Sector ${formatSectorNumber(ascensionMilestone.sector)}`
     if (requirements.minBankedCells && getBankedCells() < requirements.minBankedCells) return `Requires ${requirements.minBankedCells} banked cells`
     if (requirements.researchId && getResearchLevel(requirements.researchId) < 1) return `Requires ${getResearchById(requirements.researchId).name}`
     for (const [researchId, level] of Object.entries(requirements.researchLevels ?? {})) {
@@ -58,3 +58,4 @@ export function createResearchRules({ config, milestones, getResearchState, getM
     compareResearchProgression,
   }
 }
+import { formatSectorNumber } from './sector_format.js'
