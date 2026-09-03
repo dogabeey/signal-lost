@@ -46,10 +46,10 @@ button { font: inherit; }
 .pause-button { align-items: center; background: rgba(31, 57, 74, 0.82); border: 1px solid #3c8190; box-shadow: none; color: #63f5cd; display: flex; font-family: Arial, sans-serif; font-size: 23px; height: 48px; justify-content: center; line-height: 1; padding: 0 8px 4px; pointer-events: auto; position: absolute; right: 32px; top: 22px; width: 48px; }
 .pause-button img { height: 34px; width: 34px; }
 .pause-button:hover { background: #63f5cd; box-shadow: 0 0 12px rgba(99, 245, 205, 0.35); color: #10232b; transform: none; }
-.cash-balance { color: #9ab6b8; font-family: 'Trebuchet MS', Arial, sans-serif; font-size: 13px; font-weight: 700; letter-spacing: 0.1em; }
-.cash-balance #cash { color: #63f5cd; font-size: 22px; margin-left: 7px; }
-.chronoshard-balance { color: #9ab6b8; font-family: 'Trebuchet MS', Arial, sans-serif; font-size: 10px; font-weight: 700; letter-spacing: 0.1em; }
-.chronoshard-balance #chronoshards { color: #b59aff; font-size: 15px; margin-left: 6px; }
+.cash-balance { color: #9ab6b8; font-family: 'Trebuchet MS', Arial, sans-serif; font-size: 14px; font-weight: 700; letter-spacing: 0.1em; }
+.cash-balance #cash { color: #63f5cd; font-size: 24px; margin-left: 7px; }
+.chronoshard-balance { color: #9ab6b8; font-family: 'Trebuchet MS', Arial, sans-serif; font-size: 11px; font-weight: 700; letter-spacing: 0.1em; }
+.chronoshard-balance #chronoshards { color: #b59aff; font-size: 17px; margin-left: 6px; }
 .cash-indicators { inset: 0; pointer-events: none; position: absolute; z-index: 2; }
 .cash-indicator, .chronoshard-indicator { animation: cash-gain 800ms ease-out forwards; font-family: 'Trebuchet MS', Arial, sans-serif; font-size: 24px; font-weight: 700; left: 50%; position: absolute; top: 50%; transform: translate(-50%, -50%); }
 .cash-indicator { color: #63f5cd; text-shadow: 0 0 12px #00b487; }
@@ -356,10 +356,10 @@ button:focus-visible { outline: 2px solid #fff4d2; outline-offset: 4px; }
   .sector-selection { transform: none; }
   .game-shell:has(.overlay:not(.hidden)) .instructions { display: none; }
   .hud { padding: 14px 16px; }
-  .cash-balance { font-size: 10px; }
-  .cash-balance #cash { font-size: 20px; }
-  .chronoshard-balance { font-size: 8px; }
-  .chronoshard-balance #chronoshards { font-size: 13px; }
+  .cash-balance { font-size: 11px; }
+  .cash-balance #cash { font-size: 22px; }
+  .chronoshard-balance { font-size: 9px; }
+  .chronoshard-balance #chronoshards { font-size: 15px; }
   .cash-balance .currency-label, .chronoshard-balance .currency-label { display: none; }
   .cash-balance #cash, .chronoshard-balance #chronoshards { margin-left: 0; }
   .run-cell-counter { top: 48px; }
