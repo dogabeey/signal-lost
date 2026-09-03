@@ -49,6 +49,7 @@ function getUtilityMenuButtonMarkup({ id, iconId, fallback, label }) {
 }
 
 const shieldIconAsset = getUiIconAsset('shield')
+const pauseIconAsset = getUiIconAsset('pause')
 
 document.querySelector('#app').innerHTML = `
   <main class="game-shell">
@@ -60,7 +61,7 @@ document.querySelector('#app').innerHTML = `
       </div>
       <div class="hud-sector" id="hud-sector" aria-label="Current difficulty sector"></div>
       <dl class="run-cell-counter"><div><dt>CELLS</dt><dd id="score">000</dd></div></dl>
-      <button class="pause-button" id="pause-button" type="button" aria-label="Pause game">Ⅱ</button>
+      <button class="pause-button" id="pause-button" type="button" aria-label="Pause game"><img src="${pauseIconAsset}" alt=""></button>
     </header>
     <div class="shield-indicators" id="shield-indicators" aria-label="Shield charges"></div>
     <div class="weapon-hud hidden" id="weapon-hud"></div>

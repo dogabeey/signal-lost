@@ -29,6 +29,7 @@ const uiIconAssets = {
   settings: publicAsset('ui/settings.svg'),
   artifacts: publicAsset('ui/artifacts.svg'),
   shield: publicAsset('ui/shield-charge.svg'),
+  pause: publicAsset('ui/pause.svg'),
 }
 
 export function getArtifactAsset(icon) {
