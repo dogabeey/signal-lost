@@ -48,6 +48,8 @@ function getUtilityMenuButtonMarkup({ id, iconId, fallback, label }) {
   return `<button class="menu-system-button menu-utility-button" id="${id}" type="button" aria-label="${label}" title="${label}">${getMenuIconMarkup(iconId, fallback)}<span class="menu-button-label">${label}</span></button>`
 }
 
+const shieldIconAsset = getUiIconAsset('shield')
+
 document.querySelector('#app').innerHTML = `
   <main class="game-shell">
     <canvas id="game" aria-label="Asteroid Belt game canvas"></canvas>
@@ -56,11 +58,11 @@ document.querySelector('#app').innerHTML = `
         <div class="cash-balance"><span class="currency-label">CASH</span><span id="cash">$000</span></div>
         <div class="chronoshard-balance"><span class="currency-label">CHRONOSHARDS</span><span id="chronoshards">✦ 0</span></div>
       </div>
-      <div class="shield-indicators" id="shield-indicators" aria-label="Shield charges"></div>
       <div class="hud-sector" id="hud-sector" aria-label="Current difficulty sector"></div>
       <dl class="run-cell-counter"><div><dt>CELLS</dt><dd id="score">000</dd></div></dl>
       <button class="pause-button" id="pause-button" type="button" aria-label="Pause game">Ⅱ</button>
     </header>
+    <div class="shield-indicators" id="shield-indicators" aria-label="Shield charges"></div>
     <div class="weapon-hud hidden" id="weapon-hud"></div>
     <aside class="instructions" aria-label="Game controls"><span class="controls-desktop"><b>MOVE</b> WASD <i>·</i> <b>NAVIGATE</b> ↑↓ <i>·</i> <b>USE WEAPON</b> SPACE</span><span class="controls-mobile"><b>MOVE</b> JOYSTICK <i>·</i> <b>SELECT / USE WEAPON</b> TAP A CARD</span></aside>
     <footer class="build-footer" aria-label="Build information">
@@ -1278,7 +1280,7 @@ function renderWeaponHud() {
     const maxCharges = getWeaponMaxCharges()
     const recharging = hasWeaponRecharge() && charges < maxCharges
     const status = recharging ? `${charges}/${maxCharges} · RECHARGING` : `${charges}/${maxCharges} CHARGES`
-    return `<button class="${index === weaponState.selected ? 'selected' : ''} ${charges === 0 ? 'spent' : ''}" data-use-weapon="${id}" type="button" ${charges === 0 ? 'disabled' : ''}><span class="weapon-hud-icon ${WEAPON_CONFIG.weapons[id].duration ? 'has-duration' : ''}" data-weapon-duration="${WEAPON_CONFIG.weapons[id].duration ? id : ''}"><img class="weapon-hud-art" src="${getWeaponAsset(id)}" alt=""></span><b>${index + 1}</b><span>${WEAPON_CONFIG.weapons[id].name}</span><i>${status}</i></button>`
+    return `<button class="${index === weaponState.selected ? 'selected' : ''} ${charges === 0 ? 'spent' : ''}" data-use-weapon="${id}" type="button" ${charges === 0 ? 'disabled' : ''}><span class="weapon-hud-icon ${WEAPON_CONFIG.weapons[id].duration ? 'has-duration' : ''}" data-weapon-duration="${WEAPON_CONFIG.weapons[id].duration ? id : ''}"><img class="weapon-hud-art" src="${getWeaponAsset(id)}" alt=""></span><b>${index + 1}</b><span class="weapon-hud-name">${WEAPON_CONFIG.weapons[id].name}</span><i>${status}</i></button>`
   }).join('')
   updateWeaponDurationIndicators()
 }
@@ -1550,6 +1552,13 @@ const joystickInput = new THREE.Vector2()
 let joystickPointerId = null
 let joystickOrigin = null
 const JOYSTICK_RADIUS = 58
+const BUILD_CAMERA_MIN_HEIGHT = 12
+const BUILD_CAMERA_MAX_HEIGHT = 36
+const buildCameraCenter = new THREE.Vector2()
+let buildCameraHeight = 28
+const buildNavigationPointers = new Map()
+let buildNavigationPinch = null
+let buildNavigationClickSuppressed = false
 const cells = []
 const chronoCells = []
 const obstacles = []
@@ -1558,6 +1567,7 @@ const fireHazards = []
 const poisonTrails = []
 const splinterPieces = []
 const explosions = []
+const shieldBreakEffects = []
 const bangerPulses = []
 const shooterProjectiles = []
 const autocannonProjectiles = []
@@ -1582,6 +1592,8 @@ let hazardTimer = 0
 let shockwaveTimer = 0
 let shieldCharges = 0
 let shieldInvulnerability = 0
+const SHIELD_BREAK_SHAKE_DURATION = 0.5
+let cameraShakeTime = 0
 let boosterTimer = 0
 let speedBoosterTime = 0
 let thornShieldTime = 0
@@ -1601,7 +1613,7 @@ const fallingRockGeometry = new THREE.IcosahedronGeometry(ENTITIES.obstacleRadiu
 const { createShooterProjectile: createShooterProjectileVisual, createAutocannonProjectile: createAutocannonProjectileVisual, createSplinter: createSplinterVisual } = createProjectileVisualFactory({ THREE, COLORS, ENTITIES })
 const { createCell: createCellVisual, createChronoCell: createChronoCellVisual, createBooster: createBoosterVisual } = createCellVisualFactory({ THREE, COLORS, ENTITIES })
 const createSpikedObstacle = createEnemyVisualFactory({ THREE, ENTITIES })
-const { createExplosion: createExplosionVisual, createBangerPulse: createBangerPulseVisual, createShockwave: createShockwaveVisual, createPoisonTrail: createPoisonTrailVisual, createPlayerDeath: createPlayerDeathVisual } = createEffectVisualFactory({ THREE, COLORS })
+const { createExplosion: createExplosionVisual, createBangerPulse: createBangerPulseVisual, createShockwave: createShockwaveVisual, createShieldBreak: createShieldBreakVisual, createPoisonTrail: createPoisonTrailVisual, createPlayerDeath: createPlayerDeathVisual } = createEffectVisualFactory({ THREE, COLORS })
 const creeperColor = new THREE.Color(COLORS.creeper)
 const poisonCreeperColor = new THREE.Color(COLORS.poisonCreeper)
 const creeperEmissive = new THREE.Color(COLORS.creeperEmissive)
@@ -1905,11 +1917,11 @@ function renderBuildings() {
     : '<p class="building-draft-copy">NO BUILDINGS UNLOCKED YET</p>'
   renderBuildingDraft()
   buildOptions.innerHTML = buildingState.unlocked.map((type) => `<button data-select-building="${type}" class="${selectedBuildingType === type ? 'selected' : ''}" type="button" aria-label="${BUILDING_CONFIG.types[type].name} · Level ${getBuildingTypeLevel(type)}"><img src="${getBuildingAsset(type)}" alt=""><small>LVL. ${getBuildingTypeLevel(type)}</small></button>`).join('')
-  buildStatus.textContent = `BUILD MODE · SLOTS ${buildingState.placed.length}/${getBuildingSlotLimit()}`
+  buildStatus.textContent = isMobileInputMode() ? `${buildingState.placed.length}/${getBuildingSlotLimit()}` : `BUILD MODE · SLOTS ${buildingState.placed.length}/${getBuildingSlotLimit()}`
   renderBuildGrid()
 }
-function enterBuildMode() { if (!buildingState.unlocked.length) return; buildMode = true; selectedBuildingType = buildingState.unlocked[0]; setBuildModeEntityVisibility(true); overlay.classList.add('hidden'); buildBar.classList.remove('hidden'); renderBuildings() }
-function exitBuildMode() { buildMode = false; selectedBuildingType = null; setBuildModeEntityVisibility(false); buildGridUi.classList.add('hidden'); buildBar.classList.add('hidden'); overlay.classList.remove('hidden'); buildingUpgrade.classList.add('hidden') }
+function enterBuildMode() { if (!buildingState.unlocked.length) return; buildCameraCenter.set(0, 0); buildCameraHeight = 28; buildMode = true; selectedBuildingType = buildingState.unlocked[0]; setBuildModeEntityVisibility(true); overlay.classList.add('hidden'); buildBar.classList.remove('hidden'); renderBuildings() }
+function exitBuildMode() { buildMode = false; buildNavigationPointers.clear(); buildNavigationPinch = null; selectedBuildingType = null; setBuildModeEntityVisibility(false); buildGridUi.classList.add('hidden'); buildBar.classList.add('hidden'); overlay.classList.remove('hidden'); buildingUpgrade.classList.add('hidden') }
 function openBuildingUpgrade(building) { const config = BUILDING_CONFIG.types[building.type]; buildingUpgrade.innerHTML = `<button class="upgrade-close" data-close-building-upgrade="1" type="button" aria-label="Close upgrade panel">×</button><p class="eyebrow">INSTALLED DEFENSE</p><h3>${config.name}</h3><p class="building-upgrade-summary">Choose an upgrade for this structure.</p><div class="upgrade-grid">${Object.entries(config.upgrades).map(([key]) => { const level = building.upgrades[key] ?? 0; const cost = getBuildingUpgradeCost(building, key); return `<button data-upgrade-building="${building.id}" data-upgrade-key="${key}" type="button"><span>${key.toUpperCase()}</span><strong>LV. ${level} → ${level + 1}</strong><small>$${formatCompactNumber(cost)}</small></button>` }).join('')}</div><button data-destroy-building="${building.id}" class="demolish-button" type="button">DEMOLISH · REFUND $${formatCompactNumber(getBuildingRefund(building))}</button>`; buildingUpgrade.classList.remove('hidden') }
 function getBaseBuildingValue(building, key) { const config = BUILDING_CONFIG.types[building.type]; const upgradeKey = key === 'interval' ? 'frequency' : key; const directUpgrade = (config.upgrades[upgradeKey]?.step ?? 0) * (building.upgrades[upgradeKey] ?? 0); const effectivenessUpgrade = key === 'slow' ? (config.upgrades.effectiveness?.step ?? 0) * (building.upgrades.effectiveness ?? 0) : 0; return (config.effect[key] ?? 0) + directUpgrade + effectivenessUpgrade }
 function getOverclockMultiplier(building, key) { if (building.type === 'overclockRelay' || key === 'count') return 1; return 1 + buildingState.placed.filter((relay) => relay.type === 'overclockRelay' && relay.id !== building.id && planarDistance(building, relay) <= getBaseBuildingValue(relay, 'range')).reduce((bonus, relay) => bonus + getBaseBuildingValue(relay, 'effectiveness'), 0) }
@@ -2580,6 +2592,8 @@ function resetGame(populateArena = true) {
   splinterPieces.length = 0
   for (const explosion of explosions) scene.remove(explosion.shockwave, explosion.blast, explosion.light)
   explosions.length = 0
+  for (const effect of shieldBreakEffects) scene.remove(effect.sphere, effect.light)
+  shieldBreakEffects.length = 0
   for (const bangerPulse of bangerPulses) scene.remove(bangerPulse.pulse)
   bangerPulses.length = 0
   for (const shooterProjectile of shooterProjectiles) scene.remove(shooterProjectile.projectile)
@@ -2841,10 +2855,15 @@ function returnToMainMenu() {
 }
 
 function triggerShieldBreakExplosion() {
+  const position = player.position.clone()
+  const shieldBreak = createShieldBreakVisual(position)
+  scene.add(shieldBreak.sphere, shieldBreak.light)
+  shieldBreakEffects.push({ ...shieldBreak, age: 0 })
+  soundSystem.playShieldBreak(position)
+  cameraShakeTime = SHIELD_BREAK_SHAKE_DURATION
   const radiusBonus = getResearchStatBonus('shieldBreakExplosionRadius')
   if (radiusBonus <= 0) return
   const radius = 3 + radiusBonus
-  const position = player.position.clone()
   createExplosion(position, radius)
   for (let index = obstacles.length - 1; index >= 0; index -= 1) {
     const obstacle = obstacles[index]
@@ -2892,8 +2911,9 @@ function endGame(cause = 'SIGNAL LOST') {
 function updateHud() {
   scoreElement.textContent = String(score).padStart(3, '0')
   hudSectorElement.textContent = sandboxState ? `SANDBOX SECTOR ${formatSectorNumber(sandboxState.sectorIndex + 1)}` : `SECTOR ${formatSectorNumber(selectedSectorIndex + 1)}${anomalyRun ? ' · ANOMALY' : ''}`
-  shieldIndicators.innerHTML = Array.from({ length: shieldCharges }, () => '<i aria-hidden="true"></i>').join('')
+  shieldIndicators.innerHTML = `<span class="shield-indicators-label">SHIELDS</span>${Array.from({ length: shieldCharges }, () => `<img src="${shieldIconAsset}" alt="">`).join('')}`
   shieldIndicators.hidden = shieldCharges === 0
+  shieldIndicators.setAttribute('aria-label', `${shieldCharges} shield ${shieldCharges === 1 ? 'charge' : 'charges'} remaining`)
 }
 
 function getEffectivePlayerSpeed() {
@@ -3367,6 +3387,19 @@ function updateGame(delta, total) {
     }
   }
 
+  for (let index = shieldBreakEffects.length - 1; index >= 0; index -= 1) {
+    const effect = shieldBreakEffects[index]
+    effect.age += delta
+    const progress = Math.min(effect.age / 0.42, 1)
+    effect.sphere.scale.setScalar(THREE.MathUtils.lerp(0.45, 4.8, progress))
+    effect.sphere.material.opacity = 0.84 * (1 - progress) ** 2
+    effect.light.intensity = 12 * (1 - progress)
+    if (progress === 1) {
+      scene.remove(effect.sphere, effect.light)
+      shieldBreakEffects.splice(index, 1)
+    }
+  }
+
   for (let index = bangerPulses.length - 1; index >= 0; index -= 1) {
     const bangerPulse = bangerPulses[index]
     bangerPulse.age += delta
@@ -3626,12 +3659,20 @@ function animate() {
   if (started && !paused) updateGame(delta, total)
   updatePlayerDeathEffects(delta)
   if (buildMode) {
-    camera.position.set(0, 28, 0.01)
-    camera.lookAt(0, 0, 0)
+    camera.position.set(buildCameraCenter.x, buildCameraHeight, buildCameraCenter.y + 0.01)
+    camera.lookAt(buildCameraCenter.x, 0, buildCameraCenter.y)
   } else {
     camera.position.set(player.position.x, CAMERA.height, player.position.z + getCameraDistance())
+    if (cameraShakeTime > 0) {
+      const strength = (cameraShakeTime / SHIELD_BREAK_SHAKE_DURATION) ** 1.5
+      camera.position.x += THREE.MathUtils.randFloatSpread(0.22) * strength
+      camera.position.y += THREE.MathUtils.randFloatSpread(0.14) * strength
+      camera.position.z += THREE.MathUtils.randFloatSpread(0.22) * strength
+      cameraShakeTime = Math.max(0, cameraShakeTime - delta)
+    }
     camera.lookAt(player.position.x, 0, player.position.z)
   }
+  if (buildMode) updateBuildGridPositions()
   starfield.position.copy(camera.position)
   if (settings.graphics.hdrEmissionIntensity > 0) renderComposer.render()
   else renderer.render(scene, camera)
@@ -3866,7 +3907,7 @@ enterBuildModeButton.addEventListener('click', enterBuildMode)
 exitBuildModeButton.addEventListener('click', exitBuildMode)
 buildingDraftModal.addEventListener('click', (event) => { const button = event.target.closest('[data-building-offer]'); if (button) unlockBuildingOffer(button.dataset.buildingOffer) })
 buildBar.addEventListener('click', (event) => { const button = event.target.closest('[data-select-building]'); if (!button) return; selectedBuildingType = button.dataset.selectBuilding; renderBuildings() })
-buildGridUi.addEventListener('click', (event) => { const button = event.target.closest('[data-build-x]'); if (button) placeBuildingAt(Number(button.dataset.buildX), Number(button.dataset.buildZ)) })
+buildGridUi.addEventListener('click', (event) => { if (buildNavigationClickSuppressed) { buildNavigationClickSuppressed = false; return } const button = event.target.closest('[data-build-x]'); if (button) placeBuildingAt(Number(button.dataset.buildX), Number(button.dataset.buildZ)) })
 buildingUpgrade.addEventListener('click', (event) => { const upgrade = event.target.closest('[data-upgrade-building]'); const destroy = event.target.closest('[data-destroy-building]'); if (event.target.closest('[data-close-building-upgrade]')) { buildingUpgrade.classList.add('hidden'); return } if (destroy) { const building = buildingState.placed.find((entry) => entry.id === destroy.dataset.destroyBuilding); if (!building || !window.confirm(`Demolish ${BUILDING_CONFIG.types[building.type].name}? You will receive a $${formatCompactNumber(getBuildingRefund(building))} refund.`)) return; updateCash(getBuildingRefund(building)); buildingState.placed = buildingState.placed.filter((entry) => entry.id !== building.id); saveBuildings(); syncBuildings(); renderBuildings(); buildingUpgrade.classList.add('hidden'); return } if (upgrade) { const building = buildingState.placed.find((entry) => entry.id === upgrade.dataset.upgradeBuilding); if (!building) return; const cost = getBuildingUpgradeCost(building, upgrade.dataset.upgradeKey); if (cash < cost) return; updateCash(-cost); building.upgrades[upgrade.dataset.upgradeKey] = (building.upgrades[upgrade.dataset.upgradeKey] ?? 0) + 1; building.spent = (building.spent ?? BUILDING_CONFIG.types[building.type].baseCost) + cost; saveBuildings(); syncBuildings(); openBuildingUpgrade(building) } })
 
 labPanel.addEventListener('click', (event) => {
@@ -3970,6 +4011,46 @@ function isMobileInputMode() {
   return window.matchMedia('(max-width: 580px), (hover: none) and (pointer: coarse)').matches
 }
 
+function getBuildNavigationDistance() {
+  const [first, second] = buildNavigationPointers.values()
+  return Math.hypot(first.x - second.x, first.y - second.y)
+}
+
+function beginBuildNavigation(event) {
+  if (!buildMode || !isMobileInputMode() || event.button !== 0) return false
+  event.preventDefault()
+  buildNavigationPointers.set(event.pointerId, { x: event.clientX, y: event.clientY })
+  if (buildNavigationPointers.size === 2) buildNavigationPinch = { distance: getBuildNavigationDistance(), height: buildCameraHeight }
+  return true
+}
+
+function updateBuildNavigation(event) {
+  const previous = buildNavigationPointers.get(event.pointerId)
+  if (!previous || !buildMode) return
+  event.preventDefault()
+  const point = { x: event.clientX, y: event.clientY }
+  buildNavigationPointers.set(event.pointerId, point)
+  if (buildNavigationPointers.size === 1) {
+    const deltaX = point.x - previous.x
+    const deltaY = point.y - previous.y
+    if (Math.hypot(deltaX, deltaY) < 0.5) return
+    const verticalSpan = 2 * buildCameraHeight * Math.tan(THREE.MathUtils.degToRad(CAMERA.fov / 2))
+    buildCameraCenter.x -= deltaX / window.innerWidth * verticalSpan * camera.aspect
+    buildCameraCenter.y -= deltaY / window.innerHeight * verticalSpan
+    buildNavigationClickSuppressed = true
+  } else if (buildNavigationPointers.size === 2 && buildNavigationPinch) {
+    const distance = getBuildNavigationDistance()
+    if (distance > 0) buildCameraHeight = THREE.MathUtils.clamp(buildNavigationPinch.height * buildNavigationPinch.distance / distance, BUILD_CAMERA_MIN_HEIGHT, BUILD_CAMERA_MAX_HEIGHT)
+    buildNavigationClickSuppressed = true
+  }
+}
+
+function endBuildNavigation(event) {
+  if (!buildNavigationPointers.delete(event.pointerId)) return
+  if (buildNavigationPointers.size < 2) buildNavigationPinch = null
+  if (buildNavigationClickSuppressed) window.setTimeout(() => { buildNavigationClickSuppressed = false }, 250)
+}
+
 function getCameraDistance() {
   const isPortraitMobile = window.matchMedia('(hover: none) and (pointer: coarse) and (orientation: portrait)').matches
   return CAMERA.distance * (settings.gameplay.cameraDistance / 100) * (isPortraitMobile ? CAMERA.portraitDistanceMultiplier : 1)
@@ -4000,7 +4081,7 @@ function releaseJoystick(event) {
 }
 
 canvas.addEventListener('pointerdown', (event) => {
-  if (buildMode) return
+  if (buildMode) { beginBuildNavigation(event); return }
   if (!isMobileInputMode() || !started || paused || event.button !== 0 || joystickPointerId !== null) return
   event.preventDefault()
   joystickPointerId = event.pointerId
@@ -4021,6 +4102,10 @@ canvas.addEventListener('pointermove', (event) => {
 canvas.addEventListener('pointerup', releaseJoystick)
 canvas.addEventListener('pointercancel', releaseJoystick)
 canvas.addEventListener('lostpointercapture', releaseJoystick)
+buildGridUi.addEventListener('pointerdown', beginBuildNavigation)
+window.addEventListener('pointermove', updateBuildNavigation, { passive: false })
+window.addEventListener('pointerup', endBuildNavigation)
+window.addEventListener('pointercancel', endBuildNavigation)
 window.addEventListener('blur', () => {
   keys.clear()
   releaseJoystick()

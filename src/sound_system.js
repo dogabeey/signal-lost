@@ -92,6 +92,20 @@ export function createSoundSystem({ THREE, SOUND, getSettings, getPlayer, getCam
     source.connect(filter); filter.connect(envelope); connectSpatialSource(envelope, volume, sourcePosition); source.start(now)
   }
 
+  function playImpactCrash(volume, sourcePosition) {
+    if (!context || context.state !== 'running') return
+    const now = context.currentTime
+    const noise = context.createBuffer(1, Math.ceil(context.sampleRate * 0.24), context.sampleRate)
+    const samples = noise.getChannelData(0)
+    for (let index = 0; index < samples.length; index += 1) samples[index] = (Math.random() * 2 - 1) * (1 - index / samples.length)
+    const source = context.createBufferSource(); const filter = context.createBiquadFilter(); const envelope = context.createGain()
+    source.buffer = noise
+    filter.type = 'lowpass'; filter.Q.value = 1.2
+    filter.frequency.setValueAtTime(1500, now); filter.frequency.exponentialRampToValueAtTime(110, now + 0.24)
+    envelope.gain.setValueAtTime(0.0001, now); envelope.gain.exponentialRampToValueAtTime(1, now + 0.012); envelope.gain.exponentialRampToValueAtTime(0.0001, now + 0.24)
+    source.connect(filter); filter.connect(envelope); connectSpatialSource(envelope, volume, sourcePosition); source.start(now)
+  }
+
   function playSound(name, volume, sourcePosition, fallback) {
     if (!context || context.state !== 'running') return
     const buffer = buffers.get(name)
@@ -109,6 +123,7 @@ export function createSoundSystem({ THREE, SOUND, getSettings, getPlayer, getCam
     playFallingObstacle(position) { const fallback = SOUND.fallback.fallingObstacle; playSound('fallingObstacle', SOUND.fallingObstacleVolume, position, () => playFallingWhoosh(fallback.duration, SOUND.fallingObstacleVolume, position)) },
     playCellCollect(position) { const fallback = SOUND.fallback.cellCollect; playSound('cellCollect', SOUND.cellCollectVolume, position, () => playTone(fallback.startFrequency, fallback.endFrequency, fallback.duration, SOUND.cellCollectVolume, position, fallback.type)) },
     playBoosterPickup(position, type) { const [start, end] = { speed: [480, 900], thorn: [220, 620], freezer: [720, 260] }[type]; playTone(start, end, 0.22, 0.3, position, type === 'freezer' ? 'sine' : 'triangle') },
+    playShieldBreak(position) { playImpactCrash(0.52, position); playTone(180, 58, 0.2, 0.24, position, 'sawtooth') },
     playBuildingEffect(position, type) { const [start, end] = { chronoGenerator: [280, 360], autocannon: [220, 90], droneBay: [520, 760], barrierNode: [260, 440], overclockRelay: [440, 600], salvageExtractor: [180, 300] }[type]; playTone(start, end, 0.12, 0.16, position, 'sine') },
     playObstacleSummon(position) { const fallback = SOUND.fallback.obstacleSummon; playSound('obstacleSummon', SOUND.obstacleSummonVolume, position, () => playTone(fallback.startFrequency, fallback.endFrequency, fallback.duration, SOUND.obstacleSummonVolume, position, fallback.type)) },
     playButtonClick() { const fallback = SOUND.fallback.buttonClick; const position = getPlayer().position; playSound('buttonClick', SOUND.buttonClickVolume, position, () => playTone(fallback.startFrequency, fallback.endFrequency, fallback.duration, SOUND.buttonClickVolume, position, fallback.type)) },

@@ -28,6 +28,7 @@ const uiIconAssets = {
   encyclopedia: publicAsset('ui/encyclopedia.svg'),
   settings: publicAsset('ui/settings.svg'),
   artifacts: publicAsset('ui/artifacts.svg'),
+  shield: publicAsset('ui/shield-charge.svg'),
 }
 
 export function getArtifactAsset(icon) {

@@ -19,6 +19,13 @@ export function createEffectVisualFactory({ THREE, COLORS }) {
     createShockwave(origin) {
       const shockwave = ring(0.2, 0.42, 64, COLORS.slowAura, 0.95); shockwave.position.set(origin.x, 0.07, origin.z); return shockwave
     },
+    createShieldBreak(position) {
+      const sphere = new THREE.Mesh(new THREE.SphereGeometry(0.78, 24, 16), new THREE.MeshBasicMaterial({ color: '#8cfff0', transparent: true, opacity: 0.84, wireframe: true, depthWrite: false }))
+      sphere.position.copy(position)
+      const light = new THREE.PointLight('#63f5cd', 12, 10)
+      light.position.copy(position)
+      return { sphere, light }
+    },
     createPoisonTrail(position, radius) {
       const visual = new THREE.Group()
       visual.position.set(position.x, 0.035, position.z)
