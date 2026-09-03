@@ -2,14 +2,14 @@ export function createPlayerShip({ THREE, COLORS, ENTITIES, GAME, opacity = 1 })
   const player = new THREE.Group()
   const playerCore = new THREE.Mesh(
     new THREE.ConeGeometry(0.58, 1.45, 6),
-    new THREE.MeshStandardMaterial({ color: COLORS.player, emissive: '#000000', emissiveIntensity: 0, metalness: 0.78, roughness: 0.18 }),
+    new THREE.MeshStandardMaterial({ color: COLORS.player, emissive: '#000000', emissiveIntensity: 0, metalness: 0.2, roughness: 0.55 }),
   )
   playerCore.rotation.x = Math.PI / 2
   playerCore.position.y = 0.18
   playerCore.castShadow = true
   player.add(playerCore)
 
-  const wingMaterial = new THREE.MeshStandardMaterial({ color: COLORS.playerWing ?? '#f6b05c', emissive: '#000000', emissiveIntensity: 0, metalness: 0.85, roughness: 0.16 })
+  const wingMaterial = new THREE.MeshStandardMaterial({ color: COLORS.playerWing ?? '#f6b05c', emissive: '#000000', emissiveIntensity: 0, metalness: 0.18, roughness: 0.58 })
   for (const side of [-1, 1]) {
     const wing = new THREE.Mesh(new THREE.BoxGeometry(0.82, 0.08, 0.58), wingMaterial)
     wing.position.set(side * 0.52, 0.12, -0.08)
@@ -18,7 +18,7 @@ export function createPlayerShip({ THREE, COLORS, ENTITIES, GAME, opacity = 1 })
     player.add(wing)
   }
 
-  const cockpit = new THREE.Mesh(new THREE.SphereGeometry(0.29, 12, 8), new THREE.MeshStandardMaterial({ color: '#76ddff', emissive: '#000000', emissiveIntensity: 0, metalness: 0.92, roughness: 0.08 }))
+  const cockpit = new THREE.Mesh(new THREE.SphereGeometry(0.29, 12, 8), new THREE.MeshStandardMaterial({ color: '#76ddff', emissive: '#000000', emissiveIntensity: 0, metalness: 0.25, roughness: 0.48 }))
   cockpit.scale.set(0.82, 0.62, 1.15)
   cockpit.position.set(0, 0.38, 0.18)
   player.add(cockpit)

@@ -9,7 +9,7 @@ export function createCellVisualFactory({ THREE, COLORS, ENTITIES }) {
       return new THREE.Mesh(cellGeometry, new THREE.MeshStandardMaterial({ color: COLORS.cell, emissive: COLORS.cellEmissive, emissiveIntensity: ENTITIES.cellEmissiveIntensity, metalness: ENTITIES.cellMetalness, roughness: ENTITIES.cellRoughness }))
     },
     createChronoCell() {
-      return new THREE.Mesh(chronoCellGeometry, new THREE.MeshStandardMaterial({ color: COLORS.chronoCell, emissive: COLORS.chronoCellEmissive, emissiveIntensity: ENTITIES.chronoCellEmissiveIntensity, metalness: 0.4, roughness: 0.12, transparent: true }))
+      return new THREE.Mesh(chronoCellGeometry, new THREE.MeshStandardMaterial({ color: COLORS.chronoCell, emissive: COLORS.chronoCellEmissive, emissiveIntensity: ENTITIES.chronoCellEmissiveIntensity, metalness: 0.12, roughness: 0.42, transparent: true }))
     },
     createBooster(type) {
       const color = boosterColors[type]

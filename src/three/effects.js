@@ -22,13 +22,13 @@ export function createEffectVisualFactory({ THREE, COLORS }) {
     createPoisonTrail(position, radius) {
       const visual = new THREE.Group()
       visual.position.set(position.x, 0.035, position.z)
-      const pool = new THREE.Mesh(new THREE.CircleGeometry(radius, 24), new THREE.MeshBasicMaterial({ color: COLORS.poisonTrail, transparent: true, opacity: 0.36, depthWrite: false }))
+      const pool = new THREE.Mesh(new THREE.CircleGeometry(radius, 16), new THREE.MeshBasicMaterial({ color: COLORS.poisonTrail, transparent: true, opacity: 0.48, depthWrite: false }))
       pool.rotation.x = -Math.PI / 2
       visual.add(pool)
-      const vapor = Array.from({ length: 5 }, (_, index) => {
-        const puff = new THREE.Mesh(new THREE.SphereGeometry(0.12 + index * 0.025, 8, 6), new THREE.MeshBasicMaterial({ color: COLORS.poisonTrail, transparent: true, opacity: 0.5, depthWrite: false }))
-        const angle = index * Math.PI * 2 / 5
-        puff.position.set(Math.cos(angle) * radius * 0.38, 0.12 + index * 0.035, Math.sin(angle) * radius * 0.38)
+      const vapor = Array.from({ length: 3 }, (_, index) => {
+        const puff = new THREE.Mesh(new THREE.SphereGeometry(0.16 + index * 0.035, 6, 4), new THREE.MeshBasicMaterial({ color: COLORS.poisonTrail, transparent: true, opacity: 0.62, depthWrite: false }))
+        const angle = index * Math.PI * 2 / 3
+        puff.position.set(Math.cos(angle) * radius * 0.42, 0.12 + index * 0.05, Math.sin(angle) * radius * 0.42)
         puff.userData.phase = angle
         visual.add(puff)
         return puff

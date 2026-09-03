@@ -142,7 +142,7 @@ document.querySelector('#app').innerHTML = `
       <section class="building-draft-modal hidden" id="building-draft-modal" aria-label="Building Draft"><button class="upgrade-close" id="close-building-draft" type="button" aria-label="Close building draft">×</button><p class="eyebrow">PERMANENT DEFENSES</p><h2>BUILDING DRAFT</h2><p class="building-draft-balance">CHRONOSHARDS <span id="building-draft-chronoshards"></span></p><div class="building-list" id="building-draft-list"></div></section>
       <section class="weaponry-panel hidden" id="weaponry-panel" aria-label="Weaponry"><div class="lab-header"><div><p class="eyebrow">ACTIVE ARSENAL</p><h2>WEAPONRY</h2></div><button class="secondary-button" id="close-weaponry-button" type="button">BACK</button></div><p class="lab-balance">CHRONOSHARDS <span id="weaponry-chronoshards"></span></p><div class="weapon-buy-actions"><button class="weapon-buy-button" id="buy-weapon-button" type="button">BUY WEAPON · ✦ 35</button><button class="weapon-buy-button" id="buy-weapons-five-button" type="button">BUY WEAPON x5 · ✦ 175</button></div><p class="weapon-lucky-find-chance" id="weapon-lucky-find-chance" hidden>LUCKY FIND · 0% · 2 CARDS</p><h3>ROUND LOADOUT <span id="weapon-slot-count"></span></h3><div class="weapon-loadout" id="weapon-loadout"></div><h3>WEAPON CARDS</h3><div class="weapon-card-list" id="weapon-card-list"></div></section>
       <section class="weapon-reveal-modal hidden" id="weapon-reveal-modal" aria-label="Weapon purchase result" aria-live="polite"><div class="weapon-reveal-card"><p class="eyebrow" id="weapon-reveal-count"></p><p class="weapon-lucky-find-badge" aria-hidden="true">✦ LUCKY FIND · DOUBLE CARD ✦</p><p class="weapon-reveal-status" id="weapon-reveal-status"></p><img class="asset-card-art" id="weapon-reveal-art" alt=""><h2 id="weapon-reveal-name"></h2><p id="weapon-reveal-detail"></p><button id="weapon-reveal-continue" type="button">CLAIM</button></div></section>
-      <section class="settings-panel hidden" id="settings-panel" aria-label="Settings"><div class="lab-header"><div><p class="eyebrow">PREFERENCES</p><h2>SETTINGS</h2></div><button class="secondary-button" id="close-settings-button" type="button">BACK</button></div><div class="settings-section"><h3>GRAPHICS</h3><div class="settings-row"><div><strong>Quality</strong><small>Changes render resolution and shadows.</small></div><div class="settings-options" id="graphics-quality-options"></div></div><label class="settings-row settings-toggle"><span><strong>Shadows</strong><small>Show dynamic object shadows.</small></span><input id="setting-shadows" type="checkbox"></label><label class="settings-row settings-toggle"><span><strong>HDR Emission</strong><small>Lets bright effects bloom beyond their models.</small></span><input id="setting-hdr-emission" type="checkbox"></label></div><div class="settings-section"><h3>GAMEPLAY</h3><label class="settings-row"><span><strong>Camera Distance</strong><small>Adjusts how far the camera sits from your ship.</small></span><output id="camera-distance-value"></output><input id="setting-camera-distance" type="range" min="80" max="130" step="5"></label><label class="settings-row settings-toggle"><span><strong>Auto Pause</strong><small>Pause the run when the game loses focus.</small></span><input id="setting-auto-pause" type="checkbox"></label><label class="settings-row settings-toggle"><span><strong>High Contrast HUD</strong><small>Improves HUD readability.</small></span><input id="setting-high-contrast" type="checkbox"></label></div><div class="settings-section"><h3>SOUND</h3><label class="settings-row"><span><strong>Master Volume</strong><small>Controls all game sound effects.</small></span><output id="master-volume-value"></output><input id="setting-master-volume" type="range" min="0" max="100" step="1"></label><label class="settings-row settings-toggle"><span><strong>Mute All</strong><small>Instantly silence all sound effects.</small></span><input id="setting-muted" type="checkbox"></label><label class="settings-row settings-toggle"><span><strong>Spatial Audio</strong><small>Pan sounds based on their world position.</small></span><input id="setting-spatial-audio" type="checkbox"></label></div><div class="settings-section settings-actions"><button id="open-patch-notes-button" type="button">PATCH NOTES</button></div></section>
+      <section class="settings-panel hidden" id="settings-panel" aria-label="Settings"><div class="lab-header"><div><p class="eyebrow">PREFERENCES</p><h2>SETTINGS</h2></div><button class="secondary-button" id="close-settings-button" type="button">BACK</button></div><div class="settings-section"><h3>GRAPHICS</h3><div class="settings-row"><div><strong>Quality</strong><small>Changes render resolution and shadows.</small></div><div class="settings-options" id="graphics-quality-options"></div></div><label class="settings-row settings-toggle"><span><strong>Shadows</strong><small>Show dynamic object shadows.</small></span><input id="setting-shadows" type="checkbox"></label><label class="settings-row"><span><strong>HDR Emission</strong><small>Controls how far bright effects bloom beyond their models.</small></span><output id="hdr-emission-value"></output><input id="setting-hdr-emission" type="range" min="0" max="100" step="1"></label></div><div class="settings-section"><h3>GAMEPLAY</h3><label class="settings-row"><span><strong>Camera Distance</strong><small>Adjusts how far the camera sits from your ship.</small></span><output id="camera-distance-value"></output><input id="setting-camera-distance" type="range" min="80" max="130" step="5"></label><label class="settings-row settings-toggle"><span><strong>Auto Pause</strong><small>Pause the run when the game loses focus.</small></span><input id="setting-auto-pause" type="checkbox"></label><label class="settings-row settings-toggle"><span><strong>High Contrast HUD</strong><small>Improves HUD readability.</small></span><input id="setting-high-contrast" type="checkbox"></label></div><div class="settings-section"><h3>SOUND</h3><label class="settings-row"><span><strong>Master Volume</strong><small>Controls all game sound effects.</small></span><output id="master-volume-value"></output><input id="setting-master-volume" type="range" min="0" max="100" step="1"></label><label class="settings-row settings-toggle"><span><strong>Mute All</strong><small>Instantly silence all sound effects.</small></span><input id="setting-muted" type="checkbox"></label><label class="settings-row settings-toggle"><span><strong>Spatial Audio</strong><small>Pan sounds based on their world position.</small></span><input id="setting-spatial-audio" type="checkbox"></label></div><div class="settings-section settings-actions"><button id="open-patch-notes-button" type="button">PATCH NOTES</button></div></section>
       <section class="patch-notes-panel hidden" id="patch-notes-panel" aria-label="Patch notes"><div class="lab-header"><div><p class="eyebrow">VERSION ${BUILD_INFO.version} · BUILD ${BUILD_INFO.number}</p><h2>PATCH NOTES</h2></div><button class="secondary-button" id="close-patch-notes-button" type="button">BACK</button></div>${PATCH_NOTES.map((entry) => `<article class="patch-notes-entry"><h3>${entry.heading}</h3><ul>${entry.changes.map((change) => `<li>${change}</li>`).join('')}</ul></article>`).join('')}</section>
     </section>
     <section class="anomaly-run-modal hidden" id="anomaly-run-modal" aria-label="Anomaly Run challenge"><div class="anomaly-run-card"><p class="eyebrow">WEEKLY ANOMALY</p><h2 id="anomaly-challenge-name"></h2><p id="anomaly-challenge-description"></p><p class="anomaly-reward" id="anomaly-reward"></p><p class="anomaly-reset" id="anomaly-reset"></p><p class="anomaly-time-warning hidden" id="anomaly-time-warning" role="alert"></p><div><button class="secondary-button" id="cancel-anomaly-run" type="button">BACK</button><button id="confirm-anomaly-run" type="button">START ANOMALY RUN</button></div></div></section>
@@ -235,6 +235,7 @@ const closePatchNotesButton = document.querySelector('#close-patch-notes-button'
 const graphicsQualityOptions = document.querySelector('#graphics-quality-options')
 const shadowsSetting = document.querySelector('#setting-shadows')
 const hdrEmissionSetting = document.querySelector('#setting-hdr-emission')
+const hdrEmissionValue = document.querySelector('#hdr-emission-value')
 const cameraDistanceSetting = document.querySelector('#setting-camera-distance')
 const cameraDistanceValue = document.querySelector('#camera-distance-value')
 const autoPauseSetting = document.querySelector('#setting-auto-pause')
@@ -421,11 +422,13 @@ if (retiredGapGenerators.length) {
 }
 
 function readSettings() {
-  const defaults = { graphics: { quality: 'high', shadows: true, hdrEmission: true }, gameplay: { cameraDistance: 100, autoPause: true, highContrastHud: false }, sound: { masterVolume: 100, muted: false, spatialAudio: true } }
+  const defaults = { graphics: { quality: 'high', shadows: true, hdrEmissionIntensity: 0.5 }, gameplay: { cameraDistance: 100, autoPause: true, highContrastHud: false }, sound: { masterVolume: 100, muted: false, spatialAudio: true } }
   try {
     const saved = JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEY))
+    const savedGraphics = saved?.graphics ?? {}
+    const hdrEmissionIntensity = Number.isFinite(savedGraphics.hdrEmissionIntensity) ? THREE.MathUtils.clamp(savedGraphics.hdrEmissionIntensity, 0, 1) : savedGraphics.hdrEmission === false ? 0 : 0.5
     return {
-      graphics: { ...defaults.graphics, ...saved?.graphics },
+      graphics: { ...defaults.graphics, ...savedGraphics, hdrEmissionIntensity },
       gameplay: { ...defaults.gameplay, ...saved?.gameplay },
       sound: { ...defaults.sound, ...saved?.sound },
     }
@@ -1201,12 +1204,16 @@ let renderComposer
 let hdrBloomPass
 function applyGraphicsSettings() {
   const pixelRatioCap = { low: 1, medium: 1.5, high: GAME.maxPixelRatio }[settings.graphics.quality] ?? GAME.maxPixelRatio
+  const hdrEmissionIntensity = THREE.MathUtils.clamp(settings.graphics.hdrEmissionIntensity ?? 0.5, 0, 1)
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, pixelRatioCap))
   renderComposer?.setPixelRatio(renderer.getPixelRatio())
   renderer.shadowMap.enabled = settings.graphics.shadows && settings.graphics.quality !== 'low'
-  renderer.toneMapping = settings.graphics.hdrEmission ? THREE.ACESFilmicToneMapping : THREE.NoToneMapping
-  renderer.toneMappingExposure = settings.graphics.hdrEmission ? 1.15 : 1
-  if (hdrBloomPass) hdrBloomPass.enabled = settings.graphics.hdrEmission
+  renderer.toneMapping = hdrEmissionIntensity > 0 ? THREE.ACESFilmicToneMapping : THREE.NoToneMapping
+  renderer.toneMappingExposure = 0.9 + hdrEmissionIntensity * 0.2
+  if (hdrBloomPass) {
+    hdrBloomPass.enabled = hdrEmissionIntensity > 0
+    hdrBloomPass.strength = 1.35 * hdrEmissionIntensity
+  }
 }
 
 function saveWeaponState() { writeStoredJson(WEAPONRY_STORAGE_KEY, weaponState) }
@@ -2199,7 +2206,9 @@ function clearPorterTeleportTarget(porter) {
 }
 
 function createSpore(position, direction, generation = 1, savedSpore = {}) {
-  const spore = createSpikedObstacle(new THREE.MeshStandardMaterial({ color: COLORS.spore, emissive: COLORS.sporeEmissive, emissiveIntensity: 3, metalness: ENTITIES.obstacleMetalness, roughness: ENTITIES.obstacleRoughness }), 'spore')
+  const emissionScale = generation === 1 ? 0.6 : 0.4
+  const spore = createSpikedObstacle(new THREE.MeshStandardMaterial({ color: COLORS.spore, emissive: COLORS.sporeEmissive, emissiveIntensity: 3 * emissionScale, metalness: ENTITIES.obstacleMetalness, roughness: ENTITIES.obstacleRoughness }), 'spore')
+  spore.userData.hdrEmissionScale = emissionScale
   spore.scale.setScalar(generation === 1 ? ENTITIES.sporeFragmentScale : ENTITIES.sporeFragmentChildScale)
   spore.position.copy(position)
   scene.add(spore)
@@ -3286,7 +3295,8 @@ function updateGame(delta, total) {
     }
     if (obstacle.userData.type === 'spore') {
       obstacle.userData.age += delta
-      obstacle.userData.material.emissiveIntensity = 2.2 + (Math.sin(obstacle.userData.age * 10) + 1) * 1.5
+      const emissionScale = obstacle.userData.hdrEmissionScale ?? 0.5
+      obstacle.userData.material.emissiveIntensity = (2.2 + (Math.sin(obstacle.userData.age * 10) + 1) * 1.5) * emissionScale
       if (obstacle.userData.age >= ENTITIES.sporeFuseDuration) sporesToDetonate.push(obstacle)
     }
     enforceBarrierNodes(obstacle)
@@ -3504,12 +3514,12 @@ function updateGame(delta, total) {
     const fade = Math.max(0, 1 - progress)
     const pulse = 1 + Math.sin(total * 5 + index) * 0.08
     poisonTrail.pool.scale.setScalar(pulse * (0.92 + progress * 0.16))
-    poisonTrail.pool.material.opacity = 0.36 * fade
+    poisonTrail.pool.material.opacity = 0.48 * fade
     for (const puff of poisonTrail.vapor) {
       const rise = (Math.sin(total * 2.8 + puff.userData.phase) + 1) / 2
       puff.position.y = 0.1 + rise * 0.26
-      puff.material.opacity = 0.5 * fade * (0.55 + rise * 0.45)
-      puff.scale.setScalar(0.8 + rise * 0.55)
+      puff.material.opacity = 0.62 * fade * (0.55 + rise * 0.45)
+      puff.scale.setScalar(0.9 + rise * 0.62)
     }
     if (planarDistance(player.position, poisonTrail.position) < ENTITIES.poisonCreeperTrailRadius) applyPlayerStatusDamage('poison', 'poison-creeper-trail')
     if (progress >= 1) {
@@ -3520,8 +3530,11 @@ function updateGame(delta, total) {
 
   const activeStatusDamage = updatePlayerStatusDamage(delta, total)
   if (activeStatusDamage) {
-    playerCore.material.emissive.set('#000000')
-    playerCore.material.emissiveIntensity = 0
+    // Status feedback is deliberately kept below the bloom threshold: it tints the
+    // ship while burning or poisoned without restoring its old constant HDR glow.
+    const statusPulse = 0.3 + (Math.sin(total * 18) + 1) * 0.2
+    playerCore.material.emissive.set(activeStatusDamage.color)
+    playerCore.material.emissiveIntensity = statusPulse
   }
 
   for (let index = splinterPieces.length - 1; index >= 0; index -= 1) {
@@ -3620,7 +3633,7 @@ function animate() {
     camera.lookAt(player.position.x, 0, player.position.z)
   }
   starfield.position.copy(camera.position)
-  if (settings.graphics.hdrEmission) renderComposer.render()
+  if (settings.graphics.hdrEmissionIntensity > 0) renderComposer.render()
   else renderer.render(scene, camera)
   updateDeathEnemyPreview(delta)
 }
@@ -3675,7 +3688,9 @@ function createNukeWave(origin, targets) {
 function renderSettings() {
   graphicsQualityOptions.innerHTML = ['low', 'medium', 'high'].map((quality) => `<button data-graphics-quality="${quality}" class="${settings.graphics.quality === quality ? 'selected' : ''}" type="button">${quality.toUpperCase()}</button>`).join('')
   shadowsSetting.checked = settings.graphics.shadows
-  hdrEmissionSetting.checked = settings.graphics.hdrEmission
+  const hdrEmissionPercent = Math.round(settings.graphics.hdrEmissionIntensity * 100)
+  hdrEmissionSetting.value = String(hdrEmissionPercent)
+  hdrEmissionValue.value = `${hdrEmissionPercent}%`
   cameraDistanceSetting.value = settings.gameplay.cameraDistance
   cameraDistanceValue.value = `${settings.gameplay.cameraDistance}%`
   autoPauseSetting.checked = settings.gameplay.autoPause
@@ -3791,7 +3806,7 @@ closeSettingsButton.addEventListener('click', () => { settingsPanel.classList.ad
 closePatchNotesButton.addEventListener('click', () => { patchNotesPanel.classList.add('hidden'); settingsPanel.classList.remove('hidden') })
 settingsPanel.addEventListener('click', (event) => { const button = event.target.closest('[data-graphics-quality]'); if (!button) return; settings.graphics.quality = button.dataset.graphicsQuality; applyGraphicsSettings(); persistSettings() })
 shadowsSetting.addEventListener('change', () => { settings.graphics.shadows = shadowsSetting.checked; applyGraphicsSettings(); persistSettings() })
-hdrEmissionSetting.addEventListener('change', () => { settings.graphics.hdrEmission = hdrEmissionSetting.checked; applyGraphicsSettings(); persistSettings() })
+hdrEmissionSetting.addEventListener('input', () => { settings.graphics.hdrEmissionIntensity = Number(hdrEmissionSetting.value) / 100; applyGraphicsSettings(); persistSettings() })
 cameraDistanceSetting.addEventListener('input', () => { settings.gameplay.cameraDistance = Number(cameraDistanceSetting.value); persistSettings() })
 autoPauseSetting.addEventListener('change', () => { settings.gameplay.autoPause = autoPauseSetting.checked; persistSettings() })
 highContrastSetting.addEventListener('change', () => { settings.gameplay.highContrastHud = highContrastSetting.checked; persistSettings() })
