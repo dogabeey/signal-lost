@@ -1,35 +1,16 @@
 // Add a new object here for each update. The newest entry should be first.
 export const PATCH_NOTES = [
   {
-    heading: 'SECTOR TERMINOLOGY',
+    heading: 'ARTIFACTS',
     changes: [
-      'Progression is now called Sectors throughout the game.',
+      'Introducing Artifact System - An achievements mechanic which rewards the player with permanent buffs and rewards when achieving certain things.',
+      'Artifacts are mostly earned by reaching 500 cells in Tier 2 and onwards.',
+      'There are 10 different artifact right now, more to come in upcoming update.'
     ],
-  },
-  {
-    heading: 'ASCENSION ARTIFACTS',
+    heading: 'IMPROVEMENTS',
     changes: [
-      'Added Broken Radar at Sector II · 500 Cells: +10% Cell spawn rate.',
-      'Added Supply Depot at Sector IV · 500 Cells: +5 initial Cells.',
-      'Added Construction Bot at Sector VI · 500 Cells: -10% Building prices.',
-      'Added Broken Hard-Drive at Sector VIII · 500 Cells: +1 Weapon Slot.',
+      'Certain UI improvements for better visibility especially in mobile devices.',
+      'Small value tweaks regarding Research unlocks and Enemy strengths.'
     ],
-  },
-  {
-    heading: 'DARK CORE STACKS',
-    changes: [
-      'Dark Core is now a repeatable Artifact, with one stack awarded for every unique successful Anomaly Run.',
-      'Each stack adds +10% Chronoshards earned; the bonus stacks linearly.',
-      'Dark Core’s Artifact icon now displays its stack count.',
-    ],
-  },
-  {
-    heading: 'ANOMALY UPDATE',
-    changes: [
-      'Added Anomaly Run, unlocked after reaching Sector III.',
-      'Anomaly challenges and their sector-specific rewards now refresh every week.',
-      'Reach 250 Cells in an Anomaly Run to earn a weekly Chronoshard reward for the selected sector.',
-      'Made some balance changes in Research Lab as always.'
-    ],
-  },
+  }
 ]
