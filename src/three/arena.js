@@ -65,9 +65,9 @@ export function createArenaVisuals({ THREE, scene, COLORS, GAME, SCENE, LIGHTING
 
   return {
     starfield, floor, grid, arenaBoundary,
-    resize(extraPadding) {
-      const limit = GAME.arenaLimit + extraPadding
-      floor.geometry.dispose(); floor.geometry = new THREE.CircleGeometry(GAME.arenaSize / 2 + extraPadding, 96)
+    resize(extraPadding, sizeMultiplier = 1) {
+      const limit = (GAME.arenaLimit + extraPadding) * sizeMultiplier
+      floor.geometry.dispose(); floor.geometry = new THREE.CircleGeometry((GAME.arenaSize / 2 + extraPadding) * sizeMultiplier, 96)
       grid.geometry.dispose(); grid.geometry = createGridGeometry(THREE, limit)
       arenaBoundary.geometry.dispose(); arenaBoundary.geometry = createBoundaryGeometry(THREE, limit); arenaBoundary.computeLineDistances()
     },

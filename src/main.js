@@ -69,6 +69,7 @@ document.querySelector('#app').innerHTML = `
     <div class="build-grid-ui hidden" id="build-grid-ui" aria-label="Build locations"></div>
     <div class="milestone-claim-toast hidden" id="milestone-claim-toast" role="status" aria-live="polite"></div>
     <div class="feature-lock-toast hidden" id="feature-lock-toast" role="status" aria-live="polite"></div>
+    <div class="artifact-unlock-toast hidden" id="artifact-unlock-toast" role="status" aria-live="polite"></div>
     <section class="pause-menu hidden" id="pause-menu" aria-label="Pause menu">
       <p class="eyebrow">ROUND PAUSED</p>
       <h2>PAUSE</h2>
@@ -183,6 +184,7 @@ const milestoneTrack = document.querySelector('#milestone-track')
 const milestoneClaimCount = document.querySelector('#milestone-claim-count')
 const milestoneClaimToast = document.querySelector('#milestone-claim-toast')
 const featureLockToast = document.querySelector('#feature-lock-toast')
+const artifactUnlockToast = document.querySelector('#artifact-unlock-toast')
 const previousMilestoneTierButton = document.querySelector('#previous-milestone-tier')
 const nextMilestoneTierButton = document.querySelector('#next-milestone-tier')
 const milestoneTierLabel = document.querySelector('#milestone-tier-label')
@@ -362,6 +364,7 @@ let artifactState = (() => {
   return {
     unlocked: Array.isArray(stored?.unlocked) ? stored.unlocked.filter((id) => validIds.has(id)) : [],
     resetAtScores: stored?.resetAtScores && typeof stored.resetAtScores === 'object' ? stored.resetAtScores : {},
+    stackCounts: stored?.stackCounts && typeof stored.stackCounts === 'object' ? stored.stackCounts : null,
   }
 })()
 const milestoneState = readMilestoneState()
@@ -382,6 +385,15 @@ const anomalyRewardState = (() => {
   const stored = readStoredJson(ANOMALY_REWARDS_STORAGE_KEY, {})
   return stored && typeof stored.claimedTiers === 'object' ? stored : { claimedTiers: {} }
 })()
+// Existing saves predate repeatable Artifacts. Credit every distinct Anomaly
+// reward already claimed, then persist the migrated stack count.
+if (!artifactState.stackCounts) {
+  const historicalAnomalySuccesses = Object.values(anomalyRewardState.claimedTiers)
+    .reduce((total, tiers) => total + (Array.isArray(tiers) ? new Set(tiers).size : 0), 0)
+  artifactState.stackCounts = { 'dark-core': historicalAnomalySuccesses }
+  if (historicalAnomalySuccesses > 0 && !artifactState.unlocked.includes('dark-core')) artifactState.unlocked.push('dark-core')
+  writeStoredJson(ARTIFACTS_STORAGE_KEY, artifactState)
+}
 let anomalyRun = null
 let featureUnlocks = (() => { try { const saved = JSON.parse(localStorage.getItem(FEATURE_UNLOCKS_STORAGE_KEY)); return { researchLab: Boolean(saved?.researchLab), buildingSystem: Boolean(saved?.buildingSystem), weaponry: Boolean(saved?.weaponry) } } catch { return { researchLab: false, buildingSystem: false, weaponry: false } } })()
 if (milestoneState.claimed.includes('tier-1-10') && !featureUnlocks.researchLab) {
@@ -463,17 +475,27 @@ const researchRules = createResearchRules({
   getMilestoneState: () => milestoneState,
   getBankedCells: () => bankedCells,
 })
-const { getResearchById, getResearchLevel, getResearchStatBonus: getResearchStatBonusBase, getResearchCost, getResearchDuration,
+const { getResearchById, getResearchLevel, getResearchStatBonus: getResearchStatBonusBase, getResearchCost: getResearchCostBase, getResearchDuration,
   getResearchLockReason, isResearchVisible, compareResearchProgression } = researchRules
 
 function getArtifactStatBonus(stat) {
   return ARTIFACT_CONFIG.artifacts
     .filter((artifact) => artifactState.unlocked.includes(artifact.id) && artifact.buff.stat === stat)
-    .reduce((total, artifact) => total + artifact.buff.amount, 0)
+    .reduce((total, artifact) => total + artifact.buff.amount * getArtifactStackCount(artifact), 0)
+}
+
+function getArtifactStackCount(artifact) {
+  return artifact.repeatable ? Math.max(0, Number(artifactState.stackCounts?.[artifact.id]) || 0) : 1
 }
 
 function getResearchStatBonus(stat) {
   return getResearchStatBonusBase(stat) + getArtifactStatBonus(stat)
+}
+
+function getResearchCost(research, level) {
+  const baseCost = getResearchCostBase(research, level)
+  const discountedCost = baseCost * Math.max(0, 1 - getArtifactStatBonus('researchCostReduction'))
+  return research.cost.currency === 'cash' ? Math.round(discountedCost * 100) / 100 : Math.ceil(discountedCost)
 }
 
 function getEffectiveEnemyRange(type, baseRange) {
@@ -901,10 +923,12 @@ function updateCash(amount = 0) {
 }
 
 function updateChronoshards(amount = 0) {
-  chronoshards += amount
+  const adjustedAmount = amount > 0 ? amount * (1 + getArtifactStatBonus('chronoshardGainMultiplier')) : amount
+  chronoshards += adjustedAmount
   writeStoredNumber(CHRONOSHARDS_STORAGE_KEY, chronoshards)
   chronoshardsElement.textContent = `✦ ${formatCompactNumber(chronoshards)}`
   renderResearchLab()
+  return adjustedAmount
 }
 
 function showCashIndicator(position, amount) {
@@ -942,6 +966,7 @@ function clearArtifactSave() {
   artifactState = {
     unlocked: [],
     resetAtScores: Object.fromEntries(ARTIFACT_CONFIG.artifacts.map((artifact) => [artifact.id, artifact.requirement.type === 'tier-high-score' ? tierHighScores[tierKeys[artifact.requirement.tier - 1]] ?? 0 : 0])),
+    stackCounts: {},
   }
   saveArtifactState()
   renderArtifacts()
@@ -950,6 +975,9 @@ function clearArtifactSave() {
 function getArtifactRequirementText(artifact) {
   const { requirement } = artifact
   if (requirement.type === 'tier-high-score') return `Reach ${requirement.cells} Cells in Tier ${requirement.tier}.`
+  if (requirement.type === 'milestone-claimed') return `Claim the Tier ${requirement.tier} · ${requirement.cells} Cells Ascension reward.`
+  if (requirement.type === 'anomaly-run-success') return `Complete a unique Anomaly Run with ${requirement.cells} Cells. Each success grants one stack.`
+  if (requirement.type === 'hidden-world-map') return 'Hidden condition.'
   return 'Complete this artifact achievement.'
 }
 
@@ -959,24 +987,50 @@ function isArtifactRequirementMet(artifact) {
     const highScore = tierHighScores[tierKeys[requirement.tier - 1]] ?? 0
     return highScore >= requirement.cells && highScore > (artifactState.resetAtScores[artifact.id] ?? -1)
   }
+  if (requirement.type === 'milestone-claimed') return milestoneState.claimed.includes(requirement.milestoneId)
   return false
 }
 
 function checkArtifactUnlocks() {
-  const newlyUnlocked = ARTIFACT_CONFIG.artifacts
-    .filter((artifact) => !artifactState.unlocked.includes(artifact.id) && isArtifactRequirementMet(artifact))
-    .map((artifact) => artifact.id)
-  if (!newlyUnlocked.length) return false
-  artifactState.unlocked = [...artifactState.unlocked, ...newlyUnlocked]
+  return ARTIFACT_CONFIG.artifacts
+    .filter((artifact) => isArtifactRequirementMet(artifact))
+    .reduce((unlockedAny, artifact) => unlockArtifact(artifact) || unlockedAny, false)
+}
+
+function unlockArtifact(artifact) {
+  if (!artifact || artifactState.unlocked.includes(artifact.id)) return false
+  artifactState.unlocked = [...artifactState.unlocked, artifact.id]
   saveArtifactState()
   renderArtifacts()
+  showArtifactUnlockToast(artifact)
+  if (artifact.buff.stat === 'arenaSizeMultiplier') applyDifficulty()
   return true
+}
+
+function addArtifactStack(artifact) {
+  if (!artifact?.repeatable) return false
+  artifactState.stackCounts[artifact.id] = getArtifactStackCount(artifact) + 1
+  if (!artifactState.unlocked.includes(artifact.id)) artifactState.unlocked = [...artifactState.unlocked, artifact.id]
+  saveArtifactState()
+  renderArtifacts()
+  showArtifactUnlockToast(artifact)
+  return true
+}
+
+let artifactUnlockToastTimer
+function showArtifactUnlockToast(artifact) {
+  artifactUnlockToast.textContent = `ARTIFACT ACQUIRED · ${artifact.name.toUpperCase()}`
+  artifactUnlockToast.classList.remove('hidden')
+  window.clearTimeout(artifactUnlockToastTimer)
+  artifactUnlockToastTimer = window.setTimeout(() => artifactUnlockToast.classList.add('hidden'), 4_000)
 }
 
 function renderArtifacts() {
   artifactGrid.innerHTML = ARTIFACT_CONFIG.artifacts.map((artifact) => {
     const unlocked = artifactState.unlocked.includes(artifact.id)
-    return `<button class="artifact-card ${unlocked ? 'is-unlocked' : 'is-locked'}" data-artifact-id="${artifact.id}" type="button"><img src="${getArtifactAsset(artifact.icon)}" alt=""><span>${unlocked ? artifact.name : 'UNKNOWN ARTIFACT'}</span><small>${unlocked ? 'UNLOCKED' : 'LOCKED'}</small></button>`
+    const stackCount = getArtifactStackCount(artifact)
+    const stackBadge = unlocked && artifact.repeatable ? `<b class="artifact-stack-count" aria-label="${stackCount} stacks">${stackCount}</b>` : ''
+    return `<button class="artifact-card ${unlocked ? 'is-unlocked' : 'is-locked'}" data-artifact-id="${artifact.id}" type="button"><span class="artifact-icon-wrap"><img src="${getArtifactAsset(artifact.icon)}" alt="">${stackBadge}</span><span>${unlocked ? artifact.name : 'UNKNOWN ARTIFACT'}</span><small>${unlocked ? artifact.repeatable ? `${stackCount} STACK${stackCount === 1 ? '' : 'S'}` : 'UNLOCKED' : 'LOCKED'}</small></button>`
   }).join('')
 }
 
@@ -984,7 +1038,9 @@ function openArtifactDetail(artifactId) {
   const artifact = ARTIFACT_CONFIG.artifacts.find((entry) => entry.id === artifactId)
   if (!artifact) return
   const unlocked = artifactState.unlocked.includes(artifact.id)
-  artifactDetailContent.innerHTML = `<img class="artifact-detail-icon ${unlocked ? '' : 'is-locked'}" src="${getArtifactAsset(artifact.icon)}" alt=""><p class="eyebrow">${unlocked ? 'ARTIFACT ACQUIRED' : 'ARTIFACT LOCKED'}</p><h2>${unlocked ? artifact.name : 'UNKNOWN ARTIFACT'}</h2><div class="artifact-detail-section"><strong>TO ACQUIRE</strong><p>${getArtifactRequirementText(artifact)}</p></div><div class="artifact-detail-section"><strong>PERMANENT BUFF</strong><p>${artifact.buff.label}</p></div>`
+  const stackCount = getArtifactStackCount(artifact)
+  const buffText = artifact.repeatable && unlocked ? `${artifact.buff.label} per stack · ${stackCount} stacks = +${Math.round(artifact.buff.amount * stackCount * 100)}% Chronoshards earned` : artifact.buff.label
+  artifactDetailContent.innerHTML = `<img class="artifact-detail-icon ${unlocked ? '' : 'is-locked'}" src="${getArtifactAsset(artifact.icon)}" alt=""><p class="eyebrow">${unlocked ? artifact.repeatable ? `${stackCount} DARK CORE STACK${stackCount === 1 ? '' : 'S'}` : 'ARTIFACT ACQUIRED' : 'ARTIFACT LOCKED'}</p><h2>${unlocked ? artifact.name : 'UNKNOWN ARTIFACT'}</h2><div class="artifact-detail-section"><strong>TO ACQUIRE</strong><p>${getArtifactRequirementText(artifact)}</p></div><div class="artifact-detail-section"><strong>PERMANENT BUFF</strong><p>${buffText}</p></div>`
   artifactDetailModal.classList.remove('hidden')
 }
 
@@ -1059,6 +1115,7 @@ function claimMilestone(milestoneId) {
     if (reward.type === 'feature' && reward.featureId in featureUnlocks) featureUnlocks[reward.featureId] = true
   }
   saveFeatureUnlocks()
+  checkArtifactUnlocks()
   saveMilestoneState()
   milestoneClaimToast.textContent = `REWARD CLAIMED · ${milestone.rewards.map(formatMilestoneReward).join(' · ')}`
   milestoneClaimToast.classList.remove('hidden')
@@ -1331,7 +1388,7 @@ camera.lookAt(0, 0, 0)
 const { starfield, floor, grid, arenaBoundary, resize: resizeArenaVisuals } = createArenaVisuals({ THREE, scene, COLORS, GAME, SCENE, LIGHTING })
 
 function getArenaLimit() {
-  return GAME.arenaLimit + getCurrentDifficulty().extraArenaPadding
+  return (GAME.arenaLimit + getCurrentDifficulty().extraArenaPadding) * (1 + getArtifactStatBonus('arenaSizeMultiplier'))
 }
 
 function keepInsideArena(position, padding = 0) {
@@ -1347,8 +1404,7 @@ function keepInsideArena(position, padding = 0) {
 
 function applyDifficulty() {
   const difficulty = getCurrentDifficulty()
-  const arenaLimit = getArenaLimit()
-  resizeArenaVisuals(difficulty.extraArenaPadding)
+  resizeArenaVisuals(difficulty.extraArenaPadding, 1 + getArtifactStatBonus('arenaSizeMultiplier'))
 }
 
 const chronoBuildingTint = new THREE.Color(COLORS.slowAura)
@@ -1585,9 +1641,14 @@ function claimAnomalyRewardIfEligible() {
   if (claimedTiers.includes(tierKey)) return
   anomalyRewardState.claimedTiers[anomalyRun.weekId] = [...claimedTiers, tierKey]
   writeStoredJson(ANOMALY_REWARDS_STORAGE_KEY, anomalyRewardState)
+  const darkCore = ARTIFACT_CONFIG.artifacts.find((artifact) => artifact.requirement.type === 'anomaly-run-success' && score >= artifact.requirement.cells)
+  if (darkCore) {
+    addArtifactStack(darkCore)
+    showCurrencyIndicator(player.position, `ARTIFACT · ${darkCore.name.toUpperCase()} STACK`, 'chronoshard-indicator')
+  }
   const reward = getAnomalyReward(selectedTierIndex)
-  updateChronoshards(reward)
-  showCurrencyIndicator(player.position, `ANOMALY +✦${reward}`, 'chronoshard-indicator')
+  const rewardedChronoshards = updateChronoshards(reward)
+  showCurrencyIndicator(player.position, `ANOMALY +✦${formatCompactNumber(rewardedChronoshards)}`, 'chronoshard-indicator')
   updateStartButton()
 }
 function renderEncyclopedia() {
@@ -1903,14 +1964,26 @@ function addCell(savedCell) {
 
 function addChronoCell(savedCell) {
   if (chronoCells.length > 0) return
-  const chronoCell = createChronoCellVisual()
+  const mapToEarth = ARTIFACT_CONFIG.artifacts.find((artifact) => artifact.requirement.type === 'hidden-world-map')
+  const isMapToEarth = Boolean(savedCell?.isMapToEarth) || Boolean(!savedCell && mapToEarth && selectedTierIndex + 1 >= mapToEarth.requirement.minTier && !artifactState.unlocked.includes(mapToEarth.id) && Math.random() < mapToEarth.requirement.chance)
+  const chronoCell = isMapToEarth ? createWorldMapArtifactVisual() : createChronoCellVisual()
   if (savedCell) chronoCell.position.set(savedCell.position.x, savedCell.position.y, savedCell.position.z)
   else chronoCell.position.copy(randomArenaPosition(GAME.chronoCellMinDistance))
   if (!savedCell) chronoCell.position.y = GAME.playerStartHeight
   chronoCell.userData.phase = savedCell?.phase ?? Math.random() * Math.PI * 2
   chronoCell.userData.age = savedCell?.age ?? 0
+  chronoCell.userData.isMapToEarth = isMapToEarth
   scene.add(chronoCell)
   chronoCells.push(chronoCell)
+}
+
+function createWorldMapArtifactVisual() {
+  const worldMap = new THREE.Mesh(
+    new THREE.SphereGeometry(ENTITIES.chronoCellRadius * 1.18, 20, 14),
+    new THREE.MeshStandardMaterial({ color: '#378ac3', emissive: '#0b385d', emissiveIntensity: 2.4, metalness: 0.28, roughness: 0.48, transparent: true }),
+  )
+  worldMap.add(new THREE.LineSegments(new THREE.WireframeGeometry(new THREE.SphereGeometry(ENTITIES.chronoCellRadius * 1.21, 10, 7)), new THREE.LineBasicMaterial({ color: '#83e9cf', transparent: true, opacity: 0.72 })))
+  return worldMap
 }
 
 function addBooster(type, savedBooster) {
@@ -2541,7 +2614,7 @@ function saveCurrentRound() {
     weaponCharges: Object.fromEntries(weaponCharges),
     weaponRechargeTimers: Object.fromEntries(weaponRechargeTimers),
     cells: cells.map((cell) => ({ position: serializePosition(cell.position), phase: cell.userData.phase, cashValue: cell.userData.cashValue })),
-    chronoCells: chronoCells.map((cell) => ({ position: serializePosition(cell.position), phase: cell.userData.phase, age: cell.userData.age })),
+    chronoCells: chronoCells.map((cell) => ({ position: serializePosition(cell.position), phase: cell.userData.phase, age: cell.userData.age, isMapToEarth: Boolean(cell.userData.isMapToEarth) })),
     boosters: boosters.map((booster) => ({ type: booster.userData.type, position: serializePosition(booster.position) })),
     obstacles: obstacles.map((obstacle) => ({ id: obstacle.userData.id, position: serializePosition(obstacle.position), type: obstacle.userData.type, age: obstacle.userData.age, lifetimeAge: obstacle.userData.lifetimeAge, speed: obstacle.userData.speed, pulseTimer: obstacle.userData.pulseTimer, shotCooldown: obstacle.userData.shotCooldown, teleportTimer: obstacle.userData.teleportTimer, poisonTrailTimer: obstacle.userData.poisonTrailTimer, teleportTarget: obstacle.userData.teleportTarget && serializePosition(obstacle.userData.teleportTarget), magnetPulsePhase: obstacle.userData.magnetPulsePhase, electronStunnedOnce: obstacle.userData.electronStunnedOnce })),
     spores: spores.map((entry) => ({ position: serializePosition(entry.spore.position), direction: serializePosition(entry.direction), generation: entry.generation, age: entry.age })),
@@ -2932,10 +3005,20 @@ function updateGame(delta, total) {
     chronoCell.position.y = ANIMATION.cellBobBaseHeight + Math.sin(total * ANIMATION.chronoCellBobSpeed + chronoCell.userData.phase) * ANIMATION.chronoCellBobAmplitude
     chronoCell.material.emissiveIntensity = ENTITIES.chronoCellEmissiveIntensity + Math.sin(total * 8) * 0.8
     chronoCell.material.opacity = lifeProgress > 0.7 ? 1 - (lifeProgress - 0.7) / 0.3 : 1
+    if (chronoCell.userData.isMapToEarth) {
+      for (const child of chronoCell.children) child.material.opacity = chronoCell.material.opacity * 0.72
+    }
     if (chronoCell.position.distanceTo(player.position) < GAME.cellPickupRadius) {
       soundSystem.playCellCollect(chronoCell.position)
-      updateChronoshards(GAME.chronoCellChronoshardValue)
-      showCurrencyIndicator(chronoCell.position, `+✦${GAME.chronoCellChronoshardValue}`, 'chronoshard-indicator')
+      if (chronoCell.userData.isMapToEarth) {
+        const mapToEarth = ARTIFACT_CONFIG.artifacts.find((artifact) => artifact.requirement.type === 'hidden-world-map')
+        if (unlockArtifact(mapToEarth)) showCurrencyIndicator(chronoCell.position, 'ARTIFACT ACQUIRED', 'chronoshard-indicator')
+        scene.remove(chronoCell)
+        chronoCells.splice(index, 1)
+        continue
+      }
+      const chronoshardsCollected = updateChronoshards(GAME.chronoCellChronoshardValue)
+      showCurrencyIndicator(chronoCell.position, `+✦${formatCompactNumber(chronoshardsCollected)}`, 'chronoshard-indicator')
       scene.remove(chronoCell)
       chronoCells.splice(index, 1)
       continue
