@@ -420,8 +420,8 @@ button:focus-visible { outline: 2px solid #fff4d2; outline-offset: 4px; }
   .milestone-node { height: 45px; width: 45px; }
   .milestone-track::before { left: 21px; }
   .lab-panel, .building-panel, .weaponry-panel { background: rgba(20, 25, 56, 0.99); border: 0; bottom: 52px; box-shadow: none; box-sizing: border-box; inset: 0 0 52px; max-height: none; max-width: none; min-height: 0; overflow-y: auto; padding: 18px; position: absolute; width: 100%; z-index: 30; }
-  .encyclopedia-panel { max-height: 88svh; padding: 17px; width: min(calc(100% - 28px), 860px); }.encyclopedia-list { grid-template-columns: 1fr; }
-  .artifact-panel { max-height:88svh; padding:17px; width:min(calc(100% - 28px),620px); }.artifact-grid { grid-template-columns:repeat(2, minmax(0, 1fr)); }.artifact-detail-modal { max-height:calc(100svh - 96px); overflow:auto; }
+  .encyclopedia-panel { align-self:center; max-height: 88svh; padding: 17px; width: min(calc(100% - 28px), 860px); }.encyclopedia-list { grid-template-columns: 1fr; }
+  .artifact-panel { align-self:center; max-height:88svh; padding:17px; width:min(calc(100% - 28px),620px); }.artifact-grid { grid-template-columns:repeat(2, minmax(0, 1fr)); }.artifact-detail-modal { max-height:calc(100svh - 96px); overflow:auto; }
   .research-slots { grid-template-columns: 1fr; }
   .research-card { align-items: stretch; flex-direction: column; gap: 11px; }
   .research-card button { width: 100%; }
@@ -430,7 +430,7 @@ button:focus-visible { outline: 2px solid #fff4d2; outline-offset: 4px; }
   .building-list { grid-template-columns: 1fr; }
   .building-actions { flex-direction: column; }
   .building-actions button { width: 100%; }
-  .settings-panel, .patch-notes-panel { max-height: 88svh; padding: 17px; width: min(calc(100% - 28px), 720px); }
+  .settings-panel, .patch-notes-panel { align-self:center; max-height: 88svh; padding: 17px; width: min(calc(100% - 28px), 720px); }
   .patch-notes-entry ul { font-size: 13px; gap: 9px; }
   .settings-row { grid-template-columns: 1fr; }
   .settings-options { display: grid; grid-template-columns: repeat(3, 1fr); width: 100%; }
