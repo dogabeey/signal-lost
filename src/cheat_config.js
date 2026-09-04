@@ -1,7 +1,9 @@
+import { t } from './localisation.js'
+
 export const CHEAT_CONFIG = {
   enabled: true,
   hotkey: '\"',
-  title: 'DEBUG CONSOLE',
+  title: t('cheat.title'),
   commands: {
     cash: 'cash',
     chrono: 'chrono',

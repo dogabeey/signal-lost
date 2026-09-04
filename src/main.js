@@ -309,6 +309,67 @@ function localizeStaticInterface() {
   setText('#confirm-anomaly-run', 'anomaly.start')
   setText('#close-settings-button', 'menu.back')
   setText('#open-patch-notes-button', 'settings.patch_notes')
+  setText('#close-milestones-button', 'menu.back')
+  setText('#close-lab-button', 'menu.back')
+  setText('#close-encyclopedia-button', 'menu.back')
+  setText('#encyclopedia-panel .eyebrow', 'encyclopedia.threat_database')
+  setText('#encyclopedia-panel h2', 'menu.encyclopedia')
+  setText('#close-artifacts-button', 'menu.back')
+  setText('#close-artifact-detail-button', 'menu.back')
+  setText('#close-building-button', 'menu.back')
+  setText('#close-weaponry-button', 'menu.back')
+  setText('#close-patch-notes-button', 'menu.back')
+  setText('#patch-notes-panel h2', 'menu.patch_notes')
+  const patchNotesVersion = document.querySelector('#patch-notes-panel .eyebrow')
+  if (patchNotesVersion) patchNotesVersion.textContent = t('patch_notes.version_build', { version: BUILD_INFO.version, build: BUILD_INFO.number })
+  setText('#research-slots-heading', 'research.active_slots')
+  setText('#lab-panel h3:not(#research-slots-heading)', 'research.available_research')
+  setText('.research-search > span', 'research.search')
+  const researchSearch = document.querySelector('#research-search')
+  if (researchSearch) researchSearch.placeholder = t('research.search_placeholder')
+  setText('#hide-completed-researches + span', 'research.hide_completed')
+  setText('#hide-locked-researches + span', 'research.hide_locked')
+  setText('#artifact-panel .eyebrow', 'artifact.permanent_achievements')
+  setText('#artifact-panel .artifact-intro', 'artifact.intro')
+  setText('#building-panel .eyebrow', 'building.permanent_defenses')
+  setText('#building-panel h2', 'building.system')
+  setText('#enter-build-mode', 'building.build_mode')
+  setText('#open-building-draft', 'building.unlock_a_building')
+  setText('#building-panel h3', 'building.unlocked_buildings')
+  setText('#building-draft-modal .eyebrow', 'building.permanent_defenses')
+  setText('#building-draft-modal h2', 'building.draft')
+  setText('#weaponry-panel .eyebrow', 'weapon.active_arsenal')
+  setText('#weaponry-panel h2', 'menu.weaponry')
+  const weaponHeadings = document.querySelectorAll('#weaponry-panel h3')
+  if (weaponHeadings[0]) weaponHeadings[0].childNodes[0].textContent = `${t('weapon.round_loadout')} `
+  if (weaponHeadings[1]) weaponHeadings[1].textContent = t('weapon.cards')
+  setText('.controls-desktop span:nth-child(1) b', 'controls.move')
+  setText('.controls-desktop span:nth-child(2) b', 'controls.navigate')
+  setText('.controls-desktop span:nth-child(3) b', 'controls.use_weapon')
+  setText('.controls-mobile span:nth-child(1) b', 'controls.move')
+  setText('.controls-mobile span:nth-child(2) b', 'controls.select_weapon')
+  const setAria = (selector, key) => { const element = document.querySelector(selector); if (element) element.setAttribute('aria-label', t(key)) }
+  setAria('#game', 'accessibility.game_canvas')
+  setAria('#hud-sector', 'accessibility.current_sector')
+  setAria('#pause-button', 'accessibility.pause_game')
+  setAria('#shield-indicators', 'accessibility.shield_charges')
+  setAria('.instructions', 'accessibility.game_controls')
+  setAria('.build-footer', 'accessibility.build_information')
+  setAria('#build-grid-ui', 'accessibility.build_locations')
+  setAria('#pause-menu', 'accessibility.pause_menu')
+  setAria('#cheat-console', 'accessibility.debug_console')
+  setAria('#close-cheat-console', 'accessibility.close_debug_console')
+  setAria('#save-slot-select', 'accessibility.save_slots')
+  setAria('#death-killer-canvas', 'accessibility.defeating_enemy')
+  setAria('.sector-selection', 'accessibility.sector_selection')
+  setAria('#previous-sector', 'accessibility.previous_sector')
+  setAria('#next-sector', 'accessibility.next_sector')
+  setAria('#previous-milestone-sector', 'accessibility.previous_milestone_sector')
+  setAria('#next-milestone-sector', 'accessibility.next_milestone_sector')
+  const cheatOutputElement = document.querySelector('#cheat-output')
+  if (cheatOutputElement) cheatOutputElement.textContent = t('cheat.prompt')
+  const cheatCommandInput = document.querySelector('#cheat-input')
+  if (cheatCommandInput) cheatCommandInput.placeholder = t('cheat.placeholder')
   const sections = settingsPanel.querySelectorAll('.settings-section')
   const sectionKeys = ['settings.graphics', 'settings.gameplay', 'settings.sound']
   sectionKeys.forEach((key, index) => { if (sections[index]) sections[index].querySelector('h3').textContent = t(key) })
@@ -607,15 +668,18 @@ function legacyFormatCurrency(currency, amount) {
 function completeFinishedResearches() {
   const now = Date.now()
   let changed = false
+  const completedResearches = []
   for (let index = 0; index < researchState.unlockedSlots; index += 1) {
     const slot = researchState.slots[index]
     if (!slot || (RESEARCH_CONFIG.durationsEnabled && slot.completesAt > now)) continue
     const research = getResearchById(slot.researchId)
     researchState.levels[slot.researchId] = Math.min(getResearchLevel(slot.researchId) + 1, research.maxLevel)
     researchState.slots[index] = null
+    completedResearches.push(research.name)
     changed = true
   }
   if (changed) saveResearchState()
+  if (completedResearches.length) setLabMessage(completedResearches.map((research) => t('cheat.research_completed', { research })).join(' '))
   return changed
 }
 
@@ -638,15 +702,15 @@ function renderResearchLab() {
       const duration = getResearchDuration(research, slot.level)
       const remaining = Math.max(0, slot.completesAt - now)
       const progress = THREE.MathUtils.clamp(1 - remaining / duration, 0, 1) * 100
-      return `<article class="research-slot active"><span>SLOT ${slotNumber}</span><strong>${research.name} · Lv. ${slot.level + 1}</strong><div class="research-progress"><i style="width:${progress}%"></i></div><small>${formatDuration(remaining)} remaining</small></article>`
+      return `<article class="research-slot active"><span>${t('research.slot', { slot: slotNumber })}</span><strong>${research.name} · ${t('weapon.level', { level: slot.level + 1 })}</strong><div class="research-progress"><i style="width:${progress}%"></i></div><small>${t('research.remaining', { duration: formatDuration(remaining) })}</small></article>`
     }
-    if (slotNumber <= researchState.unlockedSlots) return `<article class="research-slot"><span>SLOT ${slotNumber}</span><strong>AVAILABLE</strong><small>Select a research below.</small></article>`
+    if (slotNumber <= researchState.unlockedSlots) return `<article class="research-slot"><span>${t('research.slot', { slot: slotNumber })}</span><strong>${t('research.available')}</strong><small>${t('research.select_below')}</small></article>`
     const unlock = RESEARCH_CONFIG.slotUnlocks.find((entry) => entry.slot === slotNumber)
     const sectorUnlocked = !unlock.requirements?.minSector || isResearchSectorUnlocked(unlock.requirements.minSector)
     const canAfford = unlock.cost.currency === 'cash' ? cash >= unlock.cost.amount : chronoshards >= unlock.cost.amount
     const disabled = sectorUnlocked && canAfford ? '' : 'disabled'
-    const requirement = sectorUnlocked ? `Unlock for ${formatCurrency(unlock.cost.currency, unlock.cost.amount)}` : `Unlock Sector ${formatSectorNumber(unlock.requirements.minSector)} research in Milestones`
-    return `<article class="research-slot locked"><span>SLOT ${slotNumber}</span><strong>LOCKED</strong><button data-unlock-slot="${slotNumber}" type="button" ${disabled}>${requirement}</button></article>`
+    const requirement = sectorUnlocked ? t('research.unlock_for', { cost: formatCurrency(unlock.cost.currency, unlock.cost.amount) }) : t('research.unlock_sector', { sector: formatSectorNumber(unlock.requirements.minSector) })
+    return `<article class="research-slot locked"><span>${t('research.slot', { slot: slotNumber })}</span><strong>${t('research.locked')}</strong><button data-unlock-slot="${slotNumber}" type="button" ${disabled}>${requirement}</button></article>`
   }).join('') : ''
 
   const researchesByCategory = new Map()
@@ -682,10 +746,10 @@ function renderResearchLab() {
     const buttonState = lockReason || active || full || noAvailableSlot
       ? 'research-locked'
       : canAfford ? 'research-affordable' : 'research-unaffordable'
-    const status = full ? 'MAX LEVEL' : active ? 'IN PROGRESS' : lockReason || (freeResearch ? 'FREE RESEARCH ENABLED' : `Cost ${formatCurrency(research.cost.currency, cost)}${RESEARCH_CONFIG.durationsEnabled ? ` · ${formatDuration(duration)}` : ''}`)
-    return `<article class="research-card"><div><span class="research-level">LV. ${level}/${research.maxLevel}</span><h4>${research.name}</h4><p>${research.description}</p><p class="research-effect">${formatResearchEffect(research, level)} → ${formatResearchEffect(research, Math.min(level + 1, research.maxLevel))}</p><small>${status}</small></div><button class="${buttonState}" data-start-research="${research.id}" type="button" ${disabled ? 'disabled' : ''}>${full ? 'MAXED' : 'RESEARCH'}</button></article>`
+    const status = full ? t('research.max_level') : active ? t('research.in_progress') : lockReason || (freeResearch ? t('research.free_enabled') : t('research.cost', { cost: `${formatCurrency(research.cost.currency, cost)}${RESEARCH_CONFIG.durationsEnabled ? ` · ${formatDuration(duration)}` : ''}` }))
+    return `<article class="research-card"><div><span class="research-level">${t('weapon.level', { level })}/${research.maxLevel}</span><h4>${research.name}</h4><p>${research.description}</p><p class="research-effect">${formatResearchEffect(research, level)} → ${formatResearchEffect(research, Math.min(level + 1, research.maxLevel))}</p><small>${status}</small></div><button class="${buttonState}" data-start-research="${research.id}" type="button" ${disabled ? 'disabled' : ''}>${full ? t('research.maxed') : t('research.start')}</button></article>`
     }).join('')}</div></section>`
-  }).join('') : '<p class="research-empty">No research names match your search.</p>'
+  }).join('') : `<p class="research-empty">${t('research.no_search_results')}</p>`
 }
 
 function startResearch(researchId) {
@@ -712,7 +776,7 @@ function startResearch(researchId) {
     }
   }
   saveResearchState()
-  setLabMessage(RESEARCH_CONFIG.durationsEnabled ? `${research.name} research started in Slot ${emptySlot + 1}.` : `${research.name} upgraded to Level ${level + 1}.`)
+  setLabMessage(RESEARCH_CONFIG.durationsEnabled ? t('research.started', { research: research.name, slot: emptySlot + 1 }) : t('research.upgraded', { research: research.name, level: level + 1 }))
   renderResearchLab()
 }
 
@@ -726,7 +790,7 @@ function unlockResearchSlot(slotNumber) {
   else updateChronoshards(-unlock.cost.amount)
   researchState.unlockedSlots = slotNumber
   saveResearchState()
-  setLabMessage(`Research Slot ${slotNumber} unlocked.`)
+  setLabMessage(t('research.slot_unlocked', { slot: slotNumber }))
   renderResearchLab()
 }
 
@@ -815,13 +879,13 @@ function showFeatureLockToast(button, message) {
 
 function getFeatureUnlockMessage(feature) {
   const unlock = RESEARCH_CONFIG.featureUnlocks[feature]
-  if (getUnlockedSectorIndex() + 1 < unlock.minSector) return `You need to reach Sector ${formatSectorNumber(unlock.minSector)}.`
+  if (getUnlockedSectorIndex() + 1 < unlock.minSector) return t('cheat.feature_sector', { sector: formatSectorNumber(unlock.minSector) })
   if (unlock.requiredMilestone && !milestoneState.claimed.includes(unlock.requiredMilestone)) {
     const milestone = MILESTONES.find((entry) => entry.id === unlock.requiredMilestone)
-    if (milestone) return `You need to collect ${milestone.cells} Cells in Sector ${formatSectorNumber(milestone.sector)}.`
+    if (milestone) return t('cheat.feature_cells', { cells: milestone.cells, sector: formatSectorNumber(milestone.sector) })
   }
-  if (chronoshards < unlock.chronoshardCost) return `You need ✦ ${unlock.chronoshardCost} Chronoshards.`
-  return 'This system is not available yet.'
+  if (chronoshards < unlock.chronoshardCost) return t('cheat.feature_chronoshards', { amount: unlock.chronoshardCost })
+  return t('cheat.feature_unavailable')
 }
 
 function tryUnlockFeature(feature, button) {
@@ -835,10 +899,10 @@ function renderFeatureUnlockButtons() {
     const unlock = RESEARCH_CONFIG.featureUnlocks[feature]
     const unlocked = featureUnlocks[feature]
     const sectorReady = getUnlockedSectorIndex() + 1 >= unlock.minSector && (!unlock.requiredMilestone || milestoneState.claimed.includes(unlock.requiredMilestone))
-    const name = feature === 'researchLab' ? 'RESEARCH LAB' : feature === 'buildingSystem' ? 'BUILDING SYSTEM' : 'WEAPONRY'
+    const name = feature === 'researchLab' ? t('menu.research_lab') : feature === 'buildingSystem' ? t('menu.buildings') : t('menu.weaponry')
     button.className = `menu-system-button ${unlocked ? 'is-unlocked' : sectorReady ? 'is-unlockable' : 'is-locked'}${button.classList.contains('is-active') ? ' is-active' : ''}`
     button.disabled = false
-    button.querySelector('.menu-button-label').textContent = unlocked ? name : sectorReady ? `UNLOCK ${name} · ✦ ${unlock.chronoshardCost}` : `${name} · SECTOR ${formatSectorNumber(unlock.minSector)}`
+    button.querySelector('.menu-button-label').textContent = unlocked ? name : sectorReady ? t('menu.unlock_feature', { feature: name, cost: unlock.chronoshardCost }) : t('menu.feature_sector', { feature: name, sector: formatSectorNumber(unlock.minSector) })
     const lockOverlay = button.querySelector('.menu-button-lock')
     lockOverlay.hidden = unlocked || !shouldShowCompactSystemLocks()
     lockOverlay.innerHTML = sectorReady
@@ -885,7 +949,7 @@ function runSandboxCommand(argumentsList) {
   const [action, value] = argumentsList
   if (!action) {
     startSandbox()
-    setCheatOutput('Sandbox Sector I started. Use sandbox [sector], sandbox simulate [cell|enemies|all], or sandbox spawn [enemy] [count].')
+    setCheatOutput(t('cheat.sandbox_started'))
     return
   }
   const sectorNumber = Number(action)
@@ -896,20 +960,20 @@ function runSandboxCommand(argumentsList) {
       applyDifficulty()
       updateHud()
     }
-    setCheatOutput(`Sandbox difficulty set to Sector ${formatSectorNumber(sandboxState.sectorIndex + 1)}. Spawn simulation remains unchanged.`)
+    setCheatOutput(t('cheat.sandbox_sector', { sector: formatSectorNumber(sandboxState.sectorIndex + 1) }))
     return
   }
   if (!sandboxState) {
-    setCheatOutput('Start Sandbox first with: sandbox')
+    setCheatOutput(t('cheat.sandbox_start_first'))
     return
   }
   if (action === 'simulate') {
     if (!['cell', 'enemies', 'all'].includes(value)) {
-      setCheatOutput('Usage: sandbox simulate [cell|enemies|all]')
+      setCheatOutput(t('cheat.sandbox_simulate_usage'))
       return
     }
     sandboxState.simulation = value === 'all' ? new Set(['cell', 'enemies', 'boosters']) : new Set([value])
-    setCheatOutput(`Sandbox ${value} simulation started for Sector ${formatSectorNumber(sandboxState.sectorIndex + 1)}.`)
+    setCheatOutput(t('cheat.sandbox_simulation', { type: value, sector: formatSectorNumber(sandboxState.sectorIndex + 1) }))
     return
   }
   if (action === 'spawn') {
@@ -917,30 +981,30 @@ function runSandboxCommand(argumentsList) {
     const requestedCount = Number(argumentsList[2] ?? 1)
     const count = Number.isInteger(requestedCount) ? THREE.MathUtils.clamp(requestedCount, 1, 100) : 0
     if (!enemyType || !count) {
-      setCheatOutput(`Usage: sandbox spawn [${Object.keys(OBSTACLE_TYPES).join(', ')}] [count]`)
+      setCheatOutput(t('cheat.sandbox_spawn_usage', { enemies: Object.keys(OBSTACLE_TYPES).join(', ') }))
       return
     }
     for (let index = 0; index < count; index += 1) createObstacle(randomArenaPosition(GAME.obstacleMinDistance), enemyType)
-    setCheatOutput(`Spawned ${count} ${enemyType}${count === 1 ? '' : ' enemies'}.`)
+    setCheatOutput(t('cheat.sandbox_spawned', { count, enemy: enemyType, plural: count === 1 ? '' : ' enemies' }))
     return
   }
-  setCheatOutput('Usage: sandbox [sector] | sandbox simulate [cell|enemies|all] | sandbox spawn [enemy] [count]')
+  setCheatOutput(t('cheat.sandbox_usage'))
 }
 
 function runGainArtifactCommand(argumentsList) {
   if (argumentsList.length < 2) {
-    setCheatOutput('Usage: gain_artifact <artifact_name> <stack>')
+    setCheatOutput(t('cheat.artifact_usage'))
     return
   }
   const stackCount = Number(argumentsList.at(-1))
   const artifactName = argumentsList.slice(0, -1).join('-').replaceAll('_', '-').toLowerCase()
   const artifact = ARTIFACT_CONFIG.artifacts.find((entry) => entry.id.toLowerCase() === artifactName || entry.name.replaceAll(' ', '-').toLowerCase() === artifactName)
   if (!artifact) {
-    setCheatOutput(`Unknown Artifact: ${argumentsList.slice(0, -1).join(' ')}`)
+    setCheatOutput(t('cheat.artifact_unknown', { artifact: argumentsList.slice(0, -1).join(' ') }))
     return
   }
   if (!Number.isInteger(stackCount) || stackCount <= 0 || stackCount > 10_000) {
-    setCheatOutput('Stack must be a whole number from 1 to 10,000.')
+    setCheatOutput(t('cheat.artifact_stack_range'))
     return
   }
   if (artifact.repeatable) {
@@ -948,11 +1012,11 @@ function runGainArtifactCommand(argumentsList) {
     if (!artifactState.unlocked.includes(artifact.id)) artifactState.unlocked = [...artifactState.unlocked, artifact.id]
     saveArtifactState()
     renderArtifacts()
-    setCheatOutput(`Granted ${stackCount} ${artifact.name} stack${stackCount === 1 ? '' : 's'} (${getArtifactStackCount(artifact)} total).`)
+    setCheatOutput(t('cheat.artifact_granted', { count: stackCount, artifact: artifact.name, stackWord: stackCount === 1 ? 'stack' : 'stacks', total: getArtifactStackCount(artifact) }))
     return
   }
   if (!artifactState.unlocked.includes(artifact.id)) unlockArtifact(artifact)
-  setCheatOutput(`${artifact.name} is a unique Artifact and is now unlocked.`)
+  setCheatOutput(t('cheat.artifact_unique', { artifact: artifact.name }))
 }
 
 function runCheatCommand(rawCommand) {
@@ -970,18 +1034,18 @@ function runCheatCommand(rawCommand) {
   const amount = Number(argument)
   if (command === CHEAT_CONFIG.commands.cash || command === CHEAT_CONFIG.commands.chrono) {
     if (!Number.isFinite(amount) || amount <= 0) {
-      setCheatOutput(`Usage: ${command} [positive amount]`)
+      setCheatOutput(t('cheat.amount_usage', { command }))
       return
     }
     if (command === CHEAT_CONFIG.commands.cash) updateCash(amount)
     else updateChronoshards(amount)
-    setCheatOutput(`Granted ${command === CHEAT_CONFIG.commands.cash ? '$' : '✦ '}${amount.toLocaleString()}.`)
+    setCheatOutput(t('cheat.amount_granted', { amount: `${command === CHEAT_CONFIG.commands.cash ? '$' : '✦ '}${amount.toLocaleString()}` }))
     return
   }
   if (command === CHEAT_CONFIG.commands.freeResearch) {
     freeResearch = true
     renderResearchLab()
-    setCheatOutput('Free research enabled for this session.')
+    setCheatOutput(t('cheat.free_research'))
     return
   }
   if (command === CHEAT_CONFIG.commands.unlockSectors) {
@@ -998,12 +1062,12 @@ function runCheatCommand(rawCommand) {
     renderSectorOptions()
     renderResearchLab()
     renderMilestones()
-    setCheatOutput(`All sectors and Ascension rewards unlocked.${grantedCash || grantedChronoshards ? ` +$${formatCompactNumber(grantedCash)} · +✦ ${formatCompactNumber(grantedChronoshards)}` : ''}`)
+    setCheatOutput(t('cheat.sectors_unlocked', { rewards: grantedCash || grantedChronoshards ? ` +$${formatCompactNumber(grantedCash)} · +✦ ${formatCompactNumber(grantedChronoshards)}` : '' }))
     return
   }
   if (command === CHEAT_CONFIG.commands.clearSave) {
     if (!CHEAT_CONFIG.clearSaveTargets.includes(argument)) {
-      setCheatOutput(`Usage: clear_save [${CHEAT_CONFIG.clearSaveTargets.join(', ')}]`)
+      setCheatOutput(t('cheat.clear_usage', { targets: CHEAT_CONFIG.clearSaveTargets.join(', ') }))
       return
     }
     if (argument === 'currency' || argument === 'all') clearCurrencySave()
@@ -1014,10 +1078,10 @@ function runCheatCommand(rawCommand) {
     if (argument === 'weapons' || argument === 'all') clearWeaponrySave()
     if (argument === 'artifacts' || argument === 'all') clearArtifactSave()
     if (argument === 'all') clearFeatureUnlocks()
-    setCheatOutput(`Cleared ${argument.replace('_', ' ')} save data.`)
+    setCheatOutput(t('cheat.cleared', { target: argument.replace('_', ' ') }))
     return
   }
-  setCheatOutput(`Unknown command: ${command}`)
+  setCheatOutput(t('cheat.unknown_command', { command }))
 }
 
 function getCurrentDifficulty() {
@@ -1097,11 +1161,11 @@ function clearArtifactSave() {
 
 function getArtifactRequirementText(artifact) {
   const { requirement } = artifact
-  if (requirement.type === 'sector-high-score') return `Reach ${requirement.cells} Cells in Sector ${formatSectorNumber(requirement.sector)}.`
-  if (requirement.type === 'milestone-claimed') return `Claim the Sector ${formatSectorNumber(requirement.sector)} · ${requirement.cells} Cells Ascension reward.`
-  if (requirement.type === 'anomaly-run-success') return `Complete a unique Anomaly Run with ${requirement.cells} Cells. Each success grants one stack.`
-  if (requirement.type === 'hidden-world-map') return 'Hidden condition.'
-  return 'Complete this artifact achievement.'
+  if (requirement.type === 'sector-high-score') return t('artifact.requirement_score', { cells: requirement.cells, sector: formatSectorNumber(requirement.sector) })
+  if (requirement.type === 'milestone-claimed') return t('artifact.requirement_milestone', { sector: formatSectorNumber(requirement.sector), cells: requirement.cells })
+  if (requirement.type === 'anomaly-run-success') return t('artifact.requirement_anomaly', { cells: requirement.cells })
+  if (requirement.type === 'hidden-world-map') return t('artifact.requirement_hidden')
+  return t('artifact.requirement_default')
 }
 
 function isArtifactRequirementMet(artifact) {
@@ -1162,8 +1226,9 @@ function renderArtifacts() {
   artifactGrid.innerHTML = ARTIFACT_CONFIG.artifacts.map((artifact) => {
     const unlocked = artifactState.unlocked.includes(artifact.id)
     const stackCount = getArtifactStackCount(artifact)
-    const stackBadge = unlocked && artifact.repeatable ? `<b class="artifact-stack-count" aria-label="${stackCount} stacks">${stackCount}</b>` : ''
-    return `<button class="artifact-card ${unlocked ? 'is-unlocked' : 'is-locked'}" data-artifact-id="${artifact.id}" type="button"><span class="artifact-icon-wrap"><img src="${getArtifactAsset(artifact.icon)}" alt="">${stackBadge}</span><span>${unlocked ? artifact.name : 'UNKNOWN ARTIFACT'}</span><small>${unlocked ? artifact.repeatable ? `${stackCount} STACK${stackCount === 1 ? '' : 'S'}` : 'UNLOCKED' : 'LOCKED'}</small></button>`
+    const stackBadge = unlocked && artifact.repeatable ? `<b class="artifact-stack-count" aria-label="${t('artifact.stacks', { count: stackCount })}">${stackCount}</b>` : ''
+    const stackLabel = stackCount === 1 ? t('artifact.stack', { count: stackCount }) : t('artifact.stacks_label', { count: stackCount })
+    return `<button class="artifact-card ${unlocked ? 'is-unlocked' : 'is-locked'}" data-artifact-id="${artifact.id}" type="button"><span class="artifact-icon-wrap"><img src="${getArtifactAsset(artifact.icon)}" alt="">${stackBadge}</span><span>${unlocked ? artifact.name : t('artifact.unknown')}</span><small>${unlocked ? artifact.repeatable ? stackLabel : t('weapon.unlocked') : t('artifact.locked')}</small></button>`
   }).join('')
 }
 
@@ -1172,8 +1237,9 @@ function openArtifactDetail(artifactId) {
   if (!artifact) return
   const unlocked = artifactState.unlocked.includes(artifact.id)
   const stackCount = getArtifactStackCount(artifact)
-  const buffText = artifact.repeatable && unlocked ? `${artifact.buff.label} per stack · ${stackCount} stacks = +${Math.round(artifact.buff.amount * stackCount * 100)}% Chronoshards earned` : artifact.buff.label
-  artifactDetailContent.innerHTML = `<img class="artifact-detail-icon ${unlocked ? '' : 'is-locked'}" src="${getArtifactAsset(artifact.icon)}" alt=""><p class="eyebrow">${unlocked ? artifact.repeatable ? `${stackCount} DARK CORE STACK${stackCount === 1 ? '' : 'S'}` : 'ARTIFACT ACQUIRED' : 'ARTIFACT LOCKED'}</p><h2>${unlocked ? artifact.name : 'UNKNOWN ARTIFACT'}</h2><div class="artifact-detail-section"><strong>TO ACQUIRE</strong><p>${getArtifactRequirementText(artifact)}</p></div><div class="artifact-detail-section"><strong>PERMANENT BUFF</strong><p>${buffText}</p></div>`
+  const buffText = artifact.repeatable && unlocked ? t('artifact.buff_per_stack', { buff: artifact.buff.label, count: stackCount, percent: Math.round(artifact.buff.amount * stackCount * 100) }) : artifact.buff.label
+  const stackHeading = stackCount === 1 ? t('artifact.dark_core_stack', { count: stackCount }) : t('artifact.dark_core_stacks', { count: stackCount })
+  artifactDetailContent.innerHTML = `<img class="artifact-detail-icon ${unlocked ? '' : 'is-locked'}" src="${getArtifactAsset(artifact.icon)}" alt=""><p class="eyebrow">${unlocked ? artifact.repeatable ? stackHeading : t('artifact.acquired') : t('artifact.locked')}</p><h2>${unlocked ? artifact.name : t('artifact.unknown')}</h2><div class="artifact-detail-section"><strong>${t('artifact.to_acquire')}</strong><p>${getArtifactRequirementText(artifact)}</p></div><div class="artifact-detail-section"><strong>${t('artifact.permanent_buff')}</strong><p>${buffText}</p></div>`
   artifactDetailModal.classList.remove('hidden')
 }
 
@@ -1396,25 +1462,25 @@ function renderWeaponHud() {
 }
 function renderWeaponry() {
   weaponryChronoshards.textContent = `✦ ${formatCompactNumber(chronoshards)}`
-  buyWeaponButton.textContent = `BUY WEAPON · ✦ ${formatCompactNumber(WEAPON_CONFIG.purchaseCost)}`
-  buyWeaponsFiveButton.textContent = `BUY WEAPON x5 · ✦ ${formatCompactNumber(WEAPON_CONFIG.purchaseCost * 5)}`
+  buyWeaponButton.textContent = t('weapon.buy_with_cost', { cost: formatCompactNumber(WEAPON_CONFIG.purchaseCost) })
+  buyWeaponsFiveButton.textContent = t('weapon.buy_five_with_cost', { cost: formatCompactNumber(WEAPON_CONFIG.purchaseCost * 5) })
   buyWeaponButton.disabled = chronoshards < WEAPON_CONFIG.purchaseCost
   buyWeaponsFiveButton.disabled = chronoshards < WEAPON_CONFIG.purchaseCost * 5
   const luckyFindChance = getLuckyFindChance()
   weaponLuckyFindChance.hidden = luckyFindChance <= 0
-  weaponLuckyFindChance.textContent = `LUCKY FIND · ${Math.round(luckyFindChance * 100)}% · 2 CARDS`
+  weaponLuckyFindChance.textContent = t('weapon.lucky_find_cards', { chance: Math.round(luckyFindChance * 100) })
   const weaponSlots = getWeaponSlots()
   weaponSlotCount.textContent = String(weaponState.loadout.length)
   weaponSlotCount.classList.toggle('is-full', weaponState.loadout.length >= weaponSlots)
-  weaponLoadout.innerHTML = Array.from({ length: getWeaponSlots() }, (_, index) => { const id = weaponState.loadout[index]; return `<button data-select-weapon-slot="${index}" type="button" class="${index === weaponState.selected ? 'selected' : ''}">${id ? WEAPON_CONFIG.weapons[id].name : 'EMPTY SLOT'}</button>` }).join('')
-  weaponCardList.innerHTML = Object.entries(WEAPON_CONFIG.weapons).map(([id, weapon]) => { const entry = getWeaponEntry(id); const art = `<img class="asset-card-art" src="${getWeaponAsset(id)}" alt="">`; if (!entry) return `<article class="weapon-card locked">${art}<strong>${weapon.name}</strong><small>Not collected yet</small></article>`; const required = getWeaponRequirement(entry.level); return `<article class="weapon-card ${weaponState.loadout.includes(id) ? 'selected' : ''}">${art}<strong>${weapon.name} · LV. ${entry.level}</strong><small>${weapon.description}</small><em>${entry.level >= 5 ? 'MAX LEVEL' : `${entry.copies}/${required} copies to Lv. ${entry.level + 1}`}</em><button data-toggle-weapon="${id}" type="button">${getWeaponLoadoutActionLabel(id)}</button></article>` }).join('')
+  weaponLoadout.innerHTML = Array.from({ length: getWeaponSlots() }, (_, index) => { const id = weaponState.loadout[index]; return `<button data-select-weapon-slot="${index}" type="button" class="${index === weaponState.selected ? 'selected' : ''}">${id ? WEAPON_CONFIG.weapons[id].name : t('weapon.empty_slot')}</button>` }).join('')
+  weaponCardList.innerHTML = Object.entries(WEAPON_CONFIG.weapons).map(([id, weapon]) => { const entry = getWeaponEntry(id); const art = `<img class="asset-card-art" src="${getWeaponAsset(id)}" alt="">`; if (!entry) return `<article class="weapon-card locked">${art}<strong>${weapon.name}</strong><small>${t('weapon.not_collected')}</small></article>`; const required = getWeaponRequirement(entry.level); return `<article class="weapon-card ${weaponState.loadout.includes(id) ? 'selected' : ''}">${art}<strong>${weapon.name} · ${t('weapon.level', { level: entry.level })}</strong><small>${weapon.description}</small><em>${entry.level >= 5 ? t('weapon.max_level') : t('weapon.copy_progress_short', { copies: entry.copies, required, level: entry.level + 1 })}</em><button data-toggle-weapon="${id}" type="button">${getWeaponLoadoutActionLabel(id)}</button></article>` }).join('')
   renderWeaponHud()
 }
 function renderWeaponReveal() {
   const result = weaponRevealQueue[weaponRevealIndex]
   if (!result) return
   weaponRevealModal.dataset.revealType = result.type
-  weaponRevealCount.textContent = `WEAPON ${weaponRevealIndex + 1} / ${weaponRevealQueue.length}`
+  weaponRevealCount.textContent = t('weapon.number', { current: weaponRevealIndex + 1, total: weaponRevealQueue.length })
   weaponRevealStatus.textContent = result.status
   weaponRevealArt.src = getWeaponAsset(result.id)
   weaponRevealArt.alt = result.name
@@ -1439,10 +1505,10 @@ function awardWeaponCard(id) {
   if (entry.copies >= requirement && entry.level < 5) {
     entry.copies -= requirement
     entry.level += 1
-    return { id, name: weapon.name, type: 'level-up', status: `LEVEL UP · LV. ${entry.level}`, detail: `Upgraded to Level ${entry.level}.` }
+    return { id, name: weapon.name, type: 'level-up', status: t('weapon.level_up', { level: entry.level }), detail: t('weapon.upgraded_level', { level: entry.level }) }
   }
   if (entry.level >= 5) return { id, name: weapon.name, type: 'max-copy', status: t('weapon.max_level_copy'), detail: t('weapon.max_level_detail') }
-  return { id, name: weapon.name, type: 'copy', status: `COPY · LV. ${entry.level}`, detail: `${entry.copies}/${requirement} copies toward Level ${entry.level + 1}.` }
+  return { id, name: weapon.name, type: 'copy', status: t('weapon.copy', { level: entry.level }), detail: t('weapon.copy_progress', { copies: entry.copies, required: requirement, level: entry.level + 1 }) }
 }
 function getLuckyFindChance() {
   return THREE.MathUtils.clamp(getResearchStatBonus('luckyFindChance'), 0, 1)
@@ -1465,10 +1531,10 @@ function buyWeapons(quantity) {
     results.push({
       ...secondCard,
       type: 'lucky-find',
-      status: 'LUCKY FIND · 2 CARDS',
+      status: t('weapon.lucky_find_double'),
       detail: firstCard.type === 'unlock'
-        ? 'Unlocked at Level 1 and received an extra copy.'
-        : `Received 2 cards. ${secondCard.detail}`,
+        ? t('weapon.lucky_find_unlock')
+        : t('weapon.lucky_find_received', { detail: secondCard.detail }),
     })
   }
   weaponRevealQueue = results
@@ -1905,7 +1971,7 @@ function showDeathEnemyPreview(cause) {
   deathPreviewEnemy = createSpikedObstacle(material, type)
   deathPreviewEnemy.rotation.set(0.25, 0, -0.16)
   deathPreviewScene.add(deathPreviewEnemy)
-  deathKillerCanvas.setAttribute('aria-label', `${type} enemy 3D model`)
+  deathKillerCanvas.setAttribute('aria-label', t('accessibility.enemy_model', { enemy: type }))
   deathKillerPreview.hidden = false
   menuContent.classList.add('is-death-screen')
   return true
@@ -1956,8 +2022,8 @@ function renderBuildingDraft() {
   const offers = getBuildingUnlockOffers(); const unlockCost = getBuildingUnlockCost(); const canAffordUnlock = chronoshards >= unlockCost
   buildingDraftChronoshards.textContent = `✦ ${formatCompactNumber(chronoshards)}`
   buildingDraftList.innerHTML = offers.length
-    ? `<p class="building-draft-copy">CHOOSE 1 OF ${offers.length} · NEXT UNLOCK ✦ ${formatCompactNumber(unlockCost)}</p>${offers.map((type) => { const config = BUILDING_CONFIG.types[type]; return `<article class="building-card building-offer"><img class="asset-card-art" src="${getBuildingAsset(type)}" alt=""><strong>${config.name}</strong><small>Permanent building unlock</small><button data-building-offer="${type}" ${canAffordUnlock ? '' : 'disabled'}>UNLOCK · ✦ ${formatCompactNumber(unlockCost)}</button></article>` }).join('')}`
-    : '<p class="building-draft-copy">ALL BUILDINGS UNLOCKED</p>'
+    ? `<p class="building-draft-copy">${t('building.choose_offer', { count: offers.length, cost: formatCompactNumber(unlockCost) })}</p>${offers.map((type) => { const config = BUILDING_CONFIG.types[type]; return `<article class="building-card building-offer"><img class="asset-card-art" src="${getBuildingAsset(type)}" alt=""><strong>${config.name}</strong><small>${t('building.permanent_unlock')}</small><button data-building-offer="${type}" ${canAffordUnlock ? '' : 'disabled'}>${t('building.unlock_cost', { cost: formatCompactNumber(unlockCost) })}</button></article>` }).join('')}`
+    : `<p class="building-draft-copy">${t('building.all_unlocked')}</p>`
 }
 function getBuildingSlotLimit() { return 3 + getResearchLevel('building-slots') }
 function getBuildingTypeLevel(type) { return 1 + buildingState.placed.filter((building) => building.type === type).reduce((total, building) => total + Object.values(building.upgrades).reduce((sum, level) => sum + level, 0), 0) }
@@ -1986,7 +2052,7 @@ function renderBuildGrid() {
     const existing = buildingState.placed.find((entry) => entry.x === x && entry.z === z)
     const label = existing ? `<span class="build-name" data-build-x="${x}" data-build-z="${z}">${BUILDING_CONFIG.types[existing.type].name}</span>` : ''
     const canBuild = !existing && !atBuildingLimit
-    return `<button class="build-site ${existing ? 'occupied' : ''}" data-build-x="${x}" data-build-z="${z}" type="button" ${canBuild || existing ? '' : 'disabled'}>${existing ? 'UPGRADE' : atBuildingLimit ? 'SLOT LIMIT' : `$${cost}`}</button>${label}`
+    return `<button class="build-site ${existing ? 'occupied' : ''}" data-build-x="${x}" data-build-z="${z}" type="button" ${canBuild || existing ? '' : 'disabled'}>${existing ? t('building.upgrade') : atBuildingLimit ? t('building.slot_limit') : `$${cost}`}</button>${label}`
   }).join('')
   buildGridUi.classList.remove('hidden')
   requestAnimationFrame(updateBuildGridPositions)
@@ -2044,16 +2110,16 @@ function placeBuildingAt(x, z) {
 function renderBuildings() {
   buildingCash.textContent = `$${formatCompactNumber(cash)}`; buildingChronoshards.textContent = `✦ ${formatCompactNumber(chronoshards)}`; buildingSlots.textContent = `${buildingState.placed.length}/${getBuildingSlotLimit()}`
   buildingList.innerHTML = buildingState.unlocked.length
-    ? buildingState.unlocked.map((type) => `<article class="building-card"><img class="asset-card-art" src="${getBuildingAsset(type)}" alt=""><strong>${BUILDING_CONFIG.types[type].name}</strong><small>Build cost: $${formatCompactNumber(buildingCost(type))}</small><span class="building-unlocked-state">UNLOCKED</span></article>`).join('')
-    : '<p class="building-draft-copy">NO BUILDINGS UNLOCKED YET</p>'
+    ? buildingState.unlocked.map((type) => `<article class="building-card"><img class="asset-card-art" src="${getBuildingAsset(type)}" alt=""><strong>${BUILDING_CONFIG.types[type].name}</strong><small>${t('building.build_cost', { cost: formatCompactNumber(buildingCost(type)) })}</small><span class="building-unlocked-state">${t('building.unlocked')}</span></article>`).join('')
+    : `<p class="building-draft-copy">${t('building.none_unlocked')}</p>`
   renderBuildingDraft()
-  buildOptions.innerHTML = buildingState.unlocked.map((type) => `<button data-select-building="${type}" class="${selectedBuildingType === type ? 'selected' : ''}" type="button" aria-label="${BUILDING_CONFIG.types[type].name} · Level ${getBuildingTypeLevel(type)}"><img src="${getBuildingAsset(type)}" alt=""><small>LVL. ${getBuildingTypeLevel(type)}</small></button>`).join('')
-  buildStatus.textContent = isMobileInputMode() ? `${buildingState.placed.length}/${getBuildingSlotLimit()}` : `BUILD MODE · SLOTS ${buildingState.placed.length}/${getBuildingSlotLimit()}`
+  buildOptions.innerHTML = buildingState.unlocked.map((type) => `<button data-select-building="${type}" class="${selectedBuildingType === type ? 'selected' : ''}" type="button" aria-label="${BUILDING_CONFIG.types[type].name} · ${t('building.level', { level: getBuildingTypeLevel(type) })}"><img src="${getBuildingAsset(type)}" alt=""><small>${t('building.level', { level: getBuildingTypeLevel(type) })}</small></button>`).join('')
+  buildStatus.textContent = isMobileInputMode() ? `${buildingState.placed.length}/${getBuildingSlotLimit()}` : t('building.build_mode_slots', { used: buildingState.placed.length, total: getBuildingSlotLimit() })
   renderBuildGrid()
 }
 function enterBuildMode() { if (!buildingState.unlocked.length) return; buildCameraCenter.set(0, 0); buildCameraHeight = 28; buildMode = true; selectedBuildingType = buildingState.unlocked[0]; setBuildModeEntityVisibility(true); overlay.classList.add('hidden'); buildBar.classList.remove('hidden'); renderBuildings() }
 function exitBuildMode() { buildMode = false; buildNavigationPointers.clear(); buildNavigationPinch = null; selectedBuildingType = null; setBuildModeEntityVisibility(false); buildGridUi.classList.add('hidden'); buildBar.classList.add('hidden'); overlay.classList.remove('hidden'); buildingUpgrade.classList.add('hidden') }
-function openBuildingUpgrade(building) { const config = BUILDING_CONFIG.types[building.type]; buildingUpgrade.innerHTML = `<button class="upgrade-close" data-close-building-upgrade="1" type="button" aria-label="Close upgrade panel">×</button><p class="eyebrow">INSTALLED DEFENSE</p><h3>${config.name}</h3><p class="building-upgrade-summary">Choose an upgrade for this structure.</p><div class="upgrade-grid">${Object.entries(config.upgrades).map(([key, upgrade]) => { const level = building.upgrades[key] ?? 0; const cost = getBuildingUpgradeCost(building, key); return `<button data-upgrade-building="${building.id}" data-upgrade-key="${key}" type="button"><span>${upgrade.name}</span><strong>LV. ${level} → ${level + 1}</strong><small>$${formatCompactNumber(cost)}</small></button>` }).join('')}</div><button data-destroy-building="${building.id}" class="demolish-button" type="button">DEMOLISH · REFUND $${formatCompactNumber(getBuildingRefund(building))}</button>`; buildingUpgrade.classList.remove('hidden') }
+function openBuildingUpgrade(building) { const config = BUILDING_CONFIG.types[building.type]; buildingUpgrade.innerHTML = `<button class="upgrade-close" data-close-building-upgrade="1" type="button" aria-label="${t('building.upgrade')}">×</button><p class="eyebrow">${t('building.installed_defense')}</p><h3>${config.name}</h3><p class="building-upgrade-summary">${t('building.choose_upgrade')}</p><div class="upgrade-grid">${Object.entries(config.upgrades).map(([key, upgrade]) => { const level = building.upgrades[key] ?? 0; const cost = getBuildingUpgradeCost(building, key); return `<button data-upgrade-building="${building.id}" data-upgrade-key="${key}" type="button"><span>${upgrade.name}</span><strong>${t('building.upgrade_level', { current: level, next: level + 1 })}</strong><small>$${formatCompactNumber(cost)}</small></button>` }).join('')}</div><button data-destroy-building="${building.id}" class="demolish-button" type="button">${t('building.demolish_refund', { amount: formatCompactNumber(getBuildingRefund(building)) })}</button>`; buildingUpgrade.classList.remove('hidden') }
 function getBaseBuildingValue(building, key) { const config = BUILDING_CONFIG.types[building.type]; const upgradeKey = key === 'interval' ? 'frequency' : key; const directUpgrade = (config.upgrades[upgradeKey]?.step ?? 0) * (building.upgrades[upgradeKey] ?? 0); const effectivenessUpgrade = key === 'slow' ? (config.upgrades.effectiveness?.step ?? 0) * (building.upgrades.effectiveness ?? 0) : 0; return (config.effect[key] ?? 0) + directUpgrade + effectivenessUpgrade }
 function getOverclockMultiplier(building, key) { if (building.type === 'overclockRelay' || key === 'count') return 1; return 1 + buildingState.placed.filter((relay) => relay.type === 'overclockRelay' && relay.id !== building.id && planarDistance(building, relay) <= getBaseBuildingValue(relay, 'range')).reduce((bonus, relay) => bonus + getBaseBuildingValue(relay, 'effectiveness'), 0) }
 function buildingValue(building, key) { const value = getBaseBuildingValue(building, key); const multiplier = getOverclockMultiplier(building, key); return key === 'interval' || key === 'period' ? value / multiplier : value * multiplier }
@@ -3838,7 +3904,7 @@ function updatePlayerStatusDamage(delta, total) {
     const definition = DAMAGE_TYPES[type]
     if (definition.requiresExposure && !state.exposed) { playerDamageStates.delete(type); continue }
     state.remaining -= delta
-    if (state.remaining <= 0) { playerDamageStates.delete(type); endGame(`${definition.label.toUpperCase()} DAMAGE`); continue }
+    if (state.remaining <= 0) { playerDamageStates.delete(type); endGame(t('status.damage', { status: definition.label.toUpperCase() })); continue }
     if (!activeState || state.remaining / state.maxDuration > activeState.remaining / activeState.maxDuration) activeState = state
   }
   if (!activeState) return null
@@ -4069,7 +4135,7 @@ exitBuildModeButton.addEventListener('click', exitBuildMode)
 buildingDraftModal.addEventListener('click', (event) => { const button = event.target.closest('[data-building-offer]'); if (button) unlockBuildingOffer(button.dataset.buildingOffer) })
 buildBar.addEventListener('click', (event) => { const button = event.target.closest('[data-select-building]'); if (!button) return; selectedBuildingType = button.dataset.selectBuilding; renderBuildings() })
 buildGridUi.addEventListener('click', (event) => { if (buildNavigationClickSuppressed) { buildNavigationClickSuppressed = false; return } const button = event.target.closest('[data-build-x]'); if (button) placeBuildingAt(Number(button.dataset.buildX), Number(button.dataset.buildZ)) })
-buildingUpgrade.addEventListener('click', (event) => { const upgrade = event.target.closest('[data-upgrade-building]'); const destroy = event.target.closest('[data-destroy-building]'); if (event.target.closest('[data-close-building-upgrade]')) { buildingUpgrade.classList.add('hidden'); return } if (destroy) { const building = buildingState.placed.find((entry) => entry.id === destroy.dataset.destroyBuilding); if (!building || !window.confirm(`Demolish ${BUILDING_CONFIG.types[building.type].name}? You will receive a $${formatCompactNumber(getBuildingRefund(building))} refund.`)) return; updateCash(getBuildingRefund(building)); buildingState.placed = buildingState.placed.filter((entry) => entry.id !== building.id); saveBuildings(); syncBuildings(); renderBuildings(); buildingUpgrade.classList.add('hidden'); return } if (upgrade) { const building = buildingState.placed.find((entry) => entry.id === upgrade.dataset.upgradeBuilding); if (!building) return; const cost = getBuildingUpgradeCost(building, upgrade.dataset.upgradeKey); if (cash < cost) return; updateCash(-cost); building.upgrades[upgrade.dataset.upgradeKey] = (building.upgrades[upgrade.dataset.upgradeKey] ?? 0) + 1; building.spent = (building.spent ?? BUILDING_CONFIG.types[building.type].baseCost) + cost; saveBuildings(); syncBuildings(); openBuildingUpgrade(building) } })
+buildingUpgrade.addEventListener('click', (event) => { const upgrade = event.target.closest('[data-upgrade-building]'); const destroy = event.target.closest('[data-destroy-building]'); if (event.target.closest('[data-close-building-upgrade]')) { buildingUpgrade.classList.add('hidden'); return } if (destroy) { const building = buildingState.placed.find((entry) => entry.id === destroy.dataset.destroyBuilding); if (!building || !window.confirm(t('building.demolish_confirm', { building: BUILDING_CONFIG.types[building.type].name, refund: formatCompactNumber(getBuildingRefund(building)) }))) return; updateCash(getBuildingRefund(building)); buildingState.placed = buildingState.placed.filter((entry) => entry.id !== building.id); saveBuildings(); syncBuildings(); renderBuildings(); buildingUpgrade.classList.add('hidden'); return } if (upgrade) { const building = buildingState.placed.find((entry) => entry.id === upgrade.dataset.upgradeBuilding); if (!building) return; const cost = getBuildingUpgradeCost(building, upgrade.dataset.upgradeKey); if (cash < cost) return; updateCash(-cost); building.upgrades[upgrade.dataset.upgradeKey] = (building.upgrades[upgrade.dataset.upgradeKey] ?? 0) + 1; building.spent = (building.spent ?? BUILDING_CONFIG.types[building.type].baseCost) + cost; saveBuildings(); syncBuildings(); openBuildingUpgrade(building) } })
 
 labPanel.addEventListener('click', (event) => {
   const categoryToggle = event.target.closest('[data-toggle-research-category]')

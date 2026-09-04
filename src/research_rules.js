@@ -1,3 +1,6 @@
+import { t } from './localisation.js'
+import { formatSectorNumber } from './sector_format.js'
+
 export function createResearchRules({ config, milestones, getResearchState, getMilestoneState, getBankedCells }) {
   const getResearchById = (researchId) => config.researches.find((research) => research.id === researchId)
   const getResearchLevel = (researchId) => getResearchState().levels[researchId] ?? 0
@@ -23,11 +26,11 @@ export function createResearchRules({ config, milestones, getResearchState, getM
   function getResearchLockReason(research) {
     const requirements = research.requirements ?? {}
     const ascensionMilestone = getAscensionMilestone(research.id)
-    if (ascensionMilestone && !getMilestoneState().debugAscensionsGranted && !isMilestoneUnlocked(research.id)) return `Requires ${ascensionMilestone.cells} Cells in Sector ${formatSectorNumber(ascensionMilestone.sector)}`
-    if (requirements.minBankedCells && getBankedCells() < requirements.minBankedCells) return `Requires ${requirements.minBankedCells} banked cells`
-    if (requirements.researchId && getResearchLevel(requirements.researchId) < 1) return `Requires ${getResearchById(requirements.researchId).name}`
+    if (ascensionMilestone && !getMilestoneState().debugAscensionsGranted && !isMilestoneUnlocked(research.id)) return t('research.requires_sector_cells', { cells: ascensionMilestone.cells, sector: formatSectorNumber(ascensionMilestone.sector) })
+    if (requirements.minBankedCells && getBankedCells() < requirements.minBankedCells) return t('research.requires_banked_cells', { cells: requirements.minBankedCells })
+    if (requirements.researchId && getResearchLevel(requirements.researchId) < 1) return t('research.requires_research', { research: getResearchById(requirements.researchId).name })
     for (const [researchId, level] of Object.entries(requirements.researchLevels ?? {})) {
-      if (getResearchLevel(researchId) < level) return `Requires ${getResearchById(researchId).name} Lv. ${level}`
+      if (getResearchLevel(researchId) < level) return t('research.requires_research_level', { research: getResearchById(researchId).name, level })
     }
     return ''
   }
@@ -58,4 +61,3 @@ export function createResearchRules({ config, milestones, getResearchState, getM
     compareResearchProgression,
   }
 }
-import { formatSectorNumber } from './sector_format.js'
