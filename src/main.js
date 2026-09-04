@@ -29,7 +29,7 @@ import { TIPS } from './tips.js'
 import { MILESTONES } from './milestones.js'
 import { WEAPON_CONFIG } from './weapons_config.js'
 import { ARTIFACT_CONFIG } from './artifact_config.js'
-import { getAvailableLanguages, setLanguage, t } from './localisation.js'
+import { getAvailableLanguages, getPreferredLanguage, setLanguage, t } from './localisation.js'
 import { ARTIFACT_ACHIEVEMENTS, getSteamAchievementStates, unlockSteamAchievementForArtifact } from './steam_achievements.js'
 import { getArtifactAsset, getBuildingAsset, getUiIconAsset, getWeaponAsset } from './asset_catalog.js'
 import { DAMAGE_TYPES } from './damage_types.js'
@@ -238,9 +238,9 @@ const exitGameButton = document.querySelector('#exit-game-button')
 const settingsPanel = document.querySelector('#settings-panel')
 const languageSection = document.createElement('div')
 languageSection.className = 'settings-section'
-languageSection.innerHTML = `<h3>${t('settings.language')}</h3><div class="settings-row"><div><strong>${t('settings.language')}</strong><small>${t('settings.language_help')}</small></div><div class="settings-options" id="language-options"></div></div>`
-settingsPanel.append(languageSection)
-const languageOptions = document.querySelector('#language-options')
+languageSection.innerHTML = `<h3>${t('settings.language')}</h3><div class="settings-row"><div><strong>${t('settings.language')}</strong><small>${t('settings.language_help')}</small></div><select id="language-select" class="language-select" aria-label="${t('settings.language')}"></select></div>`
+settingsPanel.querySelector('.lab-header')?.after(languageSection)
+const languageSelect = document.querySelector('#language-select')
 const steamDisplaySection = IS_STEAM_BUILD ? document.createElement('div') : null
 if (steamDisplaySection) {
   steamDisplaySection.className = 'settings-section'
@@ -370,9 +370,15 @@ function localizeStaticInterface() {
   if (cheatOutputElement) cheatOutputElement.textContent = t('cheat.prompt')
   const cheatCommandInput = document.querySelector('#cheat-input')
   if (cheatCommandInput) cheatCommandInput.placeholder = t('cheat.placeholder')
-  const sections = settingsPanel.querySelectorAll('.settings-section')
-  const sectionKeys = ['settings.graphics', 'settings.gameplay', 'settings.sound']
-  sectionKeys.forEach((key, index) => { if (sections[index]) sections[index].querySelector('h3').textContent = t(key) })
+  const settingsSections = [
+    ['#graphics-quality-options', 'settings.graphics'],
+    ['#setting-camera-distance', 'settings.gameplay'],
+    ['#setting-master-volume', 'settings.sound'],
+  ]
+  settingsSections.forEach(([selector, key]) => {
+    const section = document.querySelector(selector)?.closest('.settings-section')
+    if (section) section.querySelector('h3').textContent = t(key)
+  })
   const settingsRows = [
     ['#graphics-quality-options', 'settings.quality', 'settings.quality_help'],
     ['#setting-shadows', 'settings.shadows', 'settings.shadows_help'],
@@ -564,7 +570,7 @@ if (retiredGapGenerators.length) {
 }
 
 function readSettings() {
-  const defaults = { language: 'en', graphics: { quality: 'high', shadows: true, hdrEmissionIntensity: 0.5 }, gameplay: { cameraDistance: 100, autoPause: true, highContrastHud: false }, sound: { masterVolume: 100, muted: false, spatialAudio: true } }
+  const defaults = { language: getPreferredLanguage(), graphics: { quality: 'high', shadows: true, hdrEmissionIntensity: 0.5 }, gameplay: { cameraDistance: 100, autoPause: true, highContrastHud: false }, sound: { masterVolume: 100, muted: false, spatialAudio: true } }
   try {
     const saved = JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEY))
     const savedGraphics = saved?.graphics ?? {}
@@ -3932,7 +3938,8 @@ function createNukeWave(origin, targets) {
 
 function renderSettings() {
   localizeStaticInterface()
-  languageOptions.innerHTML = getAvailableLanguages().map((language) => `<button data-language="${language}" class="${settings.language === language ? 'selected' : ''}" type="button">${t(`language.${language === 'en' ? 'english' : language}`)}</button>`).join('')
+  languageSelect.innerHTML = getAvailableLanguages().map((language) => `<option value="${language}">${t(`language.${language === 'en' ? 'english' : 'turkish'}`)}</option>`).join('')
+  languageSelect.value = settings.language
   graphicsQualityOptions.innerHTML = ['low', 'medium', 'high'].map((quality) => `<button data-graphics-quality="${quality}" class="${settings.graphics.quality === quality ? 'selected' : ''}" type="button">${t(`settings.${quality}`)}</button>`).join('')
   shadowsSetting.checked = settings.graphics.shadows
   const hdrEmissionPercent = Math.round(settings.graphics.hdrEmissionIntensity * 100)
@@ -4061,7 +4068,7 @@ exitGameButton?.addEventListener('click', () => {
 closeSettingsButton.addEventListener('click', () => { settingsPanel.classList.add('hidden'); menuContent.classList.remove('hidden') })
 closePatchNotesButton.addEventListener('click', () => { patchNotesPanel.classList.add('hidden'); settingsPanel.classList.remove('hidden') })
 settingsPanel.addEventListener('click', (event) => { const button = event.target.closest('[data-graphics-quality]'); if (!button) return; settings.graphics.quality = button.dataset.graphicsQuality; applyGraphicsSettings(); persistSettings() })
-settingsPanel.addEventListener('click', (event) => { const language = event.target.closest('[data-language]')?.dataset.language; if (!language) return; settings.language = language; setLanguage(language); localizeStaticInterface(); persistSettings() })
+languageSelect.addEventListener('change', () => { settings.language = languageSelect.value; setLanguage(settings.language); saveSettings(); window.location.reload() })
 settingsPanel.addEventListener('click', async (event) => {
   const mode = event.target.closest('[data-display-mode]')?.dataset.displayMode
   const resolution = event.target.closest('[data-display-resolution]')?.dataset.displayResolution
