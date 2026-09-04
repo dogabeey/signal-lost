@@ -3938,7 +3938,8 @@ function createNukeWave(origin, targets) {
 
 function renderSettings() {
   localizeStaticInterface()
-  languageSelect.innerHTML = getAvailableLanguages().map((language) => `<option value="${language}">${t(`language.${language === 'en' ? 'english' : 'turkish'}`)}</option>`).join('')
+  const languageNameKeys = { en: 'language.english', tr: 'language.turkish', es: 'language.spanish' }
+  languageSelect.innerHTML = getAvailableLanguages().map((language) => `<option value="${language}">${t(languageNameKeys[language] ?? `language.${language}`, {}, language)}</option>`).join('')
   languageSelect.value = settings.language
   graphicsQualityOptions.innerHTML = ['low', 'medium', 'high'].map((quality) => `<button data-graphics-quality="${quality}" class="${settings.graphics.quality === quality ? 'selected' : ''}" type="button">${t(`settings.${quality}`)}</button>`).join('')
   shadowsSetting.checked = settings.graphics.shadows

@@ -1,11 +1,12 @@
 import englishSource from './localisation/en.yml?raw'
 import turkishSource from './localisation/tr.yml?raw'
+import spanishSource from './localisation/es.yml?raw'
 
 function parseYaml(source) {
   return Object.fromEntries(source.split(/\r?\n/).map((line) => line.match(/^([\w.-]+):\s*"(.*)"\s*$/)).filter(Boolean).map(([, key, value]) => [key, value.replaceAll('\\"', '"')]))
 }
 
-const catalogues = Object.freeze({ en: parseYaml(englishSource), tr: parseYaml(turkishSource) })
+const catalogues = Object.freeze({ en: parseYaml(englishSource), tr: parseYaml(turkishSource), es: parseYaml(spanishSource) })
 export function getPreferredLanguage() {
   const languages = typeof navigator === 'undefined' ? [] : navigator.languages?.length ? navigator.languages : [navigator.language]
   return languages.map((language) => language?.split('-')[0].toLowerCase()).find((language) => catalogues[language]) ?? 'en'

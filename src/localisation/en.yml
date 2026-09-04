@@ -1,5 +1,6 @@
 language.english: "English"
 language.turkish: "Turkish"
+language.spanish: "Spanish"
 settings.language: "Language"
 settings.language_help: "Choose the language used by the game interface."
 save_slots.heading: "SELECT SAVE SLOT"

@@ -1,4 +1,6 @@
 language.english: "Inglés"
+language.turkish: "Turco"
+language.spanish: "Español"
 settings.language: "Idioma"
 settings.language_help: "Elige el idioma utilizado por la interfaz del juego."
 save_slots.heading: "SELECCIONAR RANURA DE GUARDADO"
