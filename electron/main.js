@@ -83,6 +83,12 @@ app.whenReady().then(() => {
     if (!steamClient || typeof achievementId !== 'string' || !STEAM_ACHIEVEMENTS.has(achievementId)) return false
     try { return steamClient.achievement.activate(achievementId) } catch (error) { console.warn(`[Steamworks] could not unlock ${achievementId}:`, error); return false }
   })
+  ipcMain.handle('steam-achievement-states', (_event, achievementIds) => {
+    if (!steamClient || !Array.isArray(achievementIds)) return {}
+    return Object.fromEntries(achievementIds.filter((id) => typeof id === 'string' && STEAM_ACHIEVEMENTS.has(id)).map((id) => {
+      try { return [id, steamClient.achievement.isActivated(id)] } catch { return [id, false] }
+    }))
+  })
   createWindow()
 
   app.on('activate', () => {

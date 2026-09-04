@@ -1,4 +1,4 @@
-const ARTIFACT_ACHIEVEMENTS = Object.freeze({
+export const ARTIFACT_ACHIEVEMENTS = Object.freeze({
   'broken-radar': 'ARTIFACT_BROKEN_RADAR',
   'ftl-schematics': 'ARTIFACT_FTL_SCHEMATICS',
   'supply-depot': 'ARTIFACT_SUPPLY_DEPOT',
@@ -15,4 +15,9 @@ export function unlockSteamAchievementForArtifact(artifactId) {
   const achievementId = ARTIFACT_ACHIEVEMENTS[artifactId]
   if (!achievementId || !window.steamShell?.unlockAchievement) return
   window.steamShell.unlockAchievement(achievementId).catch((error) => console.warn('[Steamworks] achievement unlock failed:', error))
+}
+
+export async function getSteamAchievementStates() {
+  if (!window.steamShell?.getAchievementStates) return {}
+  try { return await window.steamShell.getAchievementStates(Object.values(ARTIFACT_ACHIEVEMENTS)) } catch (error) { console.warn('[Steamworks] achievement sync failed:', error); return {} }
 }

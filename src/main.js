@@ -29,7 +29,7 @@ import { TIPS } from './tips.js'
 import { MILESTONES } from './milestones.js'
 import { WEAPON_CONFIG } from './weapons_config.js'
 import { ARTIFACT_CONFIG } from './artifact_config.js'
-import { unlockSteamAchievementForArtifact } from './steam_achievements.js'
+import { ARTIFACT_ACHIEVEMENTS, getSteamAchievementStates, unlockSteamAchievementForArtifact } from './steam_achievements.js'
 import { getArtifactAsset, getBuildingAsset, getUiIconAsset, getWeaponAsset } from './asset_catalog.js'
 import { DAMAGE_TYPES } from './damage_types.js'
 import './style.css'
@@ -1069,6 +1069,14 @@ function addArtifactStack(artifact) {
   showArtifactUnlockToast(artifact)
   unlockSteamAchievementForArtifact(artifact.id)
   return true
+}
+
+async function syncArtifactsWithSteam() {
+  const steamStates = await getSteamAchievementStates()
+  for (const artifact of ARTIFACT_CONFIG.artifacts) {
+    if (steamStates[ARTIFACT_ACHIEVEMENTS[artifact.id]] && !artifactState.unlocked.includes(artifact.id)) unlockArtifact(artifact)
+  }
+  for (const artifactId of artifactState.unlocked) unlockSteamAchievementForArtifact(artifactId)
 }
 
 let artifactUnlockToastTimer
@@ -4229,6 +4237,7 @@ renderResearchLab()
 renderSettings()
 checkArtifactUnlocks()
 renderArtifacts()
+void syncArtifactsWithSteam()
 updateStartButton()
 setActiveMenuButton()
 resetGame()
