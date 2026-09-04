@@ -29,6 +29,7 @@ import { TIPS } from './tips.js'
 import { MILESTONES } from './milestones.js'
 import { WEAPON_CONFIG } from './weapons_config.js'
 import { ARTIFACT_CONFIG } from './artifact_config.js'
+import { unlockSteamAchievementForArtifact } from './steam_achievements.js'
 import { getArtifactAsset, getBuildingAsset, getUiIconAsset, getWeaponAsset } from './asset_catalog.js'
 import { DAMAGE_TYPES } from './damage_types.js'
 import './style.css'
@@ -1046,6 +1047,7 @@ function unlockArtifact(artifact) {
   saveArtifactState()
   renderArtifacts()
   showArtifactUnlockToast(artifact)
+  unlockSteamAchievementForArtifact(artifact.id)
   if (artifact.buff.stat === 'arenaSizeMultiplier') applyDifficulty()
   return true
 }
@@ -1057,6 +1059,7 @@ function addArtifactStack(artifact) {
   saveArtifactState()
   renderArtifacts()
   showArtifactUnlockToast(artifact)
+  unlockSteamAchievementForArtifact(artifact.id)
   return true
 }
 
@@ -1202,15 +1205,35 @@ function renderMilestones() {
 
 const soundSystem = createSoundSystem({ THREE, SOUND, getSettings: () => settings, getPlayer: () => player, getCamera: () => camera })
 
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true })
+let renderer = new THREE.WebGLRenderer({ canvas, antialias: settings.graphics.quality !== 'low' })
 let renderComposer
 let hdrBloomPass
+let arenaKeyLight = null
+let cellOverdriveTexture = null
+let setArenaVisualQuality = null
+const GRAPHICS_QUALITY = {
+  low: { pixelRatioCap: 1, simulationStep: 1 / 30, textureFilter: THREE.NearestFilter },
+  medium: { pixelRatioCap: 1.5, simulationStep: 1 / 45, textureFilter: THREE.LinearFilter },
+  high: { pixelRatioCap: GAME.maxPixelRatio, simulationStep: 0, textureFilter: THREE.LinearFilter },
+}
+function getGraphicsQuality() { return GRAPHICS_QUALITY[settings.graphics.quality] ?? GRAPHICS_QUALITY.high }
 function applyGraphicsSettings() {
-  const pixelRatioCap = { low: 1, medium: 1.5, high: GAME.maxPixelRatio }[settings.graphics.quality] ?? GAME.maxPixelRatio
+  const quality = getGraphicsQuality()
+  const antialiasEnabled = settings.graphics.quality !== 'low'
+  if (renderComposer && renderer.getContext().getContextAttributes().antialias !== antialiasEnabled) rebuildRenderPipeline(antialiasEnabled)
   const hdrEmissionIntensity = THREE.MathUtils.clamp(settings.graphics.hdrEmissionIntensity ?? 0.5, 0, 1) * 0.5
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, pixelRatioCap))
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, quality.pixelRatioCap))
   renderComposer?.setPixelRatio(renderer.getPixelRatio())
-  renderer.shadowMap.enabled = settings.graphics.shadows && settings.graphics.quality !== 'low'
+  const shadowsEnabled = settings.graphics.shadows && settings.graphics.quality !== 'low'
+  if (arenaKeyLight) arenaKeyLight.castShadow = shadowsEnabled
+  renderer.shadowMap.enabled = shadowsEnabled
+  renderer.shadowMap.needsUpdate = shadowsEnabled
+  if (cellOverdriveTexture) {
+    cellOverdriveTexture.magFilter = quality.textureFilter
+    cellOverdriveTexture.minFilter = quality.textureFilter
+    cellOverdriveTexture.needsUpdate = true
+  }
+  setArenaVisualQuality?.(settings.graphics.quality)
   renderer.toneMapping = hdrEmissionIntensity > 0 ? THREE.ACESFilmicToneMapping : THREE.NoToneMapping
   renderer.toneMappingExposure = 0.9 + hdrEmissionIntensity * 0.2
   if (hdrBloomPass) {
@@ -1443,9 +1466,23 @@ renderComposer.addPass(new RenderPass(scene, camera))
 hdrBloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.675, 0.48, 1.1)
 renderComposer.addPass(hdrBloomPass)
 renderComposer.setSize(window.innerWidth, window.innerHeight)
-applyGraphicsSettings()
 
-const { starfield, floor, grid, arenaBoundary, resize: resizeArenaVisuals } = createArenaVisuals({ THREE, scene, COLORS, GAME, SCENE, LIGHTING })
+function rebuildRenderPipeline(antialias) {
+  renderer.dispose()
+  renderer = new THREE.WebGLRenderer({ canvas, antialias })
+  renderer.setSize(window.innerWidth, window.innerHeight)
+  renderer.outputColorSpace = THREE.SRGBColorSpace
+  renderComposer = new EffectComposer(renderer)
+  renderComposer.addPass(new RenderPass(scene, camera))
+  hdrBloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.675, 0.48, 1.1)
+  renderComposer.addPass(hdrBloomPass)
+  renderComposer.setSize(window.innerWidth, window.innerHeight)
+}
+
+const { starfield, floor, grid, arenaBoundary, keyLight: createdArenaKeyLight, setQuality: createdSetArenaVisualQuality, resize: resizeArenaVisuals } = createArenaVisuals({ THREE, scene, COLORS, GAME, SCENE, LIGHTING, quality: settings.graphics.quality })
+arenaKeyLight = createdArenaKeyLight
+setArenaVisualQuality = createdSetArenaVisualQuality
+applyGraphicsSettings()
 
 function getArenaLimit() {
   return (GAME.arenaLimit + getCurrentDifficulty().extraArenaPadding) * (1 + getArtifactStatBonus('arenaSizeMultiplier'))
@@ -1518,7 +1555,11 @@ const cellOverdriveCanvas = document.createElement('canvas')
 cellOverdriveCanvas.width = 128; cellOverdriveCanvas.height = 128
 const cellOverdriveContext = cellOverdriveCanvas.getContext('2d')
 cellOverdriveContext.font = '900 108px Arial'; cellOverdriveContext.textAlign = 'center'; cellOverdriveContext.textBaseline = 'middle'; cellOverdriveContext.lineWidth = 8; cellOverdriveContext.strokeStyle = '#6b4710'; cellOverdriveContext.strokeText('$', 64, 65); cellOverdriveContext.fillStyle = '#ffd36f'; cellOverdriveContext.fillText('$', 64, 65)
-const cellOverdriveDollar = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(cellOverdriveCanvas), transparent: true, depthWrite: false }))
+cellOverdriveTexture = new THREE.CanvasTexture(cellOverdriveCanvas)
+cellOverdriveTexture.magFilter = getGraphicsQuality().textureFilter
+cellOverdriveTexture.minFilter = getGraphicsQuality().textureFilter
+cellOverdriveTexture.needsUpdate = true
+const cellOverdriveDollar = new THREE.Sprite(new THREE.SpriteMaterial({ map: cellOverdriveTexture, transparent: true, depthWrite: false }))
 cellOverdriveDollar.position.set(0, 2.2, 0); cellOverdriveDollar.scale.set(0.7, 0.7, 1); cellOverdriveDollar.visible = false; player.add(cellOverdriveDollar)
 const weaponDurationArcs = new Map()
 for (const [index, [id, weapon]] of Object.entries(WEAPON_CONFIG.weapons).filter(([, weapon]) => weapon.duration).entries()) {
@@ -1592,6 +1633,7 @@ let chronoCellTimer = 0
 let obstacleSpawnTimer = 0
 let hazardTimer = 0
 let shockwaveTimer = 0
+let simulationAccumulator = 0
 let shieldCharges = 0
 let shieldInvulnerability = 0
 const SHIELD_BREAK_SHAKE_DURATION = 0.5
@@ -1615,7 +1657,7 @@ const fallingRockGeometry = new THREE.IcosahedronGeometry(ENTITIES.obstacleRadiu
 const { createShooterProjectile: createShooterProjectileVisual, createAutocannonProjectile: createAutocannonProjectileVisual, createSplinter: createSplinterVisual } = createProjectileVisualFactory({ THREE, COLORS, ENTITIES })
 const { createCell: createCellVisual, createChronoCell: createChronoCellVisual, createBooster: createBoosterVisual } = createCellVisualFactory({ THREE, COLORS, ENTITIES })
 const createSpikedObstacle = createEnemyVisualFactory({ THREE, ENTITIES })
-const { createExplosion: createExplosionVisual, createBangerPulse: createBangerPulseVisual, createShockwave: createShockwaveVisual, createShieldBreak: createShieldBreakVisual, createPoisonTrail: createPoisonTrailVisual, createPlayerDeath: createPlayerDeathVisual } = createEffectVisualFactory({ THREE, COLORS })
+const { createExplosion: createExplosionVisual, createBangerPulse: createBangerPulseVisual, createShockwave: createShockwaveVisual, createShieldBreak: createShieldBreakVisual, createPoisonTrail: createPoisonTrailVisual, createPlayerDeath: createPlayerDeathVisual } = createEffectVisualFactory({ THREE, COLORS, getQuality: () => settings.graphics.quality })
 const creeperColor = new THREE.Color(COLORS.creeper)
 const poisonCreeperColor = new THREE.Color(COLORS.poisonCreeper)
 const creeperEmissive = new THREE.Color(COLORS.creeperEmissive)
@@ -3658,7 +3700,14 @@ function animate() {
   timer.update()
   const delta = Math.min(timer.getDelta(), 0.05)
   const total = timer.getElapsed()
-  if (started && !paused) updateGame(delta, total)
+  if (started && !paused) {
+    const simulationStep = getGraphicsQuality().simulationStep
+    simulationAccumulator += delta
+    if (!simulationStep || simulationAccumulator >= simulationStep) {
+      updateGame(Math.min(simulationAccumulator, 0.05), total)
+      simulationAccumulator = 0
+    }
+  } else simulationAccumulator = 0
   updatePlayerDeathEffects(delta)
   if (buildMode) {
     camera.position.set(buildCameraCenter.x, buildCameraHeight, buildCameraCenter.y + 0.01)

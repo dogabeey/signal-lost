@@ -46,10 +46,15 @@ function createBoundaryGeometry(THREE, limit) {
   }))
 }
 
-export function createArenaVisuals({ THREE, scene, COLORS, GAME, SCENE, LIGHTING }) {
+export function createArenaVisuals({ THREE, scene, COLORS, GAME, SCENE, LIGHTING, quality = 'high' }) {
   const starfield = new THREE.Group()
-  starfield.add(createStarLayer({ THREE, SCENE, count: SCENE.starCount, size: SCENE.starSize, opacity: 0.84 }))
-  starfield.add(createStarLayer({ THREE, SCENE, count: SCENE.brightStarCount, size: SCENE.brightStarSize, opacity: 0.96 }))
+  function setQuality(nextQuality) {
+    const density = { low: 0.35, medium: 0.65, high: 1 }[nextQuality] ?? 1
+    starfield.clear()
+    starfield.add(createStarLayer({ THREE, SCENE, count: Math.round(SCENE.starCount * density), size: SCENE.starSize, opacity: 0.84 }))
+    starfield.add(createStarLayer({ THREE, SCENE, count: Math.round(SCENE.brightStarCount * density), size: SCENE.brightStarSize, opacity: 0.96 }))
+  }
+  setQuality(quality)
   scene.add(starfield)
 
   scene.add(new THREE.HemisphereLight(LIGHTING.hemisphereSky, LIGHTING.hemisphereGround, LIGHTING.hemisphereIntensity))
@@ -64,7 +69,7 @@ export function createArenaVisuals({ THREE, scene, COLORS, GAME, SCENE, LIGHTING
   arenaBoundary.computeLineDistances(); scene.add(arenaBoundary)
 
   return {
-    starfield, floor, grid, arenaBoundary,
+    starfield, floor, grid, arenaBoundary, keyLight, setQuality,
     resize(extraPadding, sizeMultiplier = 1) {
       const limit = (GAME.arenaLimit + extraPadding) * sizeMultiplier
       floor.geometry.dispose(); floor.geometry = new THREE.CircleGeometry((GAME.arenaSize / 2 + extraPadding) * sizeMultiplier, 96)

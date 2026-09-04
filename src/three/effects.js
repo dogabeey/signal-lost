@@ -1,4 +1,5 @@
-export function createEffectVisualFactory({ THREE, COLORS }) {
+export function createEffectVisualFactory({ THREE, COLORS, getQuality = () => 'high' }) {
+  const detail = () => ({ low: 0.45, medium: 0.7, high: 1 }[getQuality()] ?? 1)
   function ring(inner, outer, segments, color, opacity = 1) {
     const mesh = new THREE.Mesh(new THREE.RingGeometry(inner, outer, segments), new THREE.MeshBasicMaterial({ color, transparent: true, opacity, side: THREE.DoubleSide, depthWrite: false }))
     mesh.rotation.x = -Math.PI / 2
@@ -6,9 +7,9 @@ export function createEffectVisualFactory({ THREE, COLORS }) {
   }
   return {
     createExplosion(position, radius) {
-      const shockwave = ring(0.18, 0.42, 64, COLORS.banger)
+      const shockwave = ring(0.18, 0.42, Math.round(64 * detail()), COLORS.banger)
       shockwave.position.set(position.x, 0.05, position.z)
-      const blast = new THREE.Mesh(new THREE.SphereGeometry(1, 24, 16), new THREE.MeshBasicMaterial({ color: COLORS.banger, transparent: true, opacity: 0.65, wireframe: true, depthWrite: false }))
+      const blast = new THREE.Mesh(new THREE.SphereGeometry(1, Math.round(24 * detail()), Math.round(16 * detail())), new THREE.MeshBasicMaterial({ color: COLORS.banger, transparent: true, opacity: 0.65, wireframe: true, depthWrite: false }))
       blast.position.set(position.x, 0.85, position.z)
       const light = new THREE.PointLight(COLORS.banger, 10, radius * 2); light.position.copy(blast.position)
       return { shockwave, blast, light }
@@ -32,7 +33,7 @@ export function createEffectVisualFactory({ THREE, COLORS }) {
       const pool = new THREE.Mesh(new THREE.CircleGeometry(radius, 16), new THREE.MeshBasicMaterial({ color: COLORS.poisonTrail, transparent: true, opacity: 0.48, depthWrite: false }))
       pool.rotation.x = -Math.PI / 2
       visual.add(pool)
-      const vapor = Array.from({ length: 3 }, (_, index) => {
+      const vapor = Array.from({ length: Math.max(1, Math.round(3 * detail())) }, (_, index) => {
         const puff = new THREE.Mesh(new THREE.SphereGeometry(0.16 + index * 0.035, 6, 4), new THREE.MeshBasicMaterial({ color: COLORS.poisonTrail, transparent: true, opacity: 0.62, depthWrite: false }))
         const angle = index * Math.PI * 2 / 3
         puff.position.set(Math.cos(angle) * radius * 0.42, 0.12 + index * 0.05, Math.sin(angle) * radius * 0.42)
@@ -48,7 +49,7 @@ export function createEffectVisualFactory({ THREE, COLORS }) {
       const shockwave = ring(0.24, 0.5, 64, COLORS.player); shockwave.position.set(position.x, 0.06, position.z)
       const innerShockwave = shockwave.clone(); innerShockwave.material = shockwave.material.clone()
       const light = new THREE.PointLight('#fff4cf', 22, 18); light.position.copy(position)
-      const fragments = Array.from({ length: 18 }, () => {
+      const fragments = Array.from({ length: Math.max(6, Math.round(18 * detail())) }, () => {
         const fragment = new THREE.Mesh(new THREE.TetrahedronGeometry(THREE.MathUtils.randFloat(0.08, 0.19), 0), new THREE.MeshBasicMaterial({ color: Math.random() > 0.45 ? COLORS.playerRing : COLORS.player, transparent: true, opacity: 1, depthWrite: false }))
         fragment.position.copy(position)
         fragment.userData.velocity = new THREE.Vector3(Math.random() - 0.5, Math.random() * 0.75 + 0.18, Math.random() - 0.5).normalize().multiplyScalar(THREE.MathUtils.randFloat(4, 10))
