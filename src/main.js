@@ -120,14 +120,14 @@ document.querySelector('#app').innerHTML = `
       <div class="menu-actions">
           <button class="menu-start-button" id="start-button" type="button">START RUN</button>
           <button class="menu-start-button anomaly-run-button" id="anomaly-run-button" type="button">ANOMALY RUN</button>
-          ${getSystemMenuButtonMarkup({ id: 'home-button', iconId: 'home', fallback: 'H', label: 'HOME' })}
-          ${getSystemMenuButtonMarkup({ id: 'open-lab-button', iconId: 'researchLab', fallback: 'RL', label: 'RESEARCH LAB' })}
-          ${getSystemMenuButtonMarkup({ id: 'open-weaponry-button', iconId: 'weaponry', fallback: 'W', label: 'WEAPONRY' })}
-          ${getSystemMenuButtonMarkup({ id: 'open-building-button', iconId: 'buildingSystem', fallback: 'BS', label: 'BUILDING SYSTEM' })}
-          ${getUtilityMenuButtonMarkup({ id: 'open-encyclopedia-button', iconId: 'encyclopedia', fallback: 'E', label: 'ENCYCLOPEDIA' })}
-          ${getUtilityMenuButtonMarkup({ id: 'open-settings-button', iconId: 'settings', fallback: 'S', label: 'SETTINGS' })}
-          ${getUtilityMenuButtonMarkup({ id: 'open-artifacts-button', iconId: 'artifacts', fallback: 'A', label: 'ARTIFACTS' })}
-          ${IS_STEAM_BUILD ? '<button class="menu-exit-button" id="exit-game-button" type="button">EXIT GAME</button>' : ''}
+          ${getSystemMenuButtonMarkup({ id: 'home-button', iconId: 'home', fallback: 'H', label: t('menu.home') })}
+          ${getSystemMenuButtonMarkup({ id: 'open-lab-button', iconId: 'researchLab', fallback: 'RL', label: t('menu.research_lab') })}
+          ${getSystemMenuButtonMarkup({ id: 'open-weaponry-button', iconId: 'weaponry', fallback: 'W', label: t('menu.weaponry') })}
+          ${getSystemMenuButtonMarkup({ id: 'open-building-button', iconId: 'buildingSystem', fallback: 'BS', label: t('menu.buildings') })}
+          ${getUtilityMenuButtonMarkup({ id: 'open-encyclopedia-button', iconId: 'encyclopedia', fallback: 'E', label: t('menu.encyclopedia') })}
+          ${getUtilityMenuButtonMarkup({ id: 'open-settings-button', iconId: 'settings', fallback: 'S', label: t('menu.settings') })}
+          ${getUtilityMenuButtonMarkup({ id: 'open-artifacts-button', iconId: 'artifacts', fallback: 'A', label: t('menu.artifacts') })}
+          ${IS_STEAM_BUILD ? `<button class="menu-exit-button" id="exit-game-button" type="button">${t('menu.exit_game')}</button>` : ''}
       </div>
       <section class="milestones-panel hidden" id="milestones-panel" aria-label="Ascension">
         <div class="milestones-header"><div><p class="eyebrow">BEST SINGLE RUN</p><h2>ASCENSION</h2><p>MAX CELLS <strong id="milestone-max-cells">000</strong></p></div><button class="secondary-button" id="close-milestones-button" type="button">BACK</button></div>
@@ -244,7 +244,7 @@ const languageOptions = document.querySelector('#language-options')
 const steamDisplaySection = IS_STEAM_BUILD ? document.createElement('div') : null
 if (steamDisplaySection) {
   steamDisplaySection.className = 'settings-section'
-  steamDisplaySection.innerHTML = '<h3>DISPLAY</h3><div class="settings-row"><div><strong>Screen Mode</strong><small>Steam launches fullscreen by default.</small></div><div class="settings-options" id="display-mode-options"></div></div><div class="settings-row"><div><strong>Resolution</strong><small>Choosing a resolution switches to windowed mode.</small></div><div class="settings-options" id="display-resolution-options"></div></div>'
+  steamDisplaySection.innerHTML = `<h3>${t('settings.display')}</h3><div class="settings-row"><div><strong>${t('settings.screen_mode')}</strong><small>${t('settings.screen_mode_help')}</small></div><div class="settings-options" id="display-mode-options"></div></div><div class="settings-row"><div><strong>${t('settings.resolution')}</strong><small>${t('settings.resolution_help')}</small></div><div class="settings-options" id="display-resolution-options"></div></div>`
   settingsPanel.append(steamDisplaySection)
 }
 const displayModeOptions = document.querySelector('#display-mode-options')
@@ -288,6 +288,52 @@ const labCashElement = document.querySelector('#lab-cash')
 const labChronoshardBalanceElement = document.querySelector('#lab-chronoshard-balance')
 const labChronoshardsElement = document.querySelector('#lab-chronoshards')
 const labMessageElement = document.querySelector('#lab-message')
+
+function localizeStaticInterface() {
+  const setText = (selector, key) => {
+    const element = document.querySelector(selector)
+    if (element) element.textContent = t(key)
+  }
+  setText('.cash-balance .currency-label', 'hud.cash')
+  setText('.chronoshard-balance .currency-label', 'hud.chronoshards')
+  setText('.run-cell-counter dt', 'hud.cells')
+  setText('#pause-menu .eyebrow', 'menu.round_paused')
+  setText('#pause-menu h2', 'menu.pause')
+  setText('#reset-round-button', 'menu.reset')
+  setText('#surrender-button', 'menu.surrender')
+  setText('#resume-game-button', 'menu.return')
+  setText('#return-menu-button', 'menu.main_menu')
+  setText('#start-button', 'menu.start_run')
+  setText('#anomaly-run-button', 'anomaly.run')
+  setText('#cancel-anomaly-run', 'menu.back')
+  setText('#confirm-anomaly-run', 'anomaly.start')
+  setText('#close-settings-button', 'menu.back')
+  setText('#open-patch-notes-button', 'settings.patch_notes')
+  const sections = settingsPanel.querySelectorAll('.settings-section')
+  const sectionKeys = ['settings.graphics', 'settings.gameplay', 'settings.sound']
+  sectionKeys.forEach((key, index) => { if (sections[index]) sections[index].querySelector('h3').textContent = t(key) })
+  const settingsRows = [
+    ['#graphics-quality-options', 'settings.quality', 'settings.quality_help'],
+    ['#setting-shadows', 'settings.shadows', 'settings.shadows_help'],
+    ['#setting-hdr-emission', 'settings.hdr_emission', 'settings.hdr_emission_help'],
+    ['#setting-camera-distance', 'settings.camera_distance', 'settings.camera_distance_help'],
+    ['#setting-auto-pause', 'settings.auto_pause', 'settings.auto_pause_help'],
+    ['#setting-high-contrast', 'settings.high_contrast_hud', 'settings.high_contrast_hud_help'],
+    ['#setting-master-volume', 'settings.master_volume', 'settings.master_volume_help'],
+    ['#setting-muted', 'settings.mute_all', 'settings.mute_all_help'],
+    ['#setting-spatial-audio', 'settings.spatial_audio', 'settings.spatial_audio_help'],
+  ]
+  settingsRows.forEach(([selector, labelKey, helpKey]) => {
+    const row = document.querySelector(selector)?.closest('.settings-row')
+    if (!row) return
+    const label = row.querySelector('strong')
+    const help = row.querySelector('small')
+    if (label) label.textContent = t(labelKey)
+    if (help) help.textContent = t(helpKey)
+  })
+}
+
+localizeStaticInterface()
 const researchSlotsElement = document.querySelector('#research-slots')
 const researchSlotsHeading = document.querySelector('#research-slots-heading')
 const researchListElement = document.querySelector('#research-list')
@@ -1134,11 +1180,11 @@ function openArtifactDetail(artifactId) {
 function renderSectorOptions() {
   const unlockedSectorIndex = getUnlockedSectorIndex()
   if (selectedSectorIndex > unlockedSectorIndex) selectedSectorIndex = unlockedSectorIndex
-  sectorOptions.textContent = `Sector ${formatSectorNumber(selectedSectorIndex + 1)}`
+  sectorOptions.textContent = t('hud.sector', { sector: formatSectorNumber(selectedSectorIndex + 1) })
   highestCellsElement.textContent = String(sectorHighScores[sectorKeys[selectedSectorIndex]] ?? 0).padStart(3, '0')
   const nextMilestone = MILESTONES.find((milestone) => milestone.sector === selectedSectorIndex + 1 && !milestoneState.claimed.includes(milestone.id))
   const sectorBestCells = sectorHighScores[sectorKeys[selectedSectorIndex]] ?? 0
-  sectorRequirementElement.textContent = nextMilestone ? sectorBestCells >= nextMilestone.cells ? 'ASCENSION REWARD READY TO CLAIM' : `NEXT ASCENSION: ${nextMilestone.cells} CELLS` : 'ASCENSION COMPLETE'
+  sectorRequirementElement.textContent = nextMilestone ? sectorBestCells >= nextMilestone.cells ? t('milestone.ready') : t('milestone.next', { cells: nextMilestone.cells }) : t('milestone.complete')
   previousSectorButton.disabled = selectedSectorIndex === 0
   nextSectorButton.disabled = selectedSectorIndex >= unlockedSectorIndex
   const claimableCount = MILESTONES.filter((milestone) => !milestoneState.claimed.includes(milestone.id) && (sectorHighScores[sectorKeys[milestone.sector - 1]] ?? 0) >= milestone.cells).length
@@ -1180,12 +1226,12 @@ milestoneTrack.addEventListener('click', (event) => {
 })
 
 function formatMilestoneReward(reward) {
-  if (reward.type === 'cash') return `+$${reward.amount.toLocaleString()} cash`
-  if (reward.type === 'chronoshards') return `+✦ ${reward.amount} Chronoshards`
-  if (reward.type === 'sector') return `Unlock Sector ${formatSectorNumber(reward.sector)}`
-  if (reward.type === 'feature') return `Unlock ${reward.featureId === 'researchLab' ? 'Research Lab' : reward.featureId}`
-  if (reward.type === 'research') return `Unlock: ${reward.researchIds.map((id) => getResearchById(id)?.name ?? id).join(', ')}`
-  return 'Reward'
+  if (reward.type === 'cash') return t('milestone.reward_cash', { amount: reward.amount.toLocaleString() })
+  if (reward.type === 'chronoshards') return t('milestone.reward_chronoshards', { amount: reward.amount })
+  if (reward.type === 'sector') return t('milestone.unlock_sector', { sector: formatSectorNumber(reward.sector) })
+  if (reward.type === 'feature') return t('milestone.unlock_feature', { feature: reward.featureId === 'researchLab' ? t('menu.research_lab') : reward.featureId })
+  if (reward.type === 'research') return t('milestone.unlock_research', { researches: reward.researchIds.map((id) => getResearchById(id)?.name ?? id).join(', ') })
+  return t('milestone.reward', {}, 'Reward')
 }
 
 let milestoneToastTimer
@@ -1204,7 +1250,7 @@ function claimMilestone(milestoneId) {
   saveFeatureUnlocks()
   checkArtifactUnlocks()
   saveMilestoneState()
-  milestoneClaimToast.textContent = `REWARD CLAIMED · ${milestone.rewards.map(formatMilestoneReward).join(' · ')}`
+  milestoneClaimToast.textContent = t('milestone.reward_claimed', { rewards: milestone.rewards.map(formatMilestoneReward).join(' · ') })
   milestoneClaimToast.classList.remove('hidden')
   clearTimeout(milestoneToastTimer)
   milestoneToastTimer = setTimeout(() => milestoneClaimToast.classList.add('hidden'), 3600)
@@ -1217,14 +1263,14 @@ function renderMilestones() {
   const sector = milestoneSectorIndex + 1
   const bestCells = sectorHighScores[sectorKeys[milestoneSectorIndex]] ?? 0
   milestoneMaxCells.textContent = String(bestCells).padStart(3, '0')
-  milestoneSectorLabel.textContent = `SECTOR ${formatSectorNumber(sector)}`
+  milestoneSectorLabel.textContent = t('hud.sector', { sector: formatSectorNumber(sector) })
   previousMilestoneSectorButton.disabled = milestoneSectorIndex === 0
   nextMilestoneSectorButton.disabled = milestoneSectorIndex >= getUnlockedSectorIndex()
   milestoneTrack.innerHTML = MILESTONES.filter((milestone) => milestone.sector === sector).map((milestone) => {
     const claimed = milestoneState.claimed.includes(milestone.id)
     const reached = bestCells >= milestone.cells
     const progress = Math.min(100, bestCells / milestone.cells * 100)
-    return `<article class="milestone-card ${claimed ? 'claimed' : reached ? 'reached' : ''}"><div class="milestone-node">${claimed ? '✓' : milestone.cells}</div><div><strong>${claimed ? 'REWARD SECURED' : `${milestone.cells} CELLS`}</strong><p>${milestone.rewards.map(formatMilestoneReward).join(' · ')}</p><div class="milestone-progress"><i style="width:${progress}%"></i></div><small>${claimed ? 'Claimed automatically' : `${bestCells}/${milestone.cells} best cells in Sector ${formatSectorNumber(sector)}`}</small></div></article>`
+    return `<article class="milestone-card ${claimed ? 'claimed' : reached ? 'reached' : ''}"><div class="milestone-node">${claimed ? '✓' : milestone.cells}</div><div><strong>${claimed ? t('milestone.secured') : t('milestone.cells', { cells: milestone.cells })}</strong><p>${milestone.rewards.map(formatMilestoneReward).join(' · ')}</p><div class="milestone-progress"><i style="width:${progress}%"></i></div><small>${claimed ? t('milestone.auto_claimed') : t('milestone.best', { best: bestCells, target: milestone.cells, sector: formatSectorNumber(sector) })}</small></div></article>`
   }).join('')
   const sectorMilestones = MILESTONES.filter((milestone) => milestone.sector === sector)
   for (const [index, milestone] of sectorMilestones.entries()) {
@@ -1232,13 +1278,13 @@ function renderMilestones() {
     const reached = bestCells >= milestone.cells
     const card = milestoneTrack.children[index]
     if (!card) continue
-    if (claimed) card.querySelector('small').textContent = 'Claimed'
+    if (claimed) card.querySelector('small').textContent = t('milestone.claimed')
     if (reached && !claimed) {
       const button = document.createElement('button')
       button.className = 'claim-milestone-button'
       button.dataset.claimMilestone = milestone.id
       button.type = 'button'
-      button.textContent = 'CLAIM REWARD'
+      button.textContent = t('milestone.claim')
       card.lastElementChild.append(button)
     }
   }
@@ -1739,16 +1785,16 @@ function getAnomalyTimeEndpoint() {
 
 async function fetchVerifiedAnomalyTime() {
   const endpoint = getAnomalyTimeEndpoint()
-  if (!endpoint) throw new Error('Server time endpoint is not configured.')
+  if (!endpoint) throw new Error(t('error.server_time_unconfigured'))
   const controller = new AbortController()
   const timeout = window.setTimeout(() => controller.abort(), 8_000)
   const requestStartedAt = performance.now()
   try {
     const response = await fetch(endpoint, { cache: 'no-store', signal: controller.signal })
-    if (!response.ok) throw new Error(`Server time request failed with ${response.status}.`)
+    if (!response.ok) throw new Error(t('error.server_time_request', { status: response.status }))
     const payload = await response.json()
     const timestamp = Date.parse(payload?.now ?? payload?.utc_iso)
-    if (!Number.isFinite(timestamp)) throw new Error('Server returned an invalid time.')
+    if (!Number.isFinite(timestamp)) throw new Error(t('error.server_time_invalid'))
     return new Date(timestamp + (performance.now() - requestStartedAt) / 2)
   } finally {
     window.clearTimeout(timeout)
@@ -1801,7 +1847,7 @@ function claimAnomalyRewardIfEligible() {
   }
   const reward = getAnomalyReward(selectedSectorIndex)
   const rewardedChronoshards = updateChronoshards(reward)
-  showCurrencyIndicator(player.position, `ANOMALY +✦${formatCompactNumber(rewardedChronoshards)}`, 'chronoshard-indicator')
+  showCurrencyIndicator(player.position, t('message.anomaly_reward', { amount: formatCompactNumber(rewardedChronoshards) }), 'chronoshard-indicator')
   updateStartButton()
 }
 function renderEncyclopedia() {
@@ -2860,11 +2906,11 @@ function restoreSavedRound() {
 }
 
 function updateStartButton() {
-  startButton.textContent = savedRound ? 'CONTINUE' : 'START RUN'
+  startButton.textContent = savedRound ? t('menu.continue') : t('menu.start_run')
   const rewardClaimed = hasClaimedAnomalyReward()
   const unlocked = isResearchSectorUnlocked(ANOMALY_CONFIG.unlockSector)
-  anomalyRunButton.textContent = !unlocked ? `ANOMALY RUN · SECTOR ${formatSectorNumber(ANOMALY_CONFIG.unlockSector)}` : rewardClaimed ? 'ANOMALY RUN (Reward Claimed)' : 'ANOMALY RUN'
-  anomalyRunButton.title = !unlocked ? `Unlocks at Sector ${formatSectorNumber(ANOMALY_CONFIG.unlockSector)}.` : rewardClaimed ? 'This sector’s weekly Anomaly reward has already been claimed.' : 'View this week’s challenge.'
+  anomalyRunButton.textContent = !unlocked ? `${t('anomaly.run')} · ${t('hud.sector', { sector: formatSectorNumber(ANOMALY_CONFIG.unlockSector) })}` : rewardClaimed ? `${t('anomaly.run')} (${t('anomaly.reward_claimed')})` : t('anomaly.run')
+  anomalyRunButton.title = !unlocked ? t('milestone.unlock_sector', { sector: formatSectorNumber(ANOMALY_CONFIG.unlockSector) }) : rewardClaimed ? t('anomaly.reward_claimed') : t('anomaly.weekly')
   anomalyRunButton.disabled = Boolean(savedRound) || rewardClaimed || !unlocked || anomalyTimeVerificationPending
 }
 
@@ -2872,8 +2918,8 @@ async function openAnomalyRunDialog() {
   if (anomalyTimeVerificationPending) return
   anomalyTimeVerificationPending = true
   verifiedAnomalyTime = null
-  anomalyChallengeName.textContent = 'VERIFYING TIME'
-  anomalyChallengeDescription.textContent = 'Checking the current Weekly Anomaly with the game server.'
+  anomalyChallengeName.textContent = t('anomaly.verifying_title')
+  anomalyChallengeDescription.textContent = t('anomaly.verifying_copy')
   anomalyRewardElement.hidden = true
   anomalyResetElement.hidden = true
   anomalyTimeWarning.hidden = true
@@ -2885,23 +2931,23 @@ async function openAnomalyRunDialog() {
     verifiedAnomalyTime = await fetchVerifiedAnomalyTime()
     const weekId = getAnomalyWeekId(verifiedAnomalyTime)
     const challenge = getWeeklyAnomalyChallenge(weekId)
-    anomalyChallengeName.textContent = `${challenge.name} (Sector ${formatSectorNumber(selectedSectorIndex + 1)})`
+    anomalyChallengeName.textContent = `${challenge.name} (${t('hud.sector', { sector: formatSectorNumber(selectedSectorIndex + 1) })})`
     anomalyChallengeDescription.textContent = challenge.description
-    anomalyRewardElement.textContent = `250 CELLS · REWARD ✦ ${getAnomalyReward(selectedSectorIndex)}`
-    anomalyResetElement.textContent = `(New Anomaly in ${formatAnomalyDate(getNextAnomalyResetDate(verifiedAnomalyTime))})`
+    anomalyRewardElement.textContent = t('anomaly.reward', { cells: ANOMALY_CONFIG.rewardCellTarget, reward: getAnomalyReward(selectedSectorIndex) })
+    anomalyResetElement.textContent = t('anomaly.reset', { date: formatAnomalyDate(getNextAnomalyResetDate(verifiedAnomalyTime)) })
     anomalyRewardElement.hidden = false
     anomalyResetElement.hidden = false
 
     if (hasClaimedAnomalyReward(weekId)) {
-      anomalyTimeWarning.textContent = 'This sector’s Weekly Anomaly reward has already been claimed.'
+      anomalyTimeWarning.textContent = t('anomaly.reward_claimed')
       anomalyTimeWarning.hidden = false
     } else {
       confirmAnomalyRunButton.hidden = false
     }
   } catch {
-    anomalyChallengeName.textContent = 'TIME NOT VERIFIED'
-    anomalyChallengeDescription.textContent = 'The current Weekly Anomaly could not be verified.'
-    anomalyTimeWarning.textContent = 'We could not verify the server time or check your internet connection. Please check your connection and try again.'
+    anomalyChallengeName.textContent = t('anomaly.time_unverified_title')
+    anomalyChallengeDescription.textContent = t('anomaly.time_unverified_copy')
+    anomalyTimeWarning.textContent = t('anomaly.time_unverified_error')
     anomalyTimeWarning.hidden = false
   } finally {
     anomalyTimeVerificationPending = false
@@ -2986,17 +3032,17 @@ function endGame(cause = 'SIGNAL LOST') {
   const shortCause = cause.toLocaleLowerCase().replace(/\s+(collision|detonation|projectile|impact|damage)$/, '')
   overlayTitle.textContent = hasEnemyPreview ? 'KILLED BY' : `KILLED BY ${shortCause.toUpperCase()}`
   overlayTitle.classList.add('death-title')
-  overlayCopy.textContent = `You secured ${score} energy ${score === 1 ? 'cell' : 'cells'}.`
-  gameOverTip.textContent = `TIP · ${getGameOverTip()}`
+  overlayCopy.textContent = t('message.energy_secured', { count: score, cellWord: t(score === 1 ? 'message.cell_singular' : 'message.cell_plural') })
+  gameOverTip.textContent = t('message.tip', { tip: getGameOverTip() })
   gameOverTip.hidden = false
-  startButton.textContent = 'RUN AGAIN'
+  startButton.textContent = t('menu.run_again')
   overlay.classList.remove('hidden')
 }
 
 function updateHud() {
   scoreElement.textContent = String(score).padStart(3, '0')
-  hudSectorElement.textContent = sandboxState ? `SANDBOX SECTOR ${formatSectorNumber(sandboxState.sectorIndex + 1)}` : `SECTOR ${formatSectorNumber(selectedSectorIndex + 1)}${anomalyRun ? ' · ANOMALY' : ''}`
-  shieldIndicators.innerHTML = `<span class="shield-indicators-label">SHIELDS</span>${Array.from({ length: shieldCharges }, () => `<img src="${shieldIconAsset}" alt="">`).join('')}`
+  hudSectorElement.textContent = sandboxState ? t('hud.sandbox_sector', { sector: formatSectorNumber(sandboxState.sectorIndex + 1) }) : `${t('hud.sector', { sector: formatSectorNumber(selectedSectorIndex + 1) })}${anomalyRun ? t('hud.anomaly_suffix') : ''}`
+  shieldIndicators.innerHTML = `<span class="shield-indicators-label">${t('hud.shields')}</span>${Array.from({ length: shieldCharges }, () => `<img src="${shieldIconAsset}" alt="">`).join('')}`
   shieldIndicators.hidden = shieldCharges === 0
   shieldIndicators.setAttribute('aria-label', `${shieldCharges} shield ${shieldCharges === 1 ? 'charge' : 'charges'} remaining`)
 }
@@ -3819,8 +3865,9 @@ function createNukeWave(origin, targets) {
 }
 
 function renderSettings() {
+  localizeStaticInterface()
   languageOptions.innerHTML = getAvailableLanguages().map((language) => `<button data-language="${language}" class="${settings.language === language ? 'selected' : ''}" type="button">${t(`language.${language === 'en' ? 'english' : language}`)}</button>`).join('')
-  graphicsQualityOptions.innerHTML = ['low', 'medium', 'high'].map((quality) => `<button data-graphics-quality="${quality}" class="${settings.graphics.quality === quality ? 'selected' : ''}" type="button">${quality.toUpperCase()}</button>`).join('')
+  graphicsQualityOptions.innerHTML = ['low', 'medium', 'high'].map((quality) => `<button data-graphics-quality="${quality}" class="${settings.graphics.quality === quality ? 'selected' : ''}" type="button">${t(`settings.${quality}`)}</button>`).join('')
   shadowsSetting.checked = settings.graphics.shadows
   const hdrEmissionPercent = Math.round(settings.graphics.hdrEmissionIntensity * 100)
   hdrEmissionSetting.value = String(hdrEmissionPercent)
@@ -3840,7 +3887,7 @@ function renderSettings() {
 async function renderDisplaySettings() {
   if (!displayModeOptions || !displayResolutionOptions || !window.steamShell?.getDisplaySettings) return
   const display = await window.steamShell.getDisplaySettings()
-  displayModeOptions.innerHTML = `<button data-display-mode="fullscreen" class="${display.fullscreen ? 'selected' : ''}" type="button">FULLSCREEN</button><button data-display-mode="windowed" class="${display.fullscreen ? '' : 'selected'}" type="button">WINDOWED</button>`
+  displayModeOptions.innerHTML = `<button data-display-mode="fullscreen" class="${display.fullscreen ? 'selected' : ''}" type="button">${t('settings.fullscreen')}</button><button data-display-mode="windowed" class="${display.fullscreen ? '' : 'selected'}" type="button">${t('settings.windowed')}</button>`
   const presets = [[1280, 720], [1600, 900], [1920, 1080], [2560, 1440]].filter(([width, height]) => width <= display.maxWidth && height <= display.maxHeight)
   displayResolutionOptions.innerHTML = presets.map(([width, height]) => `<button data-display-resolution="${width}x${height}" class="${!display.fullscreen && display.width === width && display.height === height ? 'selected' : ''}" type="button">${width}×${height}</button>`).join('')
 }
@@ -3948,7 +3995,7 @@ exitGameButton?.addEventListener('click', () => {
 closeSettingsButton.addEventListener('click', () => { settingsPanel.classList.add('hidden'); menuContent.classList.remove('hidden') })
 closePatchNotesButton.addEventListener('click', () => { patchNotesPanel.classList.add('hidden'); settingsPanel.classList.remove('hidden') })
 settingsPanel.addEventListener('click', (event) => { const button = event.target.closest('[data-graphics-quality]'); if (!button) return; settings.graphics.quality = button.dataset.graphicsQuality; applyGraphicsSettings(); persistSettings() })
-settingsPanel.addEventListener('click', (event) => { const language = event.target.closest('[data-language]')?.dataset.language; if (!language) return; settings.language = language; setLanguage(language); persistSettings() })
+settingsPanel.addEventListener('click', (event) => { const language = event.target.closest('[data-language]')?.dataset.language; if (!language) return; settings.language = language; setLanguage(language); localizeStaticInterface(); persistSettings() })
 settingsPanel.addEventListener('click', async (event) => {
   const mode = event.target.closest('[data-display-mode]')?.dataset.displayMode
   const resolution = event.target.closest('[data-display-resolution]')?.dataset.displayResolution
