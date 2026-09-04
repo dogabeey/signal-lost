@@ -29,6 +29,7 @@ import { TIPS } from './tips.js'
 import { MILESTONES } from './milestones.js'
 import { WEAPON_CONFIG } from './weapons_config.js'
 import { ARTIFACT_CONFIG } from './artifact_config.js'
+import { getAvailableLanguages, setLanguage, t } from './localisation.js'
 import { ARTIFACT_ACHIEVEMENTS, getSteamAchievementStates, unlockSteamAchievementForArtifact } from './steam_achievements.js'
 import { getArtifactAsset, getBuildingAsset, getUiIconAsset, getWeaponAsset } from './asset_catalog.js'
 import { DAMAGE_TYPES } from './damage_types.js'
@@ -94,6 +95,7 @@ document.querySelector('#app').innerHTML = `
       <label><span>›</span><input id="cheat-input" type="text" autocomplete="off" spellcheck="false" placeholder="cash 1000"></label>
     </section>
     <section class="overlay" id="overlay" aria-live="polite">
+      ${IS_STEAM_BUILD ? `<section class="save-slot-select" id="save-slot-select" aria-label="Save slot selection"><p class="eyebrow">${t('save_slots.archive')}</p><h1>${t('save_slots.heading')}</h1><p class="save-slot-copy">${t('save_slots.description')}</p><div class="save-slot-grid" id="save-slot-grid"></div></section>` : ''}
       <div class="menu-content" id="menu-content">
         <div class="death-killer-heading">
           <h1 id="overlay-title">ASTEROID BELT</h1>
@@ -168,6 +170,8 @@ const hudSectorElement = document.querySelector('#hud-sector')
 const shieldIndicators = document.querySelector('#shield-indicators')
 const pauseButton = document.querySelector('#pause-button')
 const overlay = document.querySelector('#overlay')
+const saveSlotSelect = document.querySelector('#save-slot-select')
+const saveSlotGrid = document.querySelector('#save-slot-grid')
 const overlayTitle = document.querySelector('#overlay-title')
 const deathKillerPreview = document.querySelector('#death-killer-preview')
 const deathKillerCanvas = document.querySelector('#death-killer-canvas')
@@ -232,6 +236,11 @@ const weaponHud = document.querySelector('#weapon-hud')
 const openSettingsButton = document.querySelector('#open-settings-button')
 const exitGameButton = document.querySelector('#exit-game-button')
 const settingsPanel = document.querySelector('#settings-panel')
+const languageSection = document.createElement('div')
+languageSection.className = 'settings-section'
+languageSection.innerHTML = `<h3>${t('settings.language')}</h3><div class="settings-row"><div><strong>${t('settings.language')}</strong><small>${t('settings.language_help')}</small></div><div class="settings-options" id="language-options"></div></div>`
+settingsPanel.append(languageSection)
+const languageOptions = document.querySelector('#language-options')
 const steamDisplaySection = IS_STEAM_BUILD ? document.createElement('div') : null
 if (steamDisplaySection) {
   steamDisplaySection.className = 'settings-section'
@@ -313,11 +322,25 @@ function getGameOverTip() {
   return tip
 }
 
+const SAVE_SLOT_KEY = 'asteroid-belt-active-save-slot'
+const SAVE_SLOT_SESSION_KEY = 'asteroid-belt-save-slot-session'
+const STEAM_CLOUD_SESSION_KEY = 'asteroid-belt-steam-cloud-synced-v1'
+const SAVE_SLOT_COUNT = 3
+migrateLegacyStorage()
+const activeSaveSlot = IS_STEAM_BUILD ? Math.min(SAVE_SLOT_COUNT, Math.max(1, Number.parseInt(localStorage.getItem(SAVE_SLOT_KEY) ?? '1', 10) || 1)) : 1
+const slotStoragePrefix = IS_STEAM_BUILD ? `asteroid-belt-slot-${activeSaveSlot}-` : ''
+const slotStorageKeys = IS_STEAM_BUILD ? Object.fromEntries(Object.entries(STORAGE_KEYS).map(([name, key]) => [name, `${slotStoragePrefix}${key.replace('asteroid-belt-', '')}`])) : STORAGE_KEYS
 const { cellBank: CELL_BANK_STORAGE_KEY, sector: SECTOR_STORAGE_KEY, sectorHighScores: SECTOR_HIGH_SCORES_STORAGE_KEY, cash: CASH_STORAGE_KEY,
   chronoshards: CHRONOSHARDS_STORAGE_KEY, researchLab: RESEARCH_LAB_STORAGE_KEY, savedRound: SAVED_ROUND_STORAGE_KEY,
   buildings: BUILDINGS_STORAGE_KEY, featureUnlocks: FEATURE_UNLOCKS_STORAGE_KEY, milestones: MILESTONES_STORAGE_KEY,
-  settings: SETTINGS_STORAGE_KEY, weaponry: WEAPONRY_STORAGE_KEY, anomalyRewards: ANOMALY_REWARDS_STORAGE_KEY, artifacts: ARTIFACTS_STORAGE_KEY } = STORAGE_KEYS
-migrateLegacyStorage()
+  settings: SETTINGS_STORAGE_KEY, weaponry: WEAPONRY_STORAGE_KEY, anomalyRewards: ANOMALY_REWARDS_STORAGE_KEY, artifacts: ARTIFACTS_STORAGE_KEY } = slotStorageKeys
+const firstSlotKey = 'asteroid-belt-slot-1-cash'
+if (IS_STEAM_BUILD && localStorage.getItem(firstSlotKey) === null && localStorage.getItem(STORAGE_KEYS.cash) !== null) {
+  for (const key of Object.values(STORAGE_KEYS)) {
+    const value = localStorage.getItem(key)
+    if (value !== null) localStorage.setItem(`asteroid-belt-slot-1-${key.replace('asteroid-belt-', '')}`, value)
+  }
+}
 const sectorKeys = Object.keys(DIFFICULTY)
 
 function readSavedRound() {
@@ -434,12 +457,13 @@ if (retiredGapGenerators.length) {
 }
 
 function readSettings() {
-  const defaults = { graphics: { quality: 'high', shadows: true, hdrEmissionIntensity: 0.5 }, gameplay: { cameraDistance: 100, autoPause: true, highContrastHud: false }, sound: { masterVolume: 100, muted: false, spatialAudio: true } }
+  const defaults = { language: 'en', graphics: { quality: 'high', shadows: true, hdrEmissionIntensity: 0.5 }, gameplay: { cameraDistance: 100, autoPause: true, highContrastHud: false }, sound: { masterVolume: 100, muted: false, spatialAudio: true } }
   try {
     const saved = JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEY))
     const savedGraphics = saved?.graphics ?? {}
     const hdrEmissionIntensity = Number.isFinite(savedGraphics.hdrEmissionIntensity) ? THREE.MathUtils.clamp(savedGraphics.hdrEmissionIntensity, 0, 1) : savedGraphics.hdrEmission === false ? 0 : 0.5
     return {
+      language: getAvailableLanguages().includes(saved?.language) ? saved.language : defaults.language,
       graphics: { ...defaults.graphics, ...savedGraphics, hdrEmissionIntensity },
       gameplay: { ...defaults.gameplay, ...saved?.gameplay },
       sound: { ...defaults.sound, ...saved?.sound },
@@ -448,6 +472,7 @@ function readSettings() {
 }
 
 const settings = readSettings()
+setLanguage(settings.language)
 function saveSettings() { writeStoredJson(SETTINGS_STORAGE_KEY, settings) }
 const availableBuildingTypes = Object.keys(BUILDING_CONFIG.types)
 buildingState.unlocked = [...new Set(buildingState.unlocked.filter((type) => availableBuildingTypes.includes(type)))]
@@ -1302,11 +1327,11 @@ function updateWeaponCharges(delta) {
   if (changed) renderWeaponHud()
 }
 function getWeaponLoadoutActionLabel(id) {
-  if (weaponState.loadout.includes(id)) return 'REMOVE FROM LOADOUT'
-  if (weaponState.loadout.length < getWeaponSlots()) return 'ADD TO LOADOUT'
+  if (weaponState.loadout.includes(id)) return t('weapon.remove_loadout')
+  if (weaponState.loadout.length < getWeaponSlots()) return t('weapon.add_loadout')
   const replacedWeaponId = weaponState.loadout[weaponState.selected]
   const replacedWeapon = WEAPON_CONFIG.weapons[replacedWeaponId]
-  return replacedWeapon ? `REPLACE WITH ${replacedWeapon.name.toUpperCase()}` : 'REPLACE SELECTED WEAPON'
+  return replacedWeapon ? t('weapon.replace_with', { weapon: replacedWeapon.name.toUpperCase() }) : t('weapon.replace_selected')
 }
 function getWeaponRequirement(level) { return WEAPON_CONFIG.levelCopyRequirements[level - 1] ?? Infinity }
 function getWeaponEffect(id) { const entry = getWeaponEntry(id); const weapon = WEAPON_CONFIG.weapons[id]; return entry && weapon ? weapon.baseEffect + weapon.effectPerLevel * (entry.level - 1) : 0 }
@@ -1349,7 +1374,7 @@ function renderWeaponReveal() {
   weaponRevealArt.alt = result.name
   weaponRevealName.textContent = result.name
   weaponRevealDetail.textContent = result.detail
-  weaponRevealContinueButton.textContent = weaponRevealIndex === weaponRevealQueue.length - 1 ? 'CLAIM' : 'NEXT'
+  weaponRevealContinueButton.textContent = weaponRevealIndex === weaponRevealQueue.length - 1 ? t('weapon.claim') : t('weapon.next')
   weaponRevealModal.classList.remove('hidden')
   weaponRevealModal.classList.remove('is-revealing')
   void weaponRevealModal.offsetWidth
@@ -1361,7 +1386,7 @@ function awardWeaponCard(id) {
   if (!entry) {
     entry = { level: 1, copies: 0 }
     weaponState.cards[id] = entry
-    return { id, name: weapon.name, type: 'unlock', status: 'UNLOCKED', detail: 'Unlocked at Level 1.' }
+    return { id, name: weapon.name, type: 'unlock', status: t('weapon.unlocked'), detail: t('weapon.unlocked_level') }
   }
   entry.copies += 1
   const requirement = getWeaponRequirement(entry.level)
@@ -1370,7 +1395,7 @@ function awardWeaponCard(id) {
     entry.level += 1
     return { id, name: weapon.name, type: 'level-up', status: `LEVEL UP · LV. ${entry.level}`, detail: `Upgraded to Level ${entry.level}.` }
   }
-  if (entry.level >= 5) return { id, name: weapon.name, type: 'max-copy', status: 'MAX LEVEL COPY', detail: 'This weapon is already at maximum level.' }
+  if (entry.level >= 5) return { id, name: weapon.name, type: 'max-copy', status: t('weapon.max_level_copy'), detail: t('weapon.max_level_detail') }
   return { id, name: weapon.name, type: 'copy', status: `COPY · LV. ${entry.level}`, detail: `${entry.copies}/${requirement} copies toward Level ${entry.level + 1}.` }
 }
 function getLuckyFindChance() {
@@ -1982,7 +2007,7 @@ function renderBuildings() {
 }
 function enterBuildMode() { if (!buildingState.unlocked.length) return; buildCameraCenter.set(0, 0); buildCameraHeight = 28; buildMode = true; selectedBuildingType = buildingState.unlocked[0]; setBuildModeEntityVisibility(true); overlay.classList.add('hidden'); buildBar.classList.remove('hidden'); renderBuildings() }
 function exitBuildMode() { buildMode = false; buildNavigationPointers.clear(); buildNavigationPinch = null; selectedBuildingType = null; setBuildModeEntityVisibility(false); buildGridUi.classList.add('hidden'); buildBar.classList.add('hidden'); overlay.classList.remove('hidden'); buildingUpgrade.classList.add('hidden') }
-function openBuildingUpgrade(building) { const config = BUILDING_CONFIG.types[building.type]; buildingUpgrade.innerHTML = `<button class="upgrade-close" data-close-building-upgrade="1" type="button" aria-label="Close upgrade panel">×</button><p class="eyebrow">INSTALLED DEFENSE</p><h3>${config.name}</h3><p class="building-upgrade-summary">Choose an upgrade for this structure.</p><div class="upgrade-grid">${Object.entries(config.upgrades).map(([key]) => { const level = building.upgrades[key] ?? 0; const cost = getBuildingUpgradeCost(building, key); return `<button data-upgrade-building="${building.id}" data-upgrade-key="${key}" type="button"><span>${key.toUpperCase()}</span><strong>LV. ${level} → ${level + 1}</strong><small>$${formatCompactNumber(cost)}</small></button>` }).join('')}</div><button data-destroy-building="${building.id}" class="demolish-button" type="button">DEMOLISH · REFUND $${formatCompactNumber(getBuildingRefund(building))}</button>`; buildingUpgrade.classList.remove('hidden') }
+function openBuildingUpgrade(building) { const config = BUILDING_CONFIG.types[building.type]; buildingUpgrade.innerHTML = `<button class="upgrade-close" data-close-building-upgrade="1" type="button" aria-label="Close upgrade panel">×</button><p class="eyebrow">INSTALLED DEFENSE</p><h3>${config.name}</h3><p class="building-upgrade-summary">Choose an upgrade for this structure.</p><div class="upgrade-grid">${Object.entries(config.upgrades).map(([key, upgrade]) => { const level = building.upgrades[key] ?? 0; const cost = getBuildingUpgradeCost(building, key); return `<button data-upgrade-building="${building.id}" data-upgrade-key="${key}" type="button"><span>${upgrade.name}</span><strong>LV. ${level} → ${level + 1}</strong><small>$${formatCompactNumber(cost)}</small></button>` }).join('')}</div><button data-destroy-building="${building.id}" class="demolish-button" type="button">DEMOLISH · REFUND $${formatCompactNumber(getBuildingRefund(building))}</button>`; buildingUpgrade.classList.remove('hidden') }
 function getBaseBuildingValue(building, key) { const config = BUILDING_CONFIG.types[building.type]; const upgradeKey = key === 'interval' ? 'frequency' : key; const directUpgrade = (config.upgrades[upgradeKey]?.step ?? 0) * (building.upgrades[upgradeKey] ?? 0); const effectivenessUpgrade = key === 'slow' ? (config.upgrades.effectiveness?.step ?? 0) * (building.upgrades.effectiveness ?? 0) : 0; return (config.effect[key] ?? 0) + directUpgrade + effectivenessUpgrade }
 function getOverclockMultiplier(building, key) { if (building.type === 'overclockRelay' || key === 'count') return 1; return 1 + buildingState.placed.filter((relay) => relay.type === 'overclockRelay' && relay.id !== building.id && planarDistance(building, relay) <= getBaseBuildingValue(relay, 'range')).reduce((bonus, relay) => bonus + getBaseBuildingValue(relay, 'effectiveness'), 0) }
 function buildingValue(building, key) { const value = getBaseBuildingValue(building, key); const multiplier = getOverclockMultiplier(building, key); return key === 'interval' || key === 'period' ? value / multiplier : value * multiplier }
@@ -3794,6 +3819,7 @@ function createNukeWave(origin, targets) {
 }
 
 function renderSettings() {
+  languageOptions.innerHTML = getAvailableLanguages().map((language) => `<button data-language="${language}" class="${settings.language === language ? 'selected' : ''}" type="button">${t(`language.${language === 'en' ? 'english' : language}`)}</button>`).join('')
   graphicsQualityOptions.innerHTML = ['low', 'medium', 'high'].map((quality) => `<button data-graphics-quality="${quality}" class="${settings.graphics.quality === quality ? 'selected' : ''}" type="button">${quality.toUpperCase()}</button>`).join('')
   shadowsSetting.checked = settings.graphics.shadows
   const hdrEmissionPercent = Math.round(settings.graphics.hdrEmissionIntensity * 100)
@@ -3922,6 +3948,7 @@ exitGameButton?.addEventListener('click', () => {
 closeSettingsButton.addEventListener('click', () => { settingsPanel.classList.add('hidden'); menuContent.classList.remove('hidden') })
 closePatchNotesButton.addEventListener('click', () => { patchNotesPanel.classList.add('hidden'); settingsPanel.classList.remove('hidden') })
 settingsPanel.addEventListener('click', (event) => { const button = event.target.closest('[data-graphics-quality]'); if (!button) return; settings.graphics.quality = button.dataset.graphicsQuality; applyGraphicsSettings(); persistSettings() })
+settingsPanel.addEventListener('click', (event) => { const language = event.target.closest('[data-language]')?.dataset.language; if (!language) return; settings.language = language; setLanguage(language); persistSettings() })
 settingsPanel.addEventListener('click', async (event) => {
   const mode = event.target.closest('[data-display-mode]')?.dataset.displayMode
   const resolution = event.target.closest('[data-display-resolution]')?.dataset.displayResolution
@@ -4226,6 +4253,83 @@ window.addEventListener('resize', () => {
   if (buildMode) updateBuildGridPositions()
 })
 
+function getSaveSlotSummary(slot) {
+  const prefix = `asteroid-belt-slot-${slot}-`
+  const scores = readStoredJson(`${prefix}sector-high-scores`, {})
+  const entries = Object.entries(scores && typeof scores === 'object' ? scores : {})
+  const highestCells = entries.reduce((best, [, value]) => Math.max(best, Number(value) || 0), 0)
+  const highestTier = entries.reduce((best, [key, value]) => Math.max(best, Number(value) > 0 ? (Number(key.replace('sector', '')) || 1) : 1), 1)
+  const cashValue = readStoredNumber(`${prefix}cash`, 0)
+  const chronoshardValue = readStoredNumber(`${prefix}chronoshards`, 0)
+  const occupied = entries.length > 0 || cashValue > 0 || chronoshardValue > 0
+  return { highestCells, highestTier, cashValue, chronoshardValue, occupied }
+}
+
+function renderSaveSlots() {
+  saveSlotGrid.innerHTML = Array.from({ length: SAVE_SLOT_COUNT }, (_, index) => {
+    const slot = index + 1
+    const summary = getSaveSlotSummary(slot)
+    return `<button class="save-slot-card ${summary.occupied ? 'is-occupied' : 'is-empty'}" data-save-slot="${slot}" type="button"><span class="save-slot-name">${t('save_slots.slot', { slot })}</span><strong>${summary.occupied ? t('save_slots.sector', { sector: formatSectorNumber(summary.highestTier) }) : t('save_slots.new_expedition')}</strong><small>${t('save_slots.max_cells')} <b>${formatCompactNumber(summary.highestCells)}</b></small><small>${t('save_slots.total_cash')} <b>$${formatCompactNumber(summary.cashValue)}</b></small><small>${t('save_slots.total_chronoshards')} <b>✦ ${formatCompactNumber(summary.chronoshardValue)}</b></small></button>`
+  }).join('')
+}
+
+saveSlotGrid?.addEventListener('click', (event) => {
+  const slot = Number(event.target.closest('[data-save-slot]')?.dataset.saveSlot)
+  if (!Number.isInteger(slot) || slot < 1 || slot > SAVE_SLOT_COUNT) return
+  localStorage.setItem(SAVE_SLOT_KEY, String(slot))
+  sessionStorage.setItem(SAVE_SLOT_SESSION_KEY, String(slot))
+  window.location.reload()
+})
+
+function getAllSaveSlotData() {
+  const slots = {}
+  for (let slot = 1; slot <= SAVE_SLOT_COUNT; slot += 1) {
+    const prefix = `asteroid-belt-slot-${slot}-`
+    slots[slot] = Object.fromEntries(Object.values(STORAGE_KEYS).map((key) => {
+      const suffix = key.replace('asteroid-belt-', '')
+      return [suffix, localStorage.getItem(`${prefix}${suffix}`)]
+    }).filter(([, value]) => value !== null))
+  }
+  return slots
+}
+
+function applyCloudSaveSlotData(slots) {
+  if (!slots || typeof slots !== 'object') return false
+  for (let slot = 1; slot <= SAVE_SLOT_COUNT; slot += 1) {
+    const data = slots[slot]
+    if (!data || typeof data !== 'object') continue
+    const prefix = `asteroid-belt-slot-${slot}-`
+    for (const key of Object.values(STORAGE_KEYS)) {
+      const suffix = key.replace('asteroid-belt-', '')
+      if (typeof data[suffix] === 'string') localStorage.setItem(`${prefix}${suffix}`, data[suffix])
+    }
+  }
+  return true
+}
+
+async function syncSaveSlotsWithSteamCloud() {
+  if (!IS_STEAM_BUILD || !window.steamShell?.readSaveSlotsFromCloud) return
+  if (sessionStorage.getItem(STEAM_CLOUD_SESSION_KEY) === '1') return
+  try {
+    const cloudData = await window.steamShell.readSaveSlotsFromCloud()
+    if (cloudData) {
+      const parsed = JSON.parse(cloudData)
+      if (parsed?.version === 1 && applyCloudSaveSlotData(parsed.slots)) {
+        sessionStorage.setItem(STEAM_CLOUD_SESSION_KEY, '1')
+        window.location.reload()
+        return
+      }
+    }
+    await window.steamShell.writeSaveSlotsToCloud?.(JSON.stringify({ version: 1, slots: getAllSaveSlotData() }))
+    sessionStorage.setItem(STEAM_CLOUD_SESSION_KEY, '1')
+  } catch (error) { console.warn('[Steamworks] cloud slot sync failed:', error) }
+}
+
+function uploadSaveSlotsToSteamCloud() {
+  if (!IS_STEAM_BUILD || !window.steamShell?.writeSaveSlotsToCloud) return
+  window.steamShell.writeSaveSlotsToCloud(JSON.stringify({ version: 1, slots: getAllSaveSlotData() })).catch((error) => console.warn('[Steamworks] cloud slot upload failed:', error))
+}
+
 applyDifficulty()
 syncBuildings()
 completeFinishedResearches()
@@ -4241,6 +4345,13 @@ void syncArtifactsWithSteam()
 updateStartButton()
 setActiveMenuButton()
 resetGame()
+if (IS_STEAM_BUILD && sessionStorage.getItem(SAVE_SLOT_SESSION_KEY) !== String(activeSaveSlot)) {
+  renderSaveSlots()
+  menuContent.classList.add('hidden')
+  document.querySelector('.menu-actions').classList.add('hidden')
+} else if (saveSlotSelect) saveSlotSelect.hidden = true
+void syncSaveSlotsWithSteamCloud()
+if (IS_STEAM_BUILD) setInterval(uploadSaveSlotsToSteamCloud, 15_000)
 animate()
 setInterval(() => {
   if (completeFinishedResearches() || !labPanel.classList.contains('hidden')) renderResearchLab()

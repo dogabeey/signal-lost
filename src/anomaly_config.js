@@ -1,4 +1,6 @@
-export const ANOMALY_CONFIG = {
+import { t } from './localisation.js'
+
+const ANOMALY_CONFIG_BASE = {
   unlockSector: 2,
   weeklyAnchorDate: '2026-09-02',
   rewardCellTarget: 250,
@@ -12,4 +14,13 @@ export const ANOMALY_CONFIG = {
       type: 'cell-scout',
     },
   ],
+}
+
+export const ANOMALY_CONFIG = {
+  ...ANOMALY_CONFIG_BASE,
+  challenges: ANOMALY_CONFIG_BASE.challenges.map((challenge) => ({
+    ...challenge,
+    name: t(`anomaly.${challenge.id}.name`, {}, challenge.name),
+    description: t(`anomaly.${challenge.id}.description`, {}, challenge.description),
+  })),
 }

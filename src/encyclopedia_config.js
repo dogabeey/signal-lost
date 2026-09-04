@@ -1,4 +1,6 @@
-export const ENCYCLOPEDIA_ENTRIES = [
+import { t } from './localisation.js'
+
+const ENCYCLOPEDIA_ENTRIES_BASE = [
   { id: 'regular', category: 'Enemies', name: 'Regular', model: 'spiked-enemy', firstSector: 1, description: 'A stationary asteroid enemy. Keep clear of its body while collecting Cells.' },
   { id: 'chaser', category: 'Enemies', name: 'Chaser', model: 'spiked-enemy', firstSector: 2, description: 'Detects the ship within its range and pursues it.' },
   { id: 'creeper', category: 'Enemies', name: 'Creeper', model: 'spiked-enemy', firstSector: 1, description: 'Slowly closes in from any distance and becomes faster as it survives.' },
@@ -12,3 +14,10 @@ export const ENCYCLOPEDIA_ENTRIES = [
   { id: 'fieryRock', category: 'Meteors', name: 'Fiery Rock', model: 'falling-rock', firstSector: 3, description: 'A burning meteor that leaves a damaging fire hazard after impact.' },
   { id: 'splinter', category: 'Meteors', name: 'Splinter', model: 'falling-rock', firstSector: 2, description: 'Shatters on impact and sends fragments outward.' },
 ]
+
+export const ENCYCLOPEDIA_ENTRIES = ENCYCLOPEDIA_ENTRIES_BASE.map((entry) => ({
+  ...entry,
+  category: t(`encyclopedia.category.${entry.category.toLowerCase()}`, {}, entry.category),
+  name: t(`enemy.${entry.id}.name`, {}, entry.name),
+  description: t(`enemy.${entry.id}.description`, {}, entry.description),
+}))

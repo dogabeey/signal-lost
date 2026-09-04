@@ -89,6 +89,17 @@ app.whenReady().then(() => {
       try { return [id, steamClient.achievement.isActivated(id)] } catch { return [id, false] }
     }))
   })
+  ipcMain.handle('steam-cloud-read-save-slots', () => {
+    if (!steamClient) return null
+    try {
+      const fileName = 'asteroid-belt-save-slots-v1.json'
+      return steamClient.cloud.isEnabledForAccount() && steamClient.cloud.isEnabledForApp() && steamClient.cloud.fileExists(fileName) ? steamClient.cloud.readFile(fileName) : null
+    } catch (error) { console.warn('[Steamworks] cloud read failed:', error); return null }
+  })
+  ipcMain.handle('steam-cloud-write-save-slots', (_event, data) => {
+    if (!steamClient || typeof data !== 'string' || data.length > 900000) return false
+    try { return steamClient.cloud.isEnabledForAccount() && steamClient.cloud.isEnabledForApp() && steamClient.cloud.writeFile('asteroid-belt-save-slots-v1.json', data) } catch (error) { console.warn('[Steamworks] cloud write failed:', error); return false }
+  })
   createWindow()
 
   app.on('activate', () => {

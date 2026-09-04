@@ -1,8 +1,10 @@
 // Status damage is configured here so new types (for example poison) and their
 // future immunity research can be added without changing the game loop.
+import { t } from './localisation.js'
+
 export const DAMAGE_TYPES = {
   fire: {
-    label: 'Burning',
+    label: t('status.fire', {}, 'Burning'),
     duration: 1.5,
     color: '#ff4f3e',
     immunityResearchId: 'fire-immunity',
@@ -10,7 +12,7 @@ export const DAMAGE_TYPES = {
     refreshOnReapply: false,
   },
   poison: {
-    label: 'Poisoned',
+    label: t('status.poison', {}, 'Poisoned'),
     duration: 3,
     color: '#91e85a',
     immunityResearchId: 'poison-immunity',

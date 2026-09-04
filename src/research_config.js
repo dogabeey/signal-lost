@@ -1,3 +1,5 @@
+import { t } from './localisation.js'
+
 // Instructions for adding new research:
 // 1. Add a new research object to the "researches" array below.
 // 2. Make sure to give it a unique "id" and fill in the other properties as needed.
@@ -9,7 +11,7 @@
 // 7. Unless stated explicitly, all researches cost cash.
 
 
-export const RESEARCH_CONFIG = {
+const RESEARCH_CONFIG_BASE = {
   durationsEnabled: false,
   categoryOrder: ['Player Enhancements', 'Economy', 'Boosters'],
   featureUnlocks: {
@@ -290,4 +292,16 @@ export const RESEARCH_CONFIG = {
       duration: { baseMs: 240_000, multiplier: 1.22 },
     })),
   ],
+}
+
+const categoryKey = (category) => `research.category.${category.toLowerCase().replaceAll(' ', '_')}`
+export const RESEARCH_CONFIG = {
+  ...RESEARCH_CONFIG_BASE,
+  categoryOrder: RESEARCH_CONFIG_BASE.categoryOrder.map((category) => t(categoryKey(category), {}, category)),
+  researches: RESEARCH_CONFIG_BASE.researches.map((research) => ({
+    ...research,
+    category: t(categoryKey(research.category), {}, research.category),
+    name: t(`research.${research.id}.name`, {}, research.name),
+    description: t(`research.${research.id}.description`, {}, research.description),
+  })),
 }

@@ -1,4 +1,6 @@
-export const BUILDING_CONFIG = {
+import { t } from './localisation.js'
+
+const BUILDING_CONFIG_BASE = {
   placementRadius: 10,
   minimumSpacing: 2.2,
   spawnClearance: 2.5,
@@ -34,4 +36,13 @@ export const BUILDING_CONFIG = {
       upgrades: { period: { base: 720, step: -0.7 }, cash: { base: 820, step: 1.5 }, count: { base: 980, step: 1 } },
     },
   },
+}
+
+export const BUILDING_CONFIG = {
+  ...BUILDING_CONFIG_BASE,
+  types: Object.fromEntries(Object.entries(BUILDING_CONFIG_BASE.types).map(([id, building]) => [id, {
+    ...building,
+    name: t(`building.${id}.name`, {}, building.name),
+    upgrades: Object.fromEntries(Object.entries(building.upgrades).map(([upgradeId, upgrade]) => [upgradeId, { ...upgrade, name: t(`building.upgrade.${upgradeId}`, {}, upgradeId) }])),
+  }])),
 }

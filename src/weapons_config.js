@@ -1,4 +1,6 @@
-export const WEAPON_CONFIG = {
+import { t } from './localisation.js'
+
+const WEAPON_CONFIG_BASE = {
   purchaseCost: 15,
   levelCopyRequirements: [3, 5, 10, 25],
   weapons: {
@@ -11,4 +13,13 @@ export const WEAPON_CONFIG = {
     cellOverdrive: { name: 'Cell Overdrive', key: '7', color: '#ffd36f', description: 'Doubles Cells collected for a short time.', baseEffect: 4, effectPerLevel: 0.8, duration: true },
     demonMode: { name: 'Demon Mode', key: '8', color: '#ff465d', description: 'Move faster and destroy enemies you pass through.', baseEffect: 4, effectPerLevel: 0.8, duration: true },
   },
+}
+
+export const WEAPON_CONFIG = {
+  ...WEAPON_CONFIG_BASE,
+  weapons: Object.fromEntries(Object.entries(WEAPON_CONFIG_BASE.weapons).map(([id, weapon]) => [id, {
+    ...weapon,
+    name: t(`weapon.${id}.name`, {}, weapon.name),
+    description: t(`weapon.${id}.description`, {}, weapon.description),
+  }])),
 }

@@ -1,5 +1,7 @@
+import { t } from './localisation.js'
+
 // Add permanent achievement rewards here. `buff.stat` uses the same stat keys as Research effects.
-export const ARTIFACT_CONFIG = {
+const ARTIFACT_CONFIG_BASE = {
   artifacts: [
     {
       id: 'broken-radar',
@@ -73,4 +75,9 @@ export const ARTIFACT_CONFIG = {
       buff: { stat: 'arenaSizeMultiplier', amount: 0.2, label: '+20% arena size in every Sector' },
     },
   ],
+}
+
+export const ARTIFACT_CONFIG = {
+  ...ARTIFACT_CONFIG_BASE,
+  artifacts: ARTIFACT_CONFIG_BASE.artifacts.map((artifact) => ({ ...artifact, name: t(`artifact.${artifact.id}.name`, {}, artifact.name), buff: { ...artifact.buff, label: t(`artifact.${artifact.id}.buff`, {}, artifact.buff.label) } })),
 }
