@@ -2475,7 +2475,7 @@ function createShockwave(origin, radius, age = 0, affectedIds = []) {
 }
 
 function triggerShockwave() {
-  const radius = GAME.shockwaveBaseRadius * (1 + getResearchStatBonus('shockwaveSize'))
+  const radius = GAME.shockwaveBaseRadius * (1 + getResearchStatBonus('effectRange'))
   createShockwave(player.position, radius)
 }
 

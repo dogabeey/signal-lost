@@ -197,17 +197,6 @@ export const RESEARCH_CONFIG = {
       duration: { baseMs: 120_000, multiplier: 1 },
     },
     {
-      id: 'shockwave-size',
-      category: 'Player Enhancements',
-      name: 'Shockwave Size',
-      description: 'Increases the range of each Shockwave.',
-      maxLevel: 20,
-      effect: { stat: 'shockwaveSize', perLevel: 0.1, format: 'percent' },
-      cost: { currency: 'cash', base: 100, multiplier: 1.28, jerk: 1.002 },
-      duration: { baseMs: 120_000, multiplier: 1.2 },
-      requirements: { researchId: 'unlock-shockwave' },
-    },
-    {
       id: 'shockwave-frequency',
       category: 'Player Enhancements',
       name: 'Shockwave Frequency',
