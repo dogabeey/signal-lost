@@ -1152,7 +1152,7 @@ async function syncArtifactsWithSteam() {
 
 let artifactUnlockToastTimer
 function showArtifactUnlockToast(artifact) {
-  artifactUnlockToast.textContent = `ARTIFACT ACQUIRED · ${artifact.name.toUpperCase()}`
+  artifactUnlockToast.textContent = t('artifact.acquired_named', { artifact: artifact.name.toUpperCase() })
   artifactUnlockToast.classList.remove('hidden')
   window.clearTimeout(artifactUnlockToastTimer)
   artifactUnlockToastTimer = window.setTimeout(() => artifactUnlockToast.classList.add('hidden'), 4_000)
@@ -1857,7 +1857,7 @@ function renderEncyclopedia() {
     const unlocked = entry.firstSector <= unlockedSector
     const icon = unlocked
       ? `<canvas data-encyclopedia-model="${entry.id}" width="210" height="150" aria-label="${entry.name} model"></canvas>`
-      : '<div class="encyclopedia-unknown-icon" role="img" aria-label="Unknown enemy">?</div>'
+      : `<div class="encyclopedia-unknown-icon" role="img" aria-label="${t('encyclopedia.unknown_enemy')}">?</div>`
     return `<article class="encyclopedia-entry ${unlocked ? '' : 'locked'}"><h3>${entry.name}</h3>${icon}<p>${unlocked ? entry.description : maskDescription(entry.description)}</p></article>`
   }).join('')
   for (const canvas of encyclopediaList.querySelectorAll('[data-encyclopedia-model]')) {
@@ -2964,7 +2964,7 @@ function returnToMainMenu() {
     overlayTitle.textContent = 'ASTEROID BELT'
     overlayTitle.classList.remove('death-title')
     hideDeathEnemyPreview()
-    overlayCopy.textContent = 'Sandbox closed. No progress was saved.'
+    overlayCopy.textContent = t('message.sandbox_closed')
     gameOverTip.hidden = true
     menuContent.classList.remove('hidden')
     labPanel.classList.add('hidden')
@@ -2978,7 +2978,7 @@ function returnToMainMenu() {
   overlayTitle.textContent = 'ASTEROID BELT'
   overlayTitle.classList.remove('death-title')
   hideDeathEnemyPreview()
-  overlayCopy.textContent = 'Round saved. Continue when you are ready.'
+  overlayCopy.textContent = t('message.round_saved')
   gameOverTip.hidden = true
   menuContent.classList.remove('hidden')
   labPanel.classList.add('hidden')
@@ -3030,7 +3030,7 @@ function endGame(cause = 'SIGNAL LOST') {
   recordSectorHighScore()
   const hasEnemyPreview = showDeathEnemyPreview(cause)
   const shortCause = cause.toLocaleLowerCase().replace(/\s+(collision|detonation|projectile|impact|damage)$/, '')
-  overlayTitle.textContent = hasEnemyPreview ? 'KILLED BY' : `KILLED BY ${shortCause.toUpperCase()}`
+  overlayTitle.textContent = hasEnemyPreview ? t('message.killed_by', { cause: '' }).trim() : t('message.killed_by', { cause: shortCause.toUpperCase() })
   overlayTitle.classList.add('death-title')
   overlayCopy.textContent = t('message.energy_secured', { count: score, cellWord: t(score === 1 ? 'message.cell_singular' : 'message.cell_plural') })
   gameOverTip.textContent = t('message.tip', { tip: getGameOverTip() })
@@ -3223,7 +3223,7 @@ function updateGame(delta, total) {
       soundSystem.playCellCollect(chronoCell.position)
       if (chronoCell.userData.isMapToEarth) {
         const mapToEarth = ARTIFACT_CONFIG.artifacts.find((artifact) => artifact.requirement.type === 'hidden-world-map')
-        if (unlockArtifact(mapToEarth)) showCurrencyIndicator(chronoCell.position, 'ARTIFACT ACQUIRED', 'chronoshard-indicator')
+        if (unlockArtifact(mapToEarth)) showCurrencyIndicator(chronoCell.position, t('artifact.acquired'), 'chronoshard-indicator')
         scene.remove(chronoCell)
         chronoCells.splice(index, 1)
         continue
@@ -4121,7 +4121,7 @@ surrenderButton.addEventListener('click', () => {
   overlayTitle.textContent = 'ASTEROID BELT'
   overlayTitle.classList.remove('death-title')
   hideDeathEnemyPreview()
-  overlayCopy.textContent = 'Run surrendered. No progress was saved.'
+  overlayCopy.textContent = t('message.run_surrendered')
   gameOverTip.hidden = true
   closeMenuPanelsForHome()
   overlay.classList.remove('hidden')
