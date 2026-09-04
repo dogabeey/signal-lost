@@ -232,6 +232,14 @@ const weaponHud = document.querySelector('#weapon-hud')
 const openSettingsButton = document.querySelector('#open-settings-button')
 const exitGameButton = document.querySelector('#exit-game-button')
 const settingsPanel = document.querySelector('#settings-panel')
+const steamDisplaySection = IS_STEAM_BUILD ? document.createElement('div') : null
+if (steamDisplaySection) {
+  steamDisplaySection.className = 'settings-section'
+  steamDisplaySection.innerHTML = '<h3>DISPLAY</h3><div class="settings-row"><div><strong>Screen Mode</strong><small>Steam launches fullscreen by default.</small></div><div class="settings-options" id="display-mode-options"></div></div><div class="settings-row"><div><strong>Resolution</strong><small>Choosing a resolution switches to windowed mode.</small></div><div class="settings-options" id="display-resolution-options"></div></div>'
+  settingsPanel.append(steamDisplaySection)
+}
+const displayModeOptions = document.querySelector('#display-mode-options')
+const displayResolutionOptions = document.querySelector('#display-resolution-options')
 const closeSettingsButton = document.querySelector('#close-settings-button')
 const openPatchNotesButton = document.querySelector('#open-patch-notes-button')
 const patchNotesPanel = document.querySelector('#patch-notes-panel')
@@ -3792,6 +3800,15 @@ function renderSettings() {
   mutedSetting.checked = settings.sound.muted
   spatialAudioSetting.checked = settings.sound.spatialAudio
   document.querySelector('.game-shell').classList.toggle('high-contrast-hud', settings.gameplay.highContrastHud)
+  renderDisplaySettings()
+}
+
+async function renderDisplaySettings() {
+  if (!displayModeOptions || !displayResolutionOptions || !window.steamShell?.getDisplaySettings) return
+  const display = await window.steamShell.getDisplaySettings()
+  displayModeOptions.innerHTML = `<button data-display-mode="fullscreen" class="${display.fullscreen ? 'selected' : ''}" type="button">FULLSCREEN</button><button data-display-mode="windowed" class="${display.fullscreen ? '' : 'selected'}" type="button">WINDOWED</button>`
+  const presets = [[1280, 720], [1600, 900], [1920, 1080], [2560, 1440]].filter(([width, height]) => width <= display.maxWidth && height <= display.maxHeight)
+  displayResolutionOptions.innerHTML = presets.map(([width, height]) => `<button data-display-resolution="${width}x${height}" class="${!display.fullscreen && display.width === width && display.height === height ? 'selected' : ''}" type="button">${width}×${height}</button>`).join('')
 }
 
 function persistSettings() { saveSettings(); soundSystem.setMasterVolume(); renderSettings() }
@@ -3897,6 +3914,13 @@ exitGameButton?.addEventListener('click', () => {
 closeSettingsButton.addEventListener('click', () => { settingsPanel.classList.add('hidden'); menuContent.classList.remove('hidden') })
 closePatchNotesButton.addEventListener('click', () => { patchNotesPanel.classList.add('hidden'); settingsPanel.classList.remove('hidden') })
 settingsPanel.addEventListener('click', (event) => { const button = event.target.closest('[data-graphics-quality]'); if (!button) return; settings.graphics.quality = button.dataset.graphicsQuality; applyGraphicsSettings(); persistSettings() })
+settingsPanel.addEventListener('click', async (event) => {
+  const mode = event.target.closest('[data-display-mode]')?.dataset.displayMode
+  const resolution = event.target.closest('[data-display-resolution]')?.dataset.displayResolution
+  if (mode && window.steamShell?.setFullscreen) await window.steamShell.setFullscreen(mode === 'fullscreen')
+  if (resolution && window.steamShell?.setResolution) { const [width, height] = resolution.split('x').map(Number); await window.steamShell.setResolution(width, height) }
+  if (mode || resolution) renderDisplaySettings()
+})
 shadowsSetting.addEventListener('change', () => { settings.graphics.shadows = shadowsSetting.checked; applyGraphicsSettings(); persistSettings() })
 hdrEmissionSetting.addEventListener('input', () => { settings.graphics.hdrEmissionIntensity = Number(hdrEmissionSetting.value) / 100; applyGraphicsSettings(); persistSettings() })
 cameraDistanceSetting.addEventListener('input', () => { settings.gameplay.cameraDistance = Number(cameraDistanceSetting.value); persistSettings() })

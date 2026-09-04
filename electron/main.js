@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain } from 'electron'
+import { app, BrowserWindow, ipcMain, screen } from 'electron'
 import path from 'node:path'
 import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
@@ -46,6 +46,7 @@ function createWindow() {
     minHeight: 540,
     backgroundColor: '#101b25',
     autoHideMenuBar: true,
+    fullscreen: app.isPackaged,
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
@@ -58,6 +59,25 @@ function createWindow() {
 
 app.whenReady().then(() => {
   ipcMain.handle('quit-game', () => app.quit())
+  ipcMain.handle('display-settings', () => {
+    const window = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
+    const display = screen.getDisplayNearestPoint(window?.getBounds() ?? { x: 0, y: 0 })
+    return { fullscreen: Boolean(window?.isFullScreen()), width: window?.getContentSize()[0] ?? 1280, height: window?.getContentSize()[1] ?? 720, maxWidth: display.workAreaSize.width, maxHeight: display.workAreaSize.height }
+  })
+  ipcMain.handle('set-fullscreen', (_event, fullscreen) => {
+    const window = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
+    if (!window || typeof fullscreen !== 'boolean') return false
+    window.setFullScreen(fullscreen)
+    return window.isFullScreen()
+  })
+  ipcMain.handle('set-resolution', (_event, width, height) => {
+    const window = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
+    const allowedResolutions = new Set(['1280x720', '1600x900', '1920x1080', '2560x1440'])
+    if (!window || !allowedResolutions.has(`${width}x${height}`)) return false
+    window.setFullScreen(false)
+    window.setContentSize(width, height)
+    return true
+  })
   ipcMain.handle('steam-status', () => getSteamStatus())
   ipcMain.handle('steam-unlock-achievement', (_event, achievementId) => {
     if (!steamClient || typeof achievementId !== 'string' || !STEAM_ACHIEVEMENTS.has(achievementId)) return false

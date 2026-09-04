@@ -20,6 +20,12 @@
     "asarUnpack": [
       "node_modules/steamworks.js/dist/**/*"
     ],
+    "extraFiles": [
+      {
+        "from": "node_modules/steamworks.js/dist/win64/steam_api64.dll",
+        "to": "steam_api64.dll"
+      }
+    ],
     "directories": {
       "output": "release"
     },
