@@ -1278,8 +1278,9 @@ function renderWeaponHud() {
   weaponHud.classList.toggle('hidden', !started || !available.length)
   weaponHud.innerHTML = available.map((id, index) => {
     const charges = getWeaponCharges(id)
+    const maxCharges = getWeaponMaxCharges()
     const status = String(charges)
-    return `<button class="${index === weaponState.selected ? 'selected' : ''} ${charges === 0 ? 'spent' : ''}" data-use-weapon="${id}" type="button" ${charges === 0 ? 'disabled' : ''}><span class="weapon-hud-icon ${WEAPON_CONFIG.weapons[id].duration ? 'has-duration' : ''}" data-weapon-duration="${WEAPON_CONFIG.weapons[id].duration ? id : ''}"><img class="weapon-hud-art" src="${getWeaponAsset(id)}" alt=""></span><b>${index + 1}</b><span class="weapon-hud-name">${WEAPON_CONFIG.weapons[id].name}</span><i>${status}</i></button>`
+    return `<button class="${index === weaponState.selected ? 'selected' : ''} ${charges === 0 ? 'spent' : ''} ${charges >= maxCharges ? 'is-charge-full' : ''}" data-use-weapon="${id}" type="button" ${charges === 0 ? 'disabled' : ''}><span class="weapon-hud-icon ${WEAPON_CONFIG.weapons[id].duration ? 'has-duration' : ''}" data-weapon-duration="${WEAPON_CONFIG.weapons[id].duration ? id : ''}"><img class="weapon-hud-art" src="${getWeaponAsset(id)}" alt=""></span><b>${index + 1}</b><span class="weapon-hud-name">${WEAPON_CONFIG.weapons[id].name}</span><i>${status}</i></button>`
   }).join('')
   updateWeaponDurationIndicators()
 }
@@ -1292,7 +1293,9 @@ function renderWeaponry() {
   const luckyFindChance = getLuckyFindChance()
   weaponLuckyFindChance.hidden = luckyFindChance <= 0
   weaponLuckyFindChance.textContent = `LUCKY FIND · ${Math.round(luckyFindChance * 100)}% · 2 CARDS`
-  weaponSlotCount.textContent = `${weaponState.loadout.length}/${getWeaponSlots()}`
+  const weaponSlots = getWeaponSlots()
+  weaponSlotCount.textContent = String(weaponState.loadout.length)
+  weaponSlotCount.classList.toggle('is-full', weaponState.loadout.length >= weaponSlots)
   weaponLoadout.innerHTML = Array.from({ length: getWeaponSlots() }, (_, index) => { const id = weaponState.loadout[index]; return `<button data-select-weapon-slot="${index}" type="button" class="${index === weaponState.selected ? 'selected' : ''}">${id ? WEAPON_CONFIG.weapons[id].name : 'EMPTY SLOT'}</button>` }).join('')
   weaponCardList.innerHTML = Object.entries(WEAPON_CONFIG.weapons).map(([id, weapon]) => { const entry = getWeaponEntry(id); const art = `<img class="asset-card-art" src="${getWeaponAsset(id)}" alt="">`; if (!entry) return `<article class="weapon-card locked">${art}<strong>${weapon.name}</strong><small>Not collected yet</small></article>`; const required = getWeaponRequirement(entry.level); return `<article class="weapon-card ${weaponState.loadout.includes(id) ? 'selected' : ''}">${art}<strong>${weapon.name} · LV. ${entry.level}</strong><small>${weapon.description}</small><em>${entry.level >= 5 ? 'MAX LEVEL' : `${entry.copies}/${required} copies to Lv. ${entry.level + 1}`}</em><button data-toggle-weapon="${id}" type="button">${getWeaponLoadoutActionLabel(id)}</button></article>` }).join('')
   renderWeaponHud()
