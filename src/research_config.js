@@ -30,11 +30,11 @@ export const RESEARCH_CONFIG = {
       effect: { stat: 'luckyFindChance', perLevel: 0.02, format: 'percent' }, cost: { currency: 'cash', base: 28_000, multiplier: 1.32, jerk: 1.003 }, duration: { baseMs: 150_000, multiplier: 1.16 },
     },
     {
-      id: 'weapon-recharge', category: 'Weapons', name: 'Weapon Recharge', description: 'Recharges one charge for each equipped weapon every 8 minutes.', maxLevel: 1,
+      id: 'weapon-recharge', category: 'Weapons', name: 'Weapon Recharge', description: 'Weapons are now capable of recharging over time.', maxLevel: 1,
       cost: { currency: 'cash', base: 40_000, multiplier: 1, jerk: 1 }, duration: { baseMs: 180_000, multiplier: 1 },
     },
     {
-      id: 'weapon-recharge-rate', category: 'Weapons', name: 'Weapon Recharge Rate', description: 'Reduces weapon recharge time by 30 seconds per level, down to 3 minutes.', maxLevel: 10,
+      id: 'weapon-recharge-rate', category: 'Weapons', name: 'Weapon Recharge Rate', description: 'Reduces weapon recharge time.', maxLevel: 10,
       effect: { stat: 'weaponRechargeReductionSeconds', perLevel: 30, format: 'flat' }, cost: { currency: 'cash', base: 12_000, multiplier: 1.25, jerk: 1.002 }, duration: { baseMs: 150_000, multiplier: 1.18 }, requirements: { researchId: 'weapon-recharge' },
     },
     {
@@ -113,7 +113,7 @@ export const RESEARCH_CONFIG = {
       description: 'Increases the range of every active range-based effect.',
       maxLevel: 99,
       effect: { stat: 'effectRange', perLevel: 0.01, format: 'percent' },
-      cost: { currency: 'cash', base: 100, multiplier: 1.15, jerk: 1.0005 },
+      cost: { currency: 'cash', base: 100, multiplier: 1.15, jerk: 1.005 },
       duration: { baseMs: 120_000_000, multiplier: 1.35 },
       requirements: { anyResearch: ['unlock-slow-aura', 'cell-magnet', 'pushback'] },
     },
@@ -193,7 +193,7 @@ export const RESEARCH_CONFIG = {
       name: 'Unlock Shockwave',
       description: 'Periodically emits a green shockwave that pushes enemies away.',
       maxLevel: 1,
-      cost: { currency: 'cash', base: 20_000, multiplier: 1, jerk: 1 },
+      cost: { currency: 'cash', base: 1_000, multiplier: 1, jerk: 1 },
       duration: { baseMs: 120_000, multiplier: 1 },
     },
     {
