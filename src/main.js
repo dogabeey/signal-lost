@@ -148,7 +148,7 @@ document.querySelector('#app').innerHTML = `
       <section class="building-draft-modal hidden" id="building-draft-modal" aria-label="Building Draft"><button class="upgrade-close" id="close-building-draft" type="button" aria-label="Close building draft">×</button><p class="eyebrow">PERMANENT DEFENSES</p><h2>BUILDING DRAFT</h2><p class="building-draft-balance">CHRONOSHARDS <span id="building-draft-chronoshards"></span></p><div class="building-list" id="building-draft-list"></div></section>
       <section class="weaponry-panel hidden" id="weaponry-panel" aria-label="Weaponry"><div class="lab-header"><div><p class="eyebrow">ACTIVE ARSENAL</p><h2>WEAPONRY</h2></div><button class="secondary-button" id="close-weaponry-button" type="button">BACK</button></div><p class="lab-balance">CHRONOSHARDS <span id="weaponry-chronoshards"></span></p><div class="weapon-buy-actions"><button class="weapon-buy-button" id="buy-weapon-button" type="button">BUY WEAPON · ✦ 35</button><button class="weapon-buy-button" id="buy-weapons-five-button" type="button">BUY WEAPON x5 · ✦ 175</button></div><p class="weapon-lucky-find-chance" id="weapon-lucky-find-chance" hidden>LUCKY FIND · 0% · 2 CARDS</p><h3>ROUND LOADOUT <span id="weapon-slot-count"></span></h3><div class="weapon-loadout" id="weapon-loadout"></div><h3>WEAPON CARDS</h3><div class="weapon-card-list" id="weapon-card-list"></div></section>
       <section class="weapon-reveal-modal hidden" id="weapon-reveal-modal" aria-label="Weapon purchase result" aria-live="polite"><div class="weapon-reveal-card"><p class="eyebrow" id="weapon-reveal-count"></p><p class="weapon-lucky-find-badge" aria-hidden="true">✦ LUCKY FIND · DOUBLE CARD ✦</p><p class="weapon-reveal-status" id="weapon-reveal-status"></p><img class="asset-card-art" id="weapon-reveal-art" alt=""><h2 id="weapon-reveal-name"></h2><p id="weapon-reveal-detail"></p><button id="weapon-reveal-continue" type="button">CLAIM</button></div></section>
-      <section class="settings-panel hidden" id="settings-panel" aria-label="Settings"><div class="lab-header"><div><p class="eyebrow">PREFERENCES</p><h2>SETTINGS</h2></div><button class="secondary-button" id="close-settings-button" type="button">BACK</button></div><div class="settings-section"><h3>GRAPHICS</h3><div class="settings-row"><div><strong>Quality</strong><small>Changes render resolution and shadows.</small></div><div class="settings-options" id="graphics-quality-options"></div></div><label class="settings-row settings-toggle"><span><strong>Shadows</strong><small>Show dynamic object shadows.</small></span><input id="setting-shadows" type="checkbox"></label><label class="settings-row"><span><strong>HDR Emission</strong><small>Controls how far bright effects bloom beyond their models.</small></span><output id="hdr-emission-value"></output><input id="setting-hdr-emission" type="range" min="0" max="100" step="1"></label></div><div class="settings-section"><h3>GAMEPLAY</h3><label class="settings-row"><span><strong>Camera Distance</strong><small>Adjusts how far the camera sits from your ship.</small></span><output id="camera-distance-value"></output><input id="setting-camera-distance" type="range" min="80" max="130" step="5"></label><label class="settings-row settings-toggle"><span><strong>Auto Pause</strong><small>Pause the run when the game loses focus.</small></span><input id="setting-auto-pause" type="checkbox"></label><label class="settings-row settings-toggle"><span><strong>High Contrast HUD</strong><small>Improves HUD readability.</small></span><input id="setting-high-contrast" type="checkbox"></label></div><div class="settings-section"><h3>SOUND</h3><label class="settings-row"><span><strong>Master Volume</strong><small>Controls all game sound effects.</small></span><output id="master-volume-value"></output><input id="setting-master-volume" type="range" min="0" max="100" step="1"></label><label class="settings-row settings-toggle"><span><strong>Mute All</strong><small>Instantly silence all sound effects.</small></span><input id="setting-muted" type="checkbox"></label><label class="settings-row settings-toggle"><span><strong>Spatial Audio</strong><small>Pan sounds based on their world position.</small></span><input id="setting-spatial-audio" type="checkbox"></label></div><div class="settings-section settings-actions"><button id="open-patch-notes-button" type="button">PATCH NOTES</button></div></section>
+      <section class="settings-panel hidden" id="settings-panel" aria-label="Settings"><div class="lab-header"><div><p class="eyebrow">PREFERENCES</p><h2>SETTINGS</h2></div><button class="secondary-button" id="close-settings-button" type="button">BACK</button></div><div class="settings-section"><h3>GRAPHICS</h3><div class="settings-row"><div><strong>Quality</strong><small>Changes render resolution and shadows.</small></div><div class="settings-options" id="graphics-quality-options"></div></div><label class="settings-row settings-toggle"><span><strong>Shadows</strong><small>Show dynamic object shadows.</small></span><input id="setting-shadows" type="checkbox"></label><label class="settings-row"><span><strong>HDR Emission</strong><small>Controls how far bright effects bloom beyond their models.</small></span><output id="hdr-emission-value"></output><input id="setting-hdr-emission" type="range" min="0" max="100" step="1"></label><label class="settings-row"><span><strong>Maximum FPS</strong><small>Limits rendering and simulation to reduce hardware load.</small></span><output id="max-fps-value"></output><input id="setting-max-fps" type="range" min="0" max="240" step="30"></label></div><div class="settings-section"><h3>GAMEPLAY</h3><label class="settings-row settings-toggle"><span><strong>Auto Pause</strong><small>Pause the run when the game loses focus.</small></span><input id="setting-auto-pause" type="checkbox"></label><label class="settings-row settings-toggle"><span><strong>High Contrast HUD</strong><small>Improves HUD readability.</small></span><input id="setting-high-contrast" type="checkbox"></label></div><div class="settings-section"><h3>SOUND</h3><label class="settings-row"><span><strong>Master Volume</strong><small>Controls all game sound effects.</small></span><output id="master-volume-value"></output><input id="setting-master-volume" type="range" min="0" max="100" step="1"></label><label class="settings-row settings-toggle"><span><strong>Mute All</strong><small>Instantly silence all sound effects.</small></span><input id="setting-muted" type="checkbox"></label><label class="settings-row settings-toggle"><span><strong>Spatial Audio</strong><small>Pan sounds based on their world position.</small></span><input id="setting-spatial-audio" type="checkbox"></label></div><div class="settings-section settings-actions"><button id="open-patch-notes-button" type="button">PATCH NOTES</button></div></section>
       <section class="patch-notes-panel hidden" id="patch-notes-panel" aria-label="Patch notes"><div class="lab-header"><div><p class="eyebrow">VERSION ${BUILD_INFO.version} · BUILD ${BUILD_INFO.number}</p><h2>PATCH NOTES</h2></div><button class="secondary-button" id="close-patch-notes-button" type="button">BACK</button></div>${PATCH_NOTES.map((entry) => `<article class="patch-notes-entry"><h3>${entry.heading}</h3><ul>${entry.changes.map((change) => `<li>${change}</li>`).join('')}</ul></article>`).join('')}</section>
     </section>
     <section class="anomaly-run-modal hidden" id="anomaly-run-modal" aria-label="Anomaly Run challenge"><div class="anomaly-run-card"><p class="eyebrow">WEEKLY ANOMALY</p><h2 id="anomaly-challenge-name"></h2><p id="anomaly-challenge-description"></p><p class="anomaly-reward" id="anomaly-reward"></p><p class="anomaly-reset" id="anomaly-reset"></p><p class="anomaly-time-warning hidden" id="anomaly-time-warning" role="alert"></p><div><button class="secondary-button" id="cancel-anomaly-run" type="button">BACK</button><button id="confirm-anomaly-run" type="button">START ANOMALY RUN</button></div></div></section>
@@ -257,8 +257,8 @@ const graphicsQualityOptions = document.querySelector('#graphics-quality-options
 const shadowsSetting = document.querySelector('#setting-shadows')
 const hdrEmissionSetting = document.querySelector('#setting-hdr-emission')
 const hdrEmissionValue = document.querySelector('#hdr-emission-value')
-const cameraDistanceSetting = document.querySelector('#setting-camera-distance')
-const cameraDistanceValue = document.querySelector('#camera-distance-value')
+const maxFpsSetting = document.querySelector('#setting-max-fps')
+const maxFpsValue = document.querySelector('#max-fps-value')
 const autoPauseSetting = document.querySelector('#setting-auto-pause')
 const highContrastSetting = document.querySelector('#setting-high-contrast')
 const masterVolumeSetting = document.querySelector('#setting-master-volume')
@@ -372,7 +372,7 @@ function localizeStaticInterface() {
   if (cheatCommandInput) cheatCommandInput.placeholder = t('cheat.placeholder')
   const settingsSections = [
     ['#graphics-quality-options', 'settings.graphics'],
-    ['#setting-camera-distance', 'settings.gameplay'],
+    ['#setting-max-fps', 'settings.graphics'],
     ['#setting-master-volume', 'settings.sound'],
   ]
   settingsSections.forEach(([selector, key]) => {
@@ -383,7 +383,7 @@ function localizeStaticInterface() {
     ['#graphics-quality-options', 'settings.quality', 'settings.quality_help'],
     ['#setting-shadows', 'settings.shadows', 'settings.shadows_help'],
     ['#setting-hdr-emission', 'settings.hdr_emission', 'settings.hdr_emission_help'],
-    ['#setting-camera-distance', 'settings.camera_distance', 'settings.camera_distance_help'],
+    ['#setting-max-fps', 'settings.max_fps', 'settings.max_fps_help'],
     ['#setting-auto-pause', 'settings.auto_pause', 'settings.auto_pause_help'],
     ['#setting-high-contrast', 'settings.high_contrast_hud', 'settings.high_contrast_hud_help'],
     ['#setting-master-volume', 'settings.master_volume', 'settings.master_volume_help'],
@@ -570,15 +570,17 @@ if (retiredGapGenerators.length) {
 }
 
 function readSettings() {
-  const defaults = { language: getPreferredLanguage(), graphics: { quality: 'high', shadows: true, hdrEmissionIntensity: 0.5 }, gameplay: { cameraDistance: 100, autoPause: true, highContrastHud: false }, sound: { masterVolume: 100, muted: false, spatialAudio: true } }
+  const defaults = { language: getPreferredLanguage(), graphics: { quality: 'high', shadows: true, hdrEmissionIntensity: 0.5 }, gameplay: { maxFps: 120, autoPause: true, highContrastHud: false }, sound: { masterVolume: 100, muted: false, spatialAudio: true } }
   try {
     const saved = JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEY))
     const savedGraphics = saved?.graphics ?? {}
+    const savedGameplay = saved?.gameplay ?? {}
     const hdrEmissionIntensity = Number.isFinite(savedGraphics.hdrEmissionIntensity) ? THREE.MathUtils.clamp(savedGraphics.hdrEmissionIntensity, 0, 1) : savedGraphics.hdrEmission === false ? 0 : 0.5
+    const maxFps = Number.isFinite(savedGameplay.maxFps) ? THREE.MathUtils.clamp(savedGameplay.maxFps, 0, 240) : defaults.gameplay.maxFps
     return {
       language: getAvailableLanguages().includes(saved?.language) ? saved.language : defaults.language,
       graphics: { ...defaults.graphics, ...savedGraphics, hdrEmissionIntensity },
-      gameplay: { ...defaults.gameplay, ...saved?.gameplay },
+      gameplay: { ...defaults.gameplay, ...savedGameplay, maxFps },
       sound: { ...defaults.sound, ...saved?.sound },
     }
   } catch { return defaults }
@@ -1371,9 +1373,9 @@ let arenaKeyLight = null
 let cellOverdriveTexture = null
 let setArenaVisualQuality = null
 const GRAPHICS_QUALITY = {
-  low: { pixelRatioCap: 1, simulationStep: 1 / 30, textureFilter: THREE.NearestFilter },
-  medium: { pixelRatioCap: 1.5, simulationStep: 1 / 45, textureFilter: THREE.LinearFilter },
-  high: { pixelRatioCap: GAME.maxPixelRatio, simulationStep: 0, textureFilter: THREE.LinearFilter },
+  low: { pixelRatioCap: 1, textureFilter: THREE.NearestFilter },
+  medium: { pixelRatioCap: 1.5, textureFilter: THREE.LinearFilter },
+  high: { pixelRatioCap: GAME.maxPixelRatio, textureFilter: THREE.LinearFilter },
 }
 function getGraphicsQuality() { return GRAPHICS_QUALITY[settings.graphics.quality] ?? GRAPHICS_QUALITY.high }
 function applyGraphicsSettings() {
@@ -1563,7 +1565,7 @@ function continueWeaponReveal() {
   renderWeaponry()
 }
 function toggleWeaponLoadout(id) {
-  if (!getWeaponEntry(id)) return
+  if (started || !getWeaponEntry(id)) return
   const index = weaponState.loadout.indexOf(id)
   if (index >= 0) {
     weaponState.loadout.splice(index, 1)
@@ -1614,10 +1616,9 @@ renderer.outputColorSpace = THREE.SRGBColorSpace
 
 const scene = new THREE.Scene()
 scene.background = new THREE.Color(COLORS.background)
-scene.fog = new THREE.Fog(COLORS.fog, SCENE.fogNear, SCENE.fogFar)
 
 const camera = new THREE.PerspectiveCamera(CAMERA.fov, window.innerWidth / window.innerHeight, CAMERA.near, CAMERA.far)
-camera.position.set(0, CAMERA.height, CAMERA.distance)
+camera.position.set(0, CAMERA.distance * Math.tan(THREE.MathUtils.degToRad(CAMERA.angle)), CAMERA.distance)
 camera.lookAt(0, 0, 0)
 
 renderComposer = new EffectComposer(renderer)
@@ -1792,7 +1793,7 @@ let chronoCellTimer = 0
 let obstacleSpawnTimer = 0
 let hazardTimer = 0
 let shockwaveTimer = 0
-let simulationAccumulator = 0
+let nextRenderedFrameTime = null
 let shieldCharges = 0
 let shieldInvulnerability = 0
 const SHIELD_BREAK_SHAKE_DURATION = 0.5
@@ -2114,6 +2115,7 @@ function placeBuildingAt(x, z) {
   buildingState.placed.push(building); saveBuildings(); createBuildingMesh(building); renderBuildings()
 }
 function renderBuildings() {
+  enterBuildModeButton.disabled = started
   buildingCash.textContent = `$${formatCompactNumber(cash)}`; buildingChronoshards.textContent = `✦ ${formatCompactNumber(chronoshards)}`; buildingSlots.textContent = `${buildingState.placed.length}/${getBuildingSlotLimit()}`
   buildingList.innerHTML = buildingState.unlocked.length
     ? buildingState.unlocked.map((type) => `<article class="building-card"><img class="asset-card-art" src="${getBuildingAsset(type)}" alt=""><strong>${BUILDING_CONFIG.types[type].name}</strong><small>${t('building.build_cost', { cost: formatCompactNumber(buildingCost(type)) })}</small><span class="building-unlocked-state">${t('building.unlocked')}</span></article>`).join('')
@@ -2123,7 +2125,7 @@ function renderBuildings() {
   buildStatus.textContent = isMobileInputMode() ? `${buildingState.placed.length}/${getBuildingSlotLimit()}` : t('building.build_mode_slots', { used: buildingState.placed.length, total: getBuildingSlotLimit() })
   renderBuildGrid()
 }
-function enterBuildMode() { if (!buildingState.unlocked.length) return; buildCameraCenter.set(0, 0); buildCameraHeight = 28; buildMode = true; selectedBuildingType = buildingState.unlocked[0]; setBuildModeEntityVisibility(true); overlay.classList.add('hidden'); buildBar.classList.remove('hidden'); renderBuildings() }
+function enterBuildMode() { if (started || !buildingState.unlocked.length) return; buildCameraCenter.set(0, 0); buildCameraHeight = 28; buildMode = true; selectedBuildingType = buildingState.unlocked[0]; setBuildModeEntityVisibility(true); overlay.classList.add('hidden'); buildBar.classList.remove('hidden'); renderBuildings() }
 function exitBuildMode() { buildMode = false; buildNavigationPointers.clear(); buildNavigationPinch = null; selectedBuildingType = null; setBuildModeEntityVisibility(false); buildGridUi.classList.add('hidden'); buildBar.classList.add('hidden'); overlay.classList.remove('hidden'); buildingUpgrade.classList.add('hidden') }
 function openBuildingUpgrade(building) { const config = BUILDING_CONFIG.types[building.type]; buildingUpgrade.innerHTML = `<button class="upgrade-close" data-close-building-upgrade="1" type="button" aria-label="${t('building.upgrade')}">×</button><p class="eyebrow">${t('building.installed_defense')}</p><h3>${config.name}</h3><p class="building-upgrade-summary">${t('building.choose_upgrade')}</p><div class="upgrade-grid">${Object.entries(config.upgrades).map(([key, upgrade]) => { const level = building.upgrades[key] ?? 0; const cost = getBuildingUpgradeCost(building, key); return `<button data-upgrade-building="${building.id}" data-upgrade-key="${key}" type="button"><span>${upgrade.name}</span><strong>${t('building.upgrade_level', { current: level, next: level + 1 })}</strong><small>$${formatCompactNumber(cost)}</small></button>` }).join('')}</div><button data-destroy-building="${building.id}" class="demolish-button" type="button">${t('building.demolish_refund', { amount: formatCompactNumber(getBuildingRefund(building)) })}</button>`; buildingUpgrade.classList.remove('hidden') }
 function getBaseBuildingValue(building, key) { const config = BUILDING_CONFIG.types[building.type]; const upgradeKey = key === 'interval' ? 'frequency' : key; const directUpgrade = (config.upgrades[upgradeKey]?.step ?? 0) * (building.upgrades[upgradeKey] ?? 0); const effectivenessUpgrade = key === 'slow' ? (config.upgrades.effectiveness?.step ?? 0) * (building.upgrades.effectiveness ?? 0) : 0; return (config.effect[key] ?? 0) + directUpgrade + effectivenessUpgrade }
@@ -3854,25 +3856,26 @@ function updateGame(delta, total) {
   updateHud()
 }
 
-function animate() {
+function animate(timestamp) {
   requestAnimationFrame(animate)
-  timer.update()
+  const maxFps = settings.gameplay.maxFps
+  if (maxFps > 0) {
+    const frameInterval = 1000 / maxFps
+    if (nextRenderedFrameTime !== null && timestamp < nextRenderedFrameTime) return
+    const scheduledFrameTime = nextRenderedFrameTime ?? timestamp
+    const elapsedIntervals = Math.floor(Math.max(0, timestamp - scheduledFrameTime) / frameInterval) + 1
+    nextRenderedFrameTime = scheduledFrameTime + elapsedIntervals * frameInterval
+  } else nextRenderedFrameTime = null
+  timer.update(timestamp)
   const delta = Math.min(timer.getDelta(), 0.05)
   const total = timer.getElapsed()
-  if (started && !paused) {
-    const simulationStep = getGraphicsQuality().simulationStep
-    simulationAccumulator += delta
-    if (!simulationStep || simulationAccumulator >= simulationStep) {
-      updateGame(Math.min(simulationAccumulator, 0.05), total)
-      simulationAccumulator = 0
-    }
-  } else simulationAccumulator = 0
+  if (started && !paused) updateGame(delta, total)
   updatePlayerDeathEffects(delta)
   if (buildMode) {
     camera.position.set(buildCameraCenter.x, buildCameraHeight, buildCameraCenter.y + 0.01)
     camera.lookAt(buildCameraCenter.x, 0, buildCameraCenter.y)
   } else {
-    camera.position.set(player.position.x, CAMERA.height, player.position.z + getCameraDistance())
+    camera.position.set(player.position.x, getCameraHeight(), player.position.z + getCameraDistance())
     if (cameraShakeTime > 0) {
       const strength = (cameraShakeTime / SHIELD_BREAK_SHAKE_DURATION) ** 1.5
       camera.position.x += THREE.MathUtils.randFloatSpread(0.22) * strength
@@ -3946,8 +3949,8 @@ function renderSettings() {
   const hdrEmissionPercent = Math.round(settings.graphics.hdrEmissionIntensity * 100)
   hdrEmissionSetting.value = String(hdrEmissionPercent)
   hdrEmissionValue.value = `${hdrEmissionPercent}%`
-  cameraDistanceSetting.value = settings.gameplay.cameraDistance
-  cameraDistanceValue.value = `${settings.gameplay.cameraDistance}%`
+  maxFpsSetting.value = settings.gameplay.maxFps
+  maxFpsValue.value = settings.gameplay.maxFps === 0 ? t('settings.unlimited') : `${settings.gameplay.maxFps} FPS`
   autoPauseSetting.checked = settings.gameplay.autoPause
   highContrastSetting.checked = settings.gameplay.highContrastHud
   masterVolumeSetting.value = settings.sound.masterVolume
@@ -4079,7 +4082,7 @@ settingsPanel.addEventListener('click', async (event) => {
 })
 shadowsSetting.addEventListener('change', () => { settings.graphics.shadows = shadowsSetting.checked; applyGraphicsSettings(); persistSettings() })
 hdrEmissionSetting.addEventListener('input', () => { settings.graphics.hdrEmissionIntensity = Number(hdrEmissionSetting.value) / 100; applyGraphicsSettings(); persistSettings() })
-cameraDistanceSetting.addEventListener('input', () => { settings.gameplay.cameraDistance = Number(cameraDistanceSetting.value); persistSettings() })
+maxFpsSetting.addEventListener('input', () => { settings.gameplay.maxFps = Number(maxFpsSetting.value); persistSettings() })
 autoPauseSetting.addEventListener('change', () => { settings.gameplay.autoPause = autoPauseSetting.checked; persistSettings() })
 highContrastSetting.addEventListener('change', () => { settings.gameplay.highContrastHud = highContrastSetting.checked; persistSettings() })
 masterVolumeSetting.addEventListener('input', () => { settings.sound.masterVolume = Number(masterVolumeSetting.value); persistSettings() })
@@ -4121,7 +4124,7 @@ overlay.addEventListener('click', (event) => {
   }
 })
 openBuildingButton.addEventListener('click', (event) => { event.stopPropagation(); if (!tryUnlockFeature('buildingSystem', openBuildingButton)) return; openMenuPanel(buildingPanel, renderBuildings) })
-openWeaponryButton.addEventListener('click', (event) => { event.stopPropagation(); if (!tryUnlockFeature('weaponry', openWeaponryButton)) return; openMenuPanel(weaponryPanel, renderWeaponry) })
+openWeaponryButton.addEventListener('click', (event) => { event.stopPropagation(); if (started || !tryUnlockFeature('weaponry', openWeaponryButton)) return; openMenuPanel(weaponryPanel, renderWeaponry) })
 openEncyclopediaButton.addEventListener('click', (event) => { event.stopPropagation(); openMenuPanel(encyclopediaPanel, renderEncyclopedia) })
 openArtifactsButton.addEventListener('click', (event) => { event.stopPropagation(); openMenuPanel(artifactPanel, renderArtifacts) })
 closeEncyclopediaButton.addEventListener('click', () => { encyclopediaPanel.classList.add('hidden'); menuContent.classList.remove('hidden') })
@@ -4133,7 +4136,7 @@ buyWeaponButton.addEventListener('click', () => buyWeapons(1))
 buyWeaponsFiveButton.addEventListener('click', () => buyWeapons(5))
 weaponRevealContinueButton.addEventListener('click', continueWeaponReveal)
 weaponCardList.addEventListener('click', (event) => { const button = event.target.closest('[data-toggle-weapon]'); if (button) toggleWeaponLoadout(button.dataset.toggleWeapon) })
-weaponLoadout.addEventListener('click', (event) => { const button = event.target.closest('[data-select-weapon-slot]'); if (!button) return; weaponState.selected = Number(button.dataset.selectWeaponSlot); saveWeaponState(); renderWeaponry() })
+weaponLoadout.addEventListener('click', (event) => { const button = event.target.closest('[data-select-weapon-slot]'); if (started || !button) return; weaponState.selected = Number(button.dataset.selectWeaponSlot); saveWeaponState(); renderWeaponry() })
 weaponHud.addEventListener('click', (event) => { const button = event.target.closest('[data-use-weapon]'); if (button) useWeapon(button.dataset.useWeapon) })
 closeBuildingButton.addEventListener('click', () => { buildingDraftModal.classList.add('hidden'); buildingPanel.classList.add('hidden'); menuContent.classList.remove('hidden') })
 openBuildingDraftButton.addEventListener('click', () => { renderBuildingDraft(); buildingDraftModal.classList.remove('hidden') })
@@ -4303,7 +4306,11 @@ function endBuildNavigation(event) {
 
 function getCameraDistance() {
   const isPortraitMobile = window.matchMedia('(hover: none) and (pointer: coarse) and (orientation: portrait)').matches
-  return CAMERA.distance * (settings.gameplay.cameraDistance / 100) * (isPortraitMobile ? CAMERA.portraitDistanceMultiplier : 1)
+  return CAMERA.distance * (isPortraitMobile ? CAMERA.portraitDistanceMultiplier : 1)
+}
+
+function getCameraHeight() {
+  return getCameraDistance() * Math.tan(THREE.MathUtils.degToRad(CAMERA.angle))
 }
 
 function updateJoystick(event) {

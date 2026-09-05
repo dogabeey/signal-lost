@@ -327,7 +327,6 @@ export const DIFFICULTY = {
 }
 export const COLORS = {
   background: '#101b25',
-  fog: '#101b25',
   floor: '#1d3a46',
   gridMajor: '#50e5bc',
   gridMinor: '#244b59',
@@ -372,10 +371,8 @@ export const COLORS = {
   targetRing: '#ff795f',
 }
 
-export const CAMERA = { fov: 52, near: 0.1, far: 100, height: 12, distance: 15, portraitDistanceMultiplier: 1.18, followStrength: 0.06 }
+export const CAMERA = { fov: 52, near: 0.1, far: 100, angle: 53, distance: 15, portraitDistanceMultiplier: 1.2, followStrength: 0.06 }
 export const SCENE = {
-  fogNear: 16,
-  fogFar: 37,
   floorMetalness: 0.5,
   floorRoughness: 0.55,
   floorOpacity: 0.76,
