@@ -1,6 +1,6 @@
 {
   "name": "asteroid-belt",
-  "version": "0.9.8",
+  "version": "0.9.9",
   "private": true,
   "type": "module",
   "main": "electron/main.js",
@@ -17,6 +17,7 @@
     "appId": "com.dogabeey.asteroidbelt",
     "productName": "Asteroid Belt",
     "asar": true,
+    "electronDist": "node_modules/electron/dist",
     "asarUnpack": [
       "node_modules/steamworks.js/dist/**/*"
     ],
@@ -24,6 +25,10 @@
       {
         "from": "node_modules/steamworks.js/dist/win64/steam_api64.dll",
         "to": "steam_api64.dll"
+      },
+      {
+        "from": "steam_appid.txt",
+        "to": "steam_appid.txt"
       }
     ],
     "directories": {

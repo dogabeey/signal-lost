@@ -12,6 +12,9 @@ export const CHEAT_CONFIG = {
     gainArtifact: 'gain_artifact',
     clearSave: 'clear_save',
     sandbox: 'sandbox',
+    anomaly: 'anomaly',
+    cell: 'cell',
+    god: 'god',
   },
   clearSaveTargets: ['currency', 'game_progress', 'milestones', 'research', 'buildings', 'weapons', 'artifacts', 'all'],
 }

@@ -66,6 +66,7 @@ document.querySelector('#app').innerHTML = `
       <button class="pause-button" id="pause-button" type="button" aria-label="Pause game"><img src="${pauseIconAsset}" alt=""></button>
     </header>
     <div class="shield-indicators" id="shield-indicators" aria-label="Shield charges"></div>
+    <div class="tower-health-hud hidden" id="tower-health-hud" role="status" aria-live="polite"><strong id="tower-health-label"></strong><div class="tower-health-track"><i id="tower-health-fill"></i></div></div>
     <div class="weapon-hud hidden" id="weapon-hud"></div>
     <aside class="instructions" aria-label="Game controls"><span class="controls-desktop"><span><b>MOVE</b> WASD</span><span><b>NAVIGATE</b> ↑↓</span><span><b>USE WEAPON</b> SPACE</span></span><span class="controls-mobile"><span><b>MOVE</b> JOYSTICK</span><span><b>SELECT / USE WEAPON</b> TAP A CARD</span></span></aside>
     <footer class="build-footer" aria-label="Build information">
@@ -168,6 +169,9 @@ for (const icon of document.querySelectorAll('[data-menu-icon]')) {
 const scoreElement = document.querySelector('#score')
 const hudSectorElement = document.querySelector('#hud-sector')
 const shieldIndicators = document.querySelector('#shield-indicators')
+const towerHealthHud = document.querySelector('#tower-health-hud')
+const towerHealthLabel = document.querySelector('#tower-health-label')
+const towerHealthFill = document.querySelector('#tower-health-fill')
 const pauseButton = document.querySelector('#pause-button')
 const overlay = document.querySelector('#overlay')
 const saveSlotSelect = document.querySelector('#save-slot-select')
@@ -537,7 +541,9 @@ let savedRound = readSavedRound()
 let sandboxState = null
 const anomalyRewardState = (() => {
   const stored = readStoredJson(ANOMALY_REWARDS_STORAGE_KEY, {})
-  return stored && typeof stored.claimedSectors === 'object' ? stored : { claimedSectors: {} }
+  const claimedSectors = stored && typeof stored.claimedSectors === 'object' ? stored.claimedSectors : {}
+  const migratedClaims = Object.entries(claimedSectors).flatMap(([weekId, sectors]) => (Array.isArray(sectors) ? sectors : []).map((sector) => `${ANOMALY_CONFIG.challenges[Number(weekId) % ANOMALY_CONFIG.challenges.length]?.id ?? 'cell-scout'}:sector${Number(sector) + 1}`))
+  return { claimedSectors, darkCoreClaims: Array.isArray(stored?.darkCoreClaims) ? stored.darkCoreClaims : [...new Set(migratedClaims)] }
 })()
 // Existing saves predate repeatable Artifacts. Credit every distinct Anomaly
 // reward already claimed, then persist the migrated stack count.
@@ -549,6 +555,16 @@ if (!artifactState.stackCounts) {
   writeStoredJson(ARTIFACTS_STORAGE_KEY, artifactState)
 }
 let anomalyRun = null
+let godMode = false
+let towerHealth = 0
+
+function getActiveAnomalyChallenge() {
+  return ANOMALY_CONFIG.challenges.find((challenge) => challenge.id === anomalyRun?.challengeId) ?? null
+}
+
+function isTowerDefenseRun() {
+  return getActiveAnomalyChallenge()?.type === 'tower-defense'
+}
 let featureUnlocks = (() => { try { const saved = JSON.parse(localStorage.getItem(FEATURE_UNLOCKS_STORAGE_KEY)); return { researchLab: Boolean(saved?.researchLab), buildingSystem: Boolean(saved?.buildingSystem), weaponry: Boolean(saved?.weaponry) } } catch { return { researchLab: false, buildingSystem: false, weaponry: false } } })()
 if (milestoneState.claimed.includes('sector-1-10') && !featureUnlocks.researchLab) {
   featureUnlocks.researchLab = true
@@ -953,6 +969,25 @@ function startSandbox(sectorIndex = 0) {
   updateHud()
 }
 
+function startDebugAnomaly(challengeId) {
+  const challenge = ANOMALY_CONFIG.challenges.find((entry) => entry.id === challengeId)
+  if (!challenge) return false
+  sandboxState = null
+  clearSavedRound()
+  anomalyRun = { challengeId: challenge.id, weekId: `debug-${challenge.id}` }
+  applyDifficulty()
+  resetGame()
+  started = true
+  ended = false
+  paused = false
+  player.visible = true
+  overlay.classList.add('hidden')
+  pauseMenu.classList.add('hidden')
+  renderWeaponHud()
+  updateHud()
+  return true
+}
+
 function runSandboxCommand(argumentsList) {
   const [action, value] = argumentsList
   if (!action) {
@@ -1039,6 +1074,35 @@ function runCheatCommand(rawCommand) {
     runGainArtifactCommand(argumentsList)
     return
   }
+  if (command === CHEAT_CONFIG.commands.anomaly) {
+    const challengeId = argumentsList.join('-')
+    if (!challengeId) { setCheatOutput(t('cheat.anomaly_usage')); return }
+    if (!startDebugAnomaly(challengeId)) {
+      setCheatOutput(t('cheat.anomaly_unknown', { id: challengeId, available: ANOMALY_CONFIG.challenges.map((challenge) => challenge.id).join(', ') }))
+      return
+    }
+    setCheatOutput(t('cheat.anomaly_started', { id: challengeId, sector: formatSectorNumber(selectedSectorIndex + 1) }))
+    toggleCheatConsole(false)
+    return
+  }
+  if (command === CHEAT_CONFIG.commands.cell) {
+    const cellAmount = Number(argumentsList[0])
+    if (!Number.isInteger(cellAmount) || cellAmount <= 0) { setCheatOutput(t('cheat.cell_usage')); return }
+    if (!started || ended) { setCheatOutput(t('cheat.cell_requires_round')); return }
+    score += cellAmount
+    updateHud()
+    claimAnomalyRewardIfEligible()
+    if (isTowerDefenseRun() && score >= (getActiveAnomalyChallenge()?.rewardCellTarget ?? 1000)) finishTowerDefense(true)
+    setCheatOutput(t('cheat.cell_granted', { amount: cellAmount, total: score }))
+    return
+  }
+  if (command === CHEAT_CONFIG.commands.god) {
+    const enabled = argumentsList[0]
+    if (!['on', 'off'].includes(enabled)) { setCheatOutput(t('cheat.god_usage')); return }
+    godMode = enabled === 'on'
+    setCheatOutput(t('cheat.god_state', { state: t(godMode ? 'cheat.on' : 'cheat.off') }))
+    return
+  }
   const amount = Number(argument)
   if (command === CHEAT_CONFIG.commands.cash || command === CHEAT_CONFIG.commands.chrono) {
     if (!Number.isFinite(amount) || amount <= 0) {
@@ -1099,9 +1163,10 @@ function getCurrentDifficulty() {
 function getActiveEnemyCapacity() {
   const difficulty = getCurrentDifficulty()
   if (difficulty.maxActiveEnemies === undefined) return Infinity
-  return Math.max(0, Math.floor(
+  const capacity = Math.max(0, Math.floor(
     difficulty.maxActiveEnemies + score * (difficulty.maxActiveEnemiesIncrementPerCell ?? 0),
   ))
+  return isTowerDefenseRun() ? Math.max(1, Math.floor(capacity * (getActiveAnomalyChallenge()?.difficultyMultiplier ?? 1))) : capacity
 }
 
 function updateBankedCells(amount = 0) {
@@ -1617,6 +1682,27 @@ renderer.outputColorSpace = THREE.SRGBColorSpace
 const scene = new THREE.Scene()
 scene.background = new THREE.Color(COLORS.background)
 
+function createTowerDefenseTower() {
+  const tower = new THREE.Group()
+  const baseMaterial = new THREE.MeshStandardMaterial({ color: '#29375c', emissive: '#101936', emissiveIntensity: 0.45, metalness: 0.78, roughness: 0.28 })
+  const accentMaterial = new THREE.MeshStandardMaterial({ color: '#ffcf76', emissive: '#ff9f43', emissiveIntensity: 1, metalness: 0.52, roughness: 0.2 })
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(1.15, 1.4, 0.65, 10), baseMaterial)
+  base.position.y = 0.33
+  const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.56, 0.82, 5.8, 10), baseMaterial)
+  shaft.position.y = 3.45
+  const crown = new THREE.Mesh(new THREE.CylinderGeometry(0.88, 0.58, 1.05, 10), accentMaterial)
+  crown.position.y = 6.55
+  const beacon = new THREE.PointLight('#ffcf76', 0.8, 6, 2)
+  beacon.position.y = 7.15
+  tower.add(base, shaft, crown, beacon)
+  tower.traverse((object) => { if (object.isMesh) { object.castShadow = true; object.receiveShadow = true } })
+  tower.visible = false
+  return tower
+}
+
+const towerDefenseTower = createTowerDefenseTower()
+scene.add(towerDefenseTower)
+
 const camera = new THREE.PerspectiveCamera(CAMERA.fov, window.innerWidth / window.innerHeight, CAMERA.near, CAMERA.far)
 camera.position.set(0, CAMERA.distance * Math.tan(THREE.MathUtils.degToRad(CAMERA.angle)), CAMERA.distance)
 camera.lookAt(0, 0, 0)
@@ -1907,21 +1993,44 @@ function hasClaimedAnomalyReward(weekId = getAnomalyWeekId(), sectorIndex = sele
 }
 
 function claimAnomalyRewardIfEligible() {
-  if (!anomalyRun || score < ANOMALY_CONFIG.rewardCellTarget) return
+  const challenge = getActiveAnomalyChallenge()
+  const rewardTarget = challenge?.rewardCellTarget ?? ANOMALY_CONFIG.rewardCellTarget
+  if (!anomalyRun || !challenge || score < rewardTarget) return
   const sectorKey = String(selectedSectorIndex)
-  const claimedSectors = anomalyRewardState.claimedSectors[anomalyRun.weekId] ?? []
-  if (claimedSectors.includes(sectorKey)) return
-  anomalyRewardState.claimedSectors[anomalyRun.weekId] = [...claimedSectors, sectorKey]
-  writeStoredJson(ANOMALY_REWARDS_STORAGE_KEY, anomalyRewardState)
-  const darkCore = ARTIFACT_CONFIG.artifacts.find((artifact) => artifact.requirement.type === 'anomaly-run-success' && score >= artifact.requirement.cells)
-  if (darkCore) {
-    addArtifactStack(darkCore)
-    showCurrencyIndicator(player.position, `ARTIFACT · ${darkCore.name.toUpperCase()} STACK`, 'chronoshard-indicator')
+  const darkCoreClaimKey = `${challenge.id}:sector${selectedSectorIndex + 1}`
+  if (!anomalyRewardState.darkCoreClaims.includes(darkCoreClaimKey)) {
+    anomalyRewardState.darkCoreClaims.push(darkCoreClaimKey)
+    const darkCore = ARTIFACT_CONFIG.artifacts.find((artifact) => artifact.requirement.type === 'anomaly-run-success')
+    if (darkCore) {
+      addArtifactStack(darkCore)
+      showCurrencyIndicator(player.position, t('anomaly.dark_core_stack', { artifact: darkCore.name.toUpperCase() }), 'chronoshard-indicator')
+    }
   }
-  const reward = getAnomalyReward(selectedSectorIndex)
-  const rewardedChronoshards = updateChronoshards(reward)
-  showCurrencyIndicator(player.position, t('message.anomaly_reward', { amount: formatCompactNumber(rewardedChronoshards) }), 'chronoshard-indicator')
+  const claimedSectors = anomalyRewardState.claimedSectors[anomalyRun.weekId] ?? []
+  if (!claimedSectors.includes(sectorKey)) {
+    anomalyRewardState.claimedSectors[anomalyRun.weekId] = [...claimedSectors, sectorKey]
+    const reward = getAnomalyReward(selectedSectorIndex)
+    const rewardedChronoshards = updateChronoshards(reward)
+    showCurrencyIndicator(player.position, t('message.anomaly_reward', { amount: formatCompactNumber(rewardedChronoshards) }), 'chronoshard-indicator')
+  }
+  writeStoredJson(ANOMALY_REWARDS_STORAGE_KEY, anomalyRewardState)
   updateStartButton()
+}
+
+function damageTower(amount) {
+  if (!isTowerDefenseRun() || !started || ended) return
+  const challenge = getActiveAnomalyChallenge()
+  towerHealth = Math.max(0, towerHealth - amount)
+  updateHud()
+  if (towerHealth === 0) finishTowerDefense(false)
+}
+
+function awardTowerDefenseCell() {
+  if (!isTowerDefenseRun() || !started || ended) return
+  score += 1
+  claimAnomalyRewardIfEligible()
+  const target = getActiveAnomalyChallenge()?.rewardCellTarget ?? 1000
+  if (score >= target) finishTowerDefense(true)
 }
 function renderEncyclopedia() {
   const unlockedSector = getUnlockedSectorIndex() + 1
@@ -2131,11 +2240,18 @@ function openBuildingUpgrade(building) { const config = BUILDING_CONFIG.types[bu
 function getBaseBuildingValue(building, key) { const config = BUILDING_CONFIG.types[building.type]; const upgradeKey = key === 'interval' ? 'frequency' : key; const directUpgrade = (config.upgrades[upgradeKey]?.step ?? 0) * (building.upgrades[upgradeKey] ?? 0); const effectivenessUpgrade = key === 'slow' ? (config.upgrades.effectiveness?.step ?? 0) * (building.upgrades.effectiveness ?? 0) : 0; return (config.effect[key] ?? 0) + directUpgrade + effectivenessUpgrade }
 function getOverclockMultiplier(building, key) { if (building.type === 'overclockRelay' || key === 'count') return 1; return 1 + buildingState.placed.filter((relay) => relay.type === 'overclockRelay' && relay.id !== building.id && planarDistance(building, relay) <= getBaseBuildingValue(relay, 'range')).reduce((bonus, relay) => bonus + getBaseBuildingValue(relay, 'effectiveness'), 0) }
 function buildingValue(building, key) { const value = getBaseBuildingValue(building, key); const multiplier = getOverclockMultiplier(building, key); return key === 'interval' || key === 'period' ? value / multiplier : value * multiplier }
-function removeObstacleFromArena(obstacle) {
+function removeObstacleFromArena(obstacle, awardTowerCell = true) {
   scene.remove(obstacle, obstacle.userData.rangeIndicator, obstacle.userData.magnetPulse)
   clearPorterTeleportTarget(obstacle)
   const index = obstacles.indexOf(obstacle)
   if (index >= 0) obstacles.splice(index, 1)
+  if (index >= 0 && awardTowerCell) awardTowerDefenseCell()
+}
+
+function randomArenaEdgePosition() {
+  const angle = Math.random() * Math.PI * 2
+  const radius = Math.max(1, getArenaLimit() - GAME.obstacleColliderRadius)
+  return new THREE.Vector3(Math.cos(angle) * radius, GAME.obstacleGroundHeight, Math.sin(angle) * radius)
 }
 
 function createDroneMesh() {
@@ -2203,9 +2319,7 @@ function updateBuildings(delta, total) {
       const targetIndex = obstacles.indexOf(shot.target)
       if (targetIndex >= 0) {
         createExplosion(shot.target.position, 0.58)
-        scene.remove(shot.target, shot.target.userData.rangeIndicator, shot.target.userData.magnetPulse)
-        clearPorterTeleportTarget(shot.target)
-        obstacles.splice(targetIndex, 1)
+        removeObstacleFromArena(shot.target)
       }
       autocannonProjectiles.splice(index, 1)
     } else if (shot.age > 2.5) {
@@ -2220,7 +2334,7 @@ function updateBuildings(delta, total) {
     if (building.type === 'overclockRelay') { runtime.effectRing.material.opacity = 0.3 + Math.sin(total * 6) * 0.12; mesh.rotation.y += delta * 0.7 }
     if (building.type === 'droneBay' && runtime.timer >= Math.max(2, buildingValue(building, 'period'))) { runtime.timer = 0; const targets = [...obstacles].sort(() => Math.random() - 0.5).slice(0, Math.floor(buildingValue(building, 'count'))); for (const target of targets) launchDroneStrike(building, target, buildingValue(building, 'droneSpeed')); if (targets.length) soundSystem.playBuildingEffect(mesh.position, building.type) }
     if (building.type === 'barrierNode') { const period = Math.max(2, buildingValue(building, 'period')); if (runtime.timer >= period) { runtime.timer = 0; runtime.active = buildingValue(building, 'duration'); soundSystem.playBuildingEffect(mesh.position, building.type) } runtime.active = Math.max(0, runtime.active - delta); if (runtime.barrierField) { runtime.barrierField.visible = runtime.active > 0; runtime.barrierField.scale.set(range, 1, range); runtime.barrierField.rotation.y += delta * 1.8; runtime.barrierField.children[0].material.opacity = runtime.active > 0 ? 0.14 + Math.sin(total * 10) * 0.05 : 0 } runtime.effectRing.material.opacity = runtime.active > 0 ? 0.58 : 0.12 }
-    if (building.type === 'salvageExtractor' && runtime.timer >= Math.max(3, buildingValue(building, 'period'))) { runtime.timer = 0; const targets = obstacles.filter((obstacle) => planarDistance(obstacle.position, building) <= range).sort(() => Math.random() - 0.5).slice(0, Math.floor(buildingValue(building, 'count'))); for (const target of targets) { const cashValue = GAME.cellCashValue * getCurrentDifficulty().cashValueMultiplier * (1 + getResearchStatBonus('cashMultiplier')) + buildingValue(building, 'cash'); addCell({ position: { x: target.position.x, y: GAME.playerStartHeight, z: target.position.z }, cashValue }); createExplosion(target.position, 0.42); removeObstacleFromArena(target) } if (targets.length) soundSystem.playBuildingEffect(mesh.position, building.type) }
+    if (building.type === 'salvageExtractor' && runtime.timer >= Math.max(3, buildingValue(building, 'period'))) { runtime.timer = 0; const targets = obstacles.filter((obstacle) => planarDistance(obstacle.position, building) <= range).sort(() => Math.random() - 0.5).slice(0, Math.floor(buildingValue(building, 'count'))); for (const target of targets) { const cashValue = GAME.cellCashValue * getCurrentDifficulty().cashValueMultiplier * (1 + getResearchStatBonus('cashMultiplier')) + buildingValue(building, 'cash'); if (!isTowerDefenseRun()) addCell({ position: { x: target.position.x, y: GAME.playerStartHeight, z: target.position.z }, cashValue }); createExplosion(target.position, 0.42); removeObstacleFromArena(target) } if (targets.length) soundSystem.playBuildingEffect(mesh.position, building.type) }
     if (building.type === 'autocannon' && runtime.timer >= Math.max(0.35, buildingValue(building, 'interval'))) { runtime.timer = 0; const target = obstacles.filter((o) => planarDistance(o.position, building) <= range).sort((a, b) => planarDistance(a.position, building) - planarDistance(b.position, building))[0]; if (target) { const direction = target.position.clone().sub(mesh.position); direction.y = 0; direction.normalize(); mesh.rotation.y = Math.atan2(direction.x, direction.z); const shot = createAutocannonProjectileVisual(); shot.position.copy(mesh.position).addScaledVector(direction, 0.95); shot.position.y = 0.7; scene.add(shot); autocannonProjectiles.push({ mesh: shot, direction, destination: target.position.clone().setY(0.7), target, age: 0 }); soundSystem.playBuildingEffect(mesh.position, building.type) } }
   }
 }
@@ -2281,9 +2395,10 @@ function addObstacle(type) {
 }
 
 function scheduleObstacle(savedWarning) {
-  const position = savedWarning?.position ?? randomArenaPosition(GAME.obstacleMinDistance)
+  const towerChallenge = isTowerDefenseRun() ? getActiveAnomalyChallenge() : null
   const difficulty = getCurrentDifficulty()
-  const weightedTypes = difficulty.availableObstacleTypes.map((type) => ({ type, weight: difficulty[`${type}SpawnWeight`] ?? 0 }))
+  const availableTypes = towerChallenge?.enemyTypes ?? difficulty.availableObstacleTypes
+  const weightedTypes = availableTypes.map((type) => ({ type, weight: towerChallenge?.enemySpawnWeights?.[type] ?? difficulty[`${type}SpawnWeight`] ?? 0 }))
   const totalWeight = weightedTypes.reduce((total, entry) => total + entry.weight, 0)
   let randomWeight = Math.random() * totalWeight
   let type = savedWarning?.type ?? weightedTypes[weightedTypes.length - 1].type
@@ -2294,6 +2409,9 @@ function scheduleObstacle(savedWarning) {
       break
     }
   }
+  const position = savedWarning?.position ?? (towerChallenge && type !== 'regular'
+    ? randomArenaEdgePosition()
+    : randomArenaPosition(GAME.obstacleMinDistance))
   const obstacleType = OBSTACLE_TYPES[type]
   const ring = new THREE.Mesh(
     new THREE.RingGeometry(ENTITIES.spawnRingInnerRadius, ENTITIES.spawnRingOuterRadius, ENTITIES.spawnRingSegments),
@@ -2453,13 +2571,22 @@ function detonateSpore(sporeEnemy) {
 function createShooterProjectile(shooter) {
   const projectile = createShooterProjectileVisual()
   projectile.position.set(shooter.position.x, GAME.playerStartHeight, shooter.position.z)
-  const direction = player.position.clone().sub(projectile.position)
+  const targetTower = isTowerDefenseRun()
+  const targetPosition = targetTower ? towerDefenseTower.position : player.position
+  const direction = targetPosition.clone().sub(projectile.position)
   direction.y = 0
   if (direction.lengthSq() === 0) direction.set(0, 0, 1)
   else direction.normalize()
   projectile.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, 0)
   scene.add(projectile)
-  shooterProjectiles.push({ projectile, direction, age: 0 })
+  shooterProjectiles.push({
+    projectile,
+    direction,
+    age: 0,
+    distanceTravelled: 0,
+    maxRange: getEffectiveEnemyRange('shooter', OBSTACLE_TYPES.shooter.range),
+    targetTower,
+  })
 }
 
 function resolveObstacleCollisions() {
@@ -2819,7 +2946,7 @@ function resetGame(populateArena = true) {
   scene.remove(anomalyScout.player)
   anomalyScout.player.visible = false
   anomalyScout.active = false
-  player.position.set(0, GAME.playerStartHeight, 0)
+  player.position.set(0, GAME.playerStartHeight, isTowerDefenseRun() ? 3 : 0)
   player.rotation.y = 0
   playerTargetHeading = 0
   player.visible = true
@@ -2854,13 +2981,19 @@ function resetGame(populateArena = true) {
   for (const effect of phaseDashEffects) scene.remove(effect.trail)
   phaseDashEffects.length = 0
   playerDamageStates.clear()
+  const towerChallenge = isTowerDefenseRun() ? getActiveAnomalyChallenge() : null
+  towerHealth = towerChallenge?.towerHitpoints ?? 0
+  towerDefenseTower.visible = Boolean(towerChallenge)
+  towerHealthHud.classList.toggle('hidden', !towerChallenge)
   initializeWeaponCharges()
   shieldBubble.visible = shieldCharges > 0
   scoreElement.textContent = '000'
   if (populateArena) {
-    for (let index = 0; index < GAME.initialCellCount + getResearchStatBonus('initialCellCount'); index += 1) addCell()
-    for (const type of GAME.initialObstacleTypes) {
-      if (getCurrentDifficulty().availableObstacleTypes.includes(type)) addObstacle(type)
+    if (!towerChallenge) {
+      for (let index = 0; index < GAME.initialCellCount + getResearchStatBonus('initialCellCount'); index += 1) addCell()
+      for (const type of GAME.initialObstacleTypes) {
+        if (getCurrentDifficulty().availableObstacleTypes.includes(type)) addObstacle(type)
+      }
     }
     createAnomalyScout()
   }
@@ -2886,6 +3019,7 @@ function saveCurrentRound() {
     shockwaveTimer,
     shieldCharges,
     shieldInvulnerability,
+    towerHealth,
     boosterTimer,
     speedBoosterTime,
     thornShieldTime,
@@ -2897,7 +3031,7 @@ function saveCurrentRound() {
     boosters: boosters.map((booster) => ({ type: booster.userData.type, position: serializePosition(booster.position) })),
     obstacles: obstacles.map((obstacle) => ({ id: obstacle.userData.id, position: serializePosition(obstacle.position), type: obstacle.userData.type, age: obstacle.userData.age, lifetimeAge: obstacle.userData.lifetimeAge, speed: obstacle.userData.speed, pulseTimer: obstacle.userData.pulseTimer, shotCooldown: obstacle.userData.shotCooldown, teleportTimer: obstacle.userData.teleportTimer, poisonTrailTimer: obstacle.userData.poisonTrailTimer, teleportTarget: obstacle.userData.teleportTarget && serializePosition(obstacle.userData.teleportTarget), magnetPulsePhase: obstacle.userData.magnetPulsePhase, electronStunnedOnce: obstacle.userData.electronStunnedOnce })),
     spores: spores.map((entry) => ({ position: serializePosition(entry.spore.position), direction: serializePosition(entry.direction), generation: entry.generation, age: entry.age })),
-    shooterProjectiles: shooterProjectiles.map((projectile) => ({ position: serializePosition(projectile.projectile.position), direction: serializePosition(projectile.direction), age: projectile.age })),
+    shooterProjectiles: shooterProjectiles.map((projectile) => ({ position: serializePosition(projectile.projectile.position), direction: serializePosition(projectile.direction), age: projectile.age, distanceTravelled: projectile.distanceTravelled, maxRange: projectile.maxRange, targetTower: Boolean(projectile.targetTower) })),
     fallingObstacles: fallingObstacles.map((fallingObstacle) => ({ target: serializePosition(fallingObstacle.target), type: fallingObstacle.type, age: fallingObstacle.age, landed: fallingObstacle.landed, impactTriggered: fallingObstacle.impactTriggered })),
     fireHazards: fireHazards.map((fireHazard) => ({ position: serializePosition(fireHazard.position), age: fireHazard.age })),
     poisonTrails: poisonTrails.map((poisonTrail) => ({ position: serializePosition(poisonTrail.position), age: poisonTrail.age })),
@@ -2936,6 +3070,8 @@ function restoreSavedRound() {
   shockwaveTimer = savedRound.shockwaveTimer ?? 0
   shieldCharges = savedRound.shieldCharges ?? getResearchLevel('shield')
   shieldInvulnerability = savedRound.shieldInvulnerability ?? 0
+  towerHealth = savedRound.towerHealth ?? getActiveAnomalyChallenge()?.towerHitpoints ?? 0
+  towerDefenseTower.visible = isTowerDefenseRun()
   boosterTimer = savedRound.boosterTimer ?? 0
   speedBoosterTime = savedRound.speedBoosterTime ?? 0
   thornShieldTime = savedRound.thornShieldTime ?? 0
@@ -2957,7 +3093,7 @@ function restoreSavedRound() {
     const projectile = createShooterProjectileVisual()
     projectile.position.set(savedProjectile.position.x, savedProjectile.position.y, savedProjectile.position.z)
     scene.add(projectile)
-    shooterProjectiles.push({ projectile, direction: new THREE.Vector3(savedProjectile.direction.x, savedProjectile.direction.y, savedProjectile.direction.z), age: savedProjectile.age ?? 0 })
+    shooterProjectiles.push({ projectile, direction: new THREE.Vector3(savedProjectile.direction.x, savedProjectile.direction.y, savedProjectile.direction.z), age: savedProjectile.age ?? 0, distanceTravelled: savedProjectile.distanceTravelled ?? 0, maxRange: savedProjectile.maxRange ?? getEffectiveEnemyRange('shooter', OBSTACLE_TYPES.shooter.range), targetTower: Boolean(savedProjectile.targetTower) })
   }
   for (const fallingObstacle of savedRound.fallingObstacles ?? []) createFallingObstacle(new THREE.Vector3(fallingObstacle.target.x, fallingObstacle.target.y, fallingObstacle.target.z), fallingObstacle)
   for (const fireHazard of savedRound.fireHazards ?? []) createFireHazard(new THREE.Vector3(fireHazard.position.x, fireHazard.position.y, fireHazard.position.z), fireHazard)
@@ -3007,7 +3143,7 @@ async function openAnomalyRunDialog() {
     const challenge = getWeeklyAnomalyChallenge(weekId)
     anomalyChallengeName.textContent = `${challenge.name} (${t('hud.sector', { sector: formatSectorNumber(selectedSectorIndex + 1) })})`
     anomalyChallengeDescription.textContent = challenge.description
-    anomalyRewardElement.textContent = t('anomaly.reward', { cells: ANOMALY_CONFIG.rewardCellTarget, reward: getAnomalyReward(selectedSectorIndex) })
+    anomalyRewardElement.textContent = t('anomaly.reward', { cells: challenge.rewardCellTarget ?? ANOMALY_CONFIG.rewardCellTarget, reward: getAnomalyReward(selectedSectorIndex) })
     anomalyResetElement.textContent = t('anomaly.reset', { date: formatAnomalyDate(getNextAnomalyResetDate(verifiedAnomalyTime)) })
     anomalyRewardElement.hidden = false
     anomalyResetElement.hidden = false
@@ -3073,14 +3209,13 @@ function triggerShieldBreakExplosion() {
   for (let index = obstacles.length - 1; index >= 0; index -= 1) {
     const obstacle = obstacles[index]
     if (planarDistance(obstacle.position, position) > radius) continue
-    scene.remove(obstacle, obstacle.userData.rangeIndicator, obstacle.userData.magnetPulse)
-    clearPorterTeleportTarget(obstacle)
-    obstacles.splice(index, 1)
+    removeObstacleFromArena(obstacle)
   }
 }
 
 function endGame(cause = 'SIGNAL LOST') {
   if (!started || ended) return
+  if (godMode) return
   if (shieldInvulnerability > 0) return
   if (shieldCharges > 0) {
     shieldCharges -= 1
@@ -3113,21 +3248,51 @@ function endGame(cause = 'SIGNAL LOST') {
   overlay.classList.remove('hidden')
 }
 
+function finishTowerDefense(success) {
+  if (!isTowerDefenseRun() || !started || ended) return
+  if (success) claimAnomalyRewardIfEligible()
+  started = false
+  ended = true
+  paused = false
+  clearSavedRound()
+  recordSectorHighScore()
+  weaponHud.classList.add('hidden')
+  towerHealthHud.classList.add('hidden')
+  pauseMenu.classList.add('hidden')
+  overlayTitle.textContent = t(success ? 'anomaly.tower_defended' : 'anomaly.tower_destroyed')
+  overlayTitle.classList.toggle('death-title', !success)
+  overlayCopy.textContent = t(success ? 'anomaly.tower_defended_copy' : 'anomaly.tower_destroyed_copy', { cells: score })
+  gameOverTip.hidden = true
+  startButton.textContent = t('menu.run_again')
+  overlay.classList.remove('hidden')
+}
+
 function updateHud() {
   scoreElement.textContent = String(score).padStart(3, '0')
   hudSectorElement.textContent = sandboxState ? t('hud.sandbox_sector', { sector: formatSectorNumber(sandboxState.sectorIndex + 1) }) : `${t('hud.sector', { sector: formatSectorNumber(selectedSectorIndex + 1) })}${anomalyRun ? t('hud.anomaly_suffix') : ''}`
   shieldIndicators.innerHTML = `<span class="shield-indicators-label">${t('hud.shields')}</span>${Array.from({ length: shieldCharges }, () => `<img src="${shieldIconAsset}" alt="">`).join('')}`
   shieldIndicators.hidden = shieldCharges === 0
   shieldIndicators.setAttribute('aria-label', `${shieldCharges} shield ${shieldCharges === 1 ? 'charge' : 'charges'} remaining`)
+  const towerChallenge = isTowerDefenseRun() ? getActiveAnomalyChallenge() : null
+  towerHealthHud.classList.toggle('hidden', !started || !towerChallenge)
+  if (towerChallenge) {
+    towerHealthLabel.textContent = t('anomaly.tower_health', { current: towerHealth, maximum: towerChallenge.towerHitpoints })
+    towerHealthFill.style.transform = `scaleX(${THREE.MathUtils.clamp(towerHealth / towerChallenge.towerHitpoints, 0, 1)})`
+  }
+}
+
+function isDemonModeActive() {
+  return demonModeTime > 0 || isTowerDefenseRun()
 }
 
 function getEffectivePlayerSpeed() {
-  return GAME.playerSpeed * (1 + getResearchStatBonus('playerSpeedMultiplier')) * (speedBoosterTime > 0 ? 2 : 1) * (demonModeTime > 0 ? 1.8 : 1)
+  return GAME.playerSpeed * (1 + getResearchStatBonus('playerSpeedMultiplier')) * (speedBoosterTime > 0 ? 2 : 1) * (isDemonModeActive() ? 1.8 : 1)
 }
 
 function updateGame(delta, total) {
   for (const state of playerDamageStates.values()) state.exposed = false
   const difficulty = getCurrentDifficulty()
+  const anomalyDifficultyMultiplier = isTowerDefenseRun() ? (getActiveAnomalyChallenge()?.difficultyMultiplier ?? 1) : 1
   const sectorPressure = THREE.MathUtils.lerp(0.16, 0.03, selectedSectorIndex / Math.max(sectorKeys.length - 1, 1))
   const baseObstacleLifetime = (GAME.regularObstacleLifetime + difficulty.obstacleLifetimeOffset
     + score * (GAME.regularObstacleLifetimeIncreasePerCell + difficulty.obstacleLifetimeIncreasePerCellOffset)
@@ -3136,14 +3301,14 @@ function updateGame(delta, total) {
   const obstacleSpawnInterval = Math.max(
     GAME.obstacleSpawnWarningDuration,
     (GAME.obstacleSpawnInterval + difficulty.obstacleSpawnIntervalOffset
-      - score * (GAME.obstacleSpawnDecreasePerCell + difficulty.obstacleSpawnDecreasePerCellOffset)) * (1 - sectorPressure),
+      - score * (GAME.obstacleSpawnDecreasePerCell + difficulty.obstacleSpawnDecreasePerCellOffset)) * (1 - sectorPressure) / anomalyDifficultyMultiplier,
   )
   const obstacleSpawnCount = Math.max(
     1,
     Math.floor(
       (GAME.obstacleSpawnCount
       + difficulty.obstacleSpawnCountOffset
-      + score * difficulty.obstacleSpawnCountIncreasePerCell) * GAME.difficultyPressureMultiplier,
+      + score * difficulty.obstacleSpawnCountIncreasePerCell) * GAME.difficultyPressureMultiplier * anomalyDifficultyMultiplier,
     ),
   )
   const direction = new THREE.Vector3(
@@ -3196,9 +3361,9 @@ function updateGame(delta, total) {
     atmosphereShieldHalo.material.opacity = 0.08 + shieldProgress * 0.18
     atmosphereShieldDome.material.opacity = 0.06 + shieldProgress * 0.18
   }
-  demonModeAura.visible = demonModeTime > 0
-  demonSpikeAura.visible = demonModeTime > 0
-  if (demonModeTime > 0) { demonModeAura.rotation.z += delta * 5; demonModeAura.scale.setScalar(1 + Math.sin(total * 14) * 0.12); demonModeAura.material.opacity = 0.55 + Math.sin(total * 18) * 0.2; demonSpikeAura.rotation.y -= delta * 1.7; demonSpikeAura.scale.setScalar(1 + Math.sin(total * 16) * 0.14); for (const spike of demonSpikeAura.children) spike.material.opacity = 0.26 + Math.sin(total * 12 + spike.position.x * 4) * 0.16 }
+  demonModeAura.visible = isDemonModeActive()
+  demonSpikeAura.visible = isDemonModeActive()
+  if (isDemonModeActive()) { demonModeAura.rotation.z += delta * 5; demonModeAura.scale.setScalar(1 + Math.sin(total * 14) * 0.12); demonModeAura.material.opacity = 0.55 + Math.sin(total * 18) * 0.2; demonSpikeAura.rotation.y -= delta * 1.7; demonSpikeAura.scale.setScalar(1 + Math.sin(total * 16) * 0.14); for (const spike of demonSpikeAura.children) spike.material.opacity = 0.26 + Math.sin(total * 12 + spike.position.x * 4) * 0.16 }
   cellOverdriveDollar.visible = cellOverdriveTime > 0
   if (cellOverdriveTime > 0) { cellOverdriveDollar.material.rotation += delta * 2.8; cellOverdriveDollar.position.y = 2.2 + Math.sin(total * 5) * 0.15; cellOverdriveDollar.scale.setScalar(0.65 + Math.sin(total * 7) * 0.08) }
   for (const [index, orbital] of plasmaOrbitalVisuals.entries()) {
@@ -3328,9 +3493,7 @@ function updateGame(delta, total) {
     }
     obstacle.userData.lifetimeAge += delta
     if (obstacle.userData.lifetimeAge > regularObstacleLifetime) {
-      scene.remove(obstacle, obstacle.userData.rangeIndicator, obstacle.userData.magnetPulse)
-      clearPorterTeleportTarget(obstacle)
-      obstacles.splice(index, 1)
+      removeObstacleFromArena(obstacle, false)
       continue
     }
     const remainingLifetime = regularObstacleLifetime - obstacle.userData.lifetimeAge
@@ -3347,6 +3510,10 @@ function updateGame(delta, total) {
     }
     const playerOffset = player.position.clone().sub(obstacle.position)
     playerOffset.y = 0
+    const towerChallenge = isTowerDefenseRun() ? getActiveAnomalyChallenge() : null
+    const towerOffset = towerDefenseTower.position.clone().sub(obstacle.position)
+    towerOffset.y = 0
+    const pursuitOffset = towerChallenge ? towerOffset : playerOffset
     const isCreeper = obstacle.userData.type === 'creeper' || obstacle.userData.type === 'poisonCreeper'
     if (isCreeper) {
       obstacle.userData.staticCollisionSlow = Math.max(0, (obstacle.userData.staticCollisionSlow ?? 0) - delta)
@@ -3361,12 +3528,10 @@ function updateGame(delta, total) {
     }
     if (chronoSlow > 0) obstacle.userData.material.emissive.lerp(chronoBuildingTint, THREE.MathUtils.clamp(chronoSlow * 1.6, 0, 0.82))
     if (thornShieldTime > 0 && playerOffset.length() < GAME.playerRadius) {
-      scene.remove(obstacle, obstacle.userData.rangeIndicator, obstacle.userData.magnetPulse)
-      clearPorterTeleportTarget(obstacle)
-      obstacles.splice(index, 1)
+      removeObstacleFromArena(obstacle)
       continue
     }
-    if (demonModeTime > 0 && playerOffset.length() < GAME.playerRadius + 0.3) {
+    if (isDemonModeActive() && playerOffset.length() < GAME.playerRadius + 0.3) {
       createExplosion(obstacle.position, 0.5)
       removeObstacleFromArena(obstacle)
       continue
@@ -3411,20 +3576,24 @@ function updateGame(delta, total) {
       pushDirection.y = 0
       if (pushDirection.lengthSq() > 0) obstacle.position.addScaledVector(pushDirection.normalize(), (GAME.pushbackBaseSpeed + pushbackSpeed) * delta)
     }
-    if (playerOffset.length() <= effectiveRange && obstacleType.speed > 0) {
+    const isStaticTowerDefenseRegular = towerChallenge && obstacle.userData.type === 'regular'
+    if (!isStaticTowerDefenseRegular && (towerChallenge || pursuitOffset.length() <= effectiveRange) && (obstacleType.speed > 0 || towerChallenge)) {
       const speedMultiplier = isCreeper ? Math.max(0.5, 1 - getResearchStatBonus('creeperSpeedDebuff')) : 1
       const creeperLifetimeProgress = isCreeper ? Math.min(obstacle.userData.lifetimeAge / regularObstacleLifetime, 1) : 0
-      const movementSpeed = isCreeper
-        ? THREE.MathUtils.lerp(obstacleType.speed, GAME.playerSpeed * 0.9, creeperLifetimeProgress)
-        : obstacleType.speed
+      const configuredTowerSpeed = towerChallenge?.enemyMovementSpeeds?.[obstacle.userData.type]
+      const movementSpeed = towerChallenge
+        ? (configuredTowerSpeed ?? Math.max(obstacleType.speed, 1))
+        : isCreeper
+          ? THREE.MathUtils.lerp(obstacleType.speed, GAME.playerSpeed * 0.9, creeperLifetimeProgress)
+          : obstacleType.speed
       const staticCollisionSpeedMultiplier = isCreeper && obstacle.userData.staticCollisionSlow > 0
         ? GAME.creeperStaticCollisionSpeedMultiplier
         : 1
-      obstacle.position.addScaledVector(playerOffset.normalize(), movementSpeed * speedMultiplier * obstacleSpeedMultiplier * staticCollisionSpeedMultiplier * delta)
+      obstacle.position.addScaledVector(pursuitOffset.clone().normalize(), movementSpeed * speedMultiplier * obstacleSpeedMultiplier * staticCollisionSpeedMultiplier * delta)
     }
     if (obstacle.userData.rangeIndicator) {
       const rangeIndicator = obstacle.userData.rangeIndicator
-      const isPlayerInRange = playerOffset.length() <= effectiveRange
+      const isPlayerInRange = towerChallenge || playerOffset.length() <= effectiveRange
       const pulse = 1 + Math.sin(total * ANIMATION.chaserRangeIndicatorPulseSpeed) * ANIMATION.chaserRangeIndicatorPulseAmount
       rangeIndicator.position.set(obstacle.position.x, 0.025, obstacle.position.z)
       rangeIndicator.scale.setScalar(isPlayerInRange ? pulse : 1)
@@ -3485,7 +3654,8 @@ function updateGame(delta, total) {
     }
     if (obstacle.userData.type === 'shooter') {
       obstacle.userData.shotCooldown = Math.max(0, obstacle.userData.shotCooldown - delta)
-      if (playerOffset.length() <= effectiveRange && obstacle.userData.shotCooldown === 0) {
+      const shooterTargetDistance = towerChallenge ? towerOffset.length() : playerOffset.length()
+      if (shooterTargetDistance <= effectiveRange && obstacle.userData.shotCooldown === 0) {
         createShooterProjectile(obstacle)
         obstacle.userData.shotCooldown = ENTITIES.shooterProjectileCooldown
       }
@@ -3524,8 +3694,16 @@ function updateGame(delta, total) {
       obstacle.userData.material.emissiveIntensity = (2.2 + (Math.sin(obstacle.userData.age * 10) + 1) * 1.5) * emissionScale
       if (obstacle.userData.age >= ENTITIES.sporeFuseDuration) sporesToDetonate.push(obstacle)
     }
+    if (!isStaticTowerDefenseRegular && towerChallenge && towerOffset.length() <= towerChallenge.towerRadius + obstacle.userData.colliderRadius) {
+      damageTower(towerChallenge.towerContactDamage)
+      removeObstacleFromArena(obstacle, false)
+      continue
+    }
     enforceBarrierNodes(obstacle)
-    if (obstacle.position.distanceTo(player.position) < GAME.playerRadius) endGame(`${obstacle.userData.type.toUpperCase()} COLLISION`)
+    if (obstacle.position.distanceTo(player.position) < GAME.playerRadius) {
+      if (isDemonModeActive()) { createExplosion(obstacle.position, 0.5); removeObstacleFromArena(obstacle) }
+      else endGame(`${obstacle.userData.type.toUpperCase()} COLLISION`)
+    }
   }
 
   resolveObstacleCollisions()
@@ -3562,16 +3740,21 @@ function updateGame(delta, total) {
   for (let index = shooterProjectiles.length - 1; index >= 0; index -= 1) {
     const shooterProjectile = shooterProjectiles[index]
     shooterProjectile.age += delta
-    shooterProjectile.projectile.position.addScaledVector(shooterProjectile.direction, ENTITIES.shooterProjectileSpeed * Math.max(0.5, 1 - getResearchStatBonus('shooterProjectileSpeedDebuff')) * delta)
+    const projectileTravelDistance = ENTITIES.shooterProjectileSpeed * Math.max(0.5, 1 - getResearchStatBonus('shooterProjectileSpeedDebuff')) * delta
+    shooterProjectile.projectile.position.addScaledVector(shooterProjectile.direction, projectileTravelDistance)
+    shooterProjectile.distanceTravelled += projectileTravelDistance
     shooterProjectile.projectile.rotation.x += delta * 9
     shooterProjectile.projectile.rotation.y += delta * 12
-    if (shooterProjectile.projectile.position.distanceTo(player.position) < GAME.playerRadius + ENTITIES.shooterProjectileRadius) {
+    const projectileTarget = shooterProjectile.targetTower ? towerDefenseTower.position : player.position
+    const projectileHitRadius = shooterProjectile.targetTower ? (getActiveAnomalyChallenge()?.towerRadius ?? 1.15) : GAME.playerRadius
+    if (shooterProjectile.projectile.position.distanceTo(projectileTarget) < projectileHitRadius + ENTITIES.shooterProjectileRadius) {
       scene.remove(shooterProjectile.projectile)
       shooterProjectiles.splice(index, 1)
-      endGame('SHOOTER PROJECTILE')
+      if (shooterProjectile.targetTower) damageTower(getActiveAnomalyChallenge()?.towerProjectileDamage ?? 1)
+      else endGame('SHOOTER PROJECTILE')
       continue
     }
-    if (shooterProjectile.age >= ENTITIES.shooterProjectileLifetime) {
+    if (shooterProjectile.distanceTravelled >= shooterProjectile.maxRange) {
       scene.remove(shooterProjectile.projectile)
       shooterProjectiles.splice(index, 1)
     }
@@ -3817,7 +4000,7 @@ function updateGame(delta, total) {
   obstacleSpawnTimer += delta
   hazardTimer += delta
   const cellSpawnRateBonus = getResearchStatBonus('cellSpawnRate') + score * getResearchStatBonus('cellSpawnRatePerCell')
-  const simulatesCells = !sandboxState || sandboxState.simulation.has('cell')
+  const simulatesCells = !isTowerDefenseRun() && (!sandboxState || sandboxState.simulation.has('cell'))
   const simulatesEnemies = !sandboxState || sandboxState.simulation.has('enemies')
   const simulatesBoosters = !sandboxState || sandboxState.simulation.has('boosters')
   if (simulatesCells && spawnTimer > GAME.cellSpawnInterval / (1 + cellSpawnRateBonus)) {
@@ -3847,7 +4030,7 @@ function updateGame(delta, total) {
     (GAME.fallingBlockBaseInterval + difficulty.fallingRockSpawnIntervalOffset
       - score * (GAME.fallingBlockIntervalPerCell + difficulty.fallingRockSpawnDecreasePerCellOffset)) * (1 - sectorPressure) / GAME.fallingRockSpawnFrequencyMultiplier,
   )
-  if (simulatesEnemies && hazardTimer > fallingRockSpawnInterval) {
+  if (!isTowerDefenseRun() && simulatesEnemies && hazardTimer > fallingRockSpawnInterval) {
     scheduleFallingObstacles()
     hazardTimer = 0
   }
@@ -4187,9 +4370,9 @@ resetRoundButton.addEventListener('click', () => {
 surrenderButton.addEventListener('click', () => {
   if (buildMode) exitBuildMode()
   clearSavedRound()
-  resetGame(!sandboxState)
   sandboxState = null
   anomalyRun = null
+  resetGame(true)
   paused = false
   started = false
   ended = false

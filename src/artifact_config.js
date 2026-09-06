@@ -65,7 +65,7 @@ const ARTIFACT_CONFIG_BASE = {
       icon: 'dark-core.svg',
       repeatable: true,
       requirement: { type: 'anomaly-run-success', cells: 250 },
-      buff: { stat: 'chronoshardGainMultiplier', amount: 0.1, label: '+10% Chronoshards earned' },
+      buff: { stat: 'chronoshardGainMultiplier', amount: 0.01, label: '+1% Chronoshards earned' },
     },
     {
       id: 'map-to-earth',
