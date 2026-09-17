@@ -21,6 +21,12 @@ export const ONBOARDING_STEPS = Object.freeze([
     shouldRun: ({ isSteamBuild }) => !isSteamBuild,
     run: async ({ startSecondSectorGuidance }) => startSecondSectorGuidance(),
   },
+  {
+    id: 'first-research-guidance',
+    trigger: 'research-first-loss',
+    shouldRun: ({ isSteamBuild }) => !isSteamBuild,
+    run: async ({ startFirstResearchGuidance }) => startFirstResearchGuidance(),
+  },
 ])
 
 function readProgress(storage) {
@@ -42,7 +48,7 @@ export function clearOnboardingProgress(storage = window.localStorage) {
   try { storage.removeItem(ONBOARDING_STORAGE_KEY) } catch {}
 }
 
-export function createOnboarding({ isSteamBuild, startTutorialRun, startFirstLossGuidance, startSecondSectorGuidance, onStepStarted, onStepCompleted, storage = window.localStorage }) {
+export function createOnboarding({ isSteamBuild, startTutorialRun, startFirstLossGuidance, startSecondSectorGuidance, startFirstResearchGuidance, onStepStarted, onStepCompleted, storage = window.localStorage }) {
   const progress = readProgress(storage)
   let activeStep = null
 
@@ -52,7 +58,7 @@ export function createOnboarding({ isSteamBuild, startTutorialRun, startFirstLos
       for (const step of ONBOARDING_STEPS) {
         if (step.trigger !== trigger || progress.completed.has(step.id) || !step.shouldRun({ isSteamBuild })) continue
         activeStep = step
-        await step.run({ startTutorialRun, startFirstLossGuidance, startSecondSectorGuidance })
+        await step.run({ startTutorialRun, startFirstLossGuidance, startSecondSectorGuidance, startFirstResearchGuidance })
         onStepStarted?.(step)
         return true
       }

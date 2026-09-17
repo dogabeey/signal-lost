@@ -439,6 +439,7 @@ const onboardingDirective = document.querySelector('#onboarding-directive')
 let onboarding = null
 let onboardingLossGuidance = null
 let onboardingSectorGuidance = null
+let onboardingResearchGuidance = null
 const onboardingDisabledButtons = new Map()
 
 function showOnboardingDirective() {
@@ -472,15 +473,21 @@ function getClaimableMilestoneIds() {
 }
 
 function syncOnboardingDisabledButtons() {
-  const guidance = onboardingLossGuidance ?? onboardingSectorGuidance
+  const guidance = onboardingLossGuidance ?? onboardingSectorGuidance ?? onboardingResearchGuidance
   if (!guidance) return
   const isAllowed = (button) => guidance.mode === 'run-again' || guidance.mode === 'start-run'
     ? button === startButton
     : guidance.mode === 'next-sector'
       ? button === nextSectorButton
+      : guidance.mode === 'research-entry'
+        ? button === openLabButton
+        : guidance.mode === 'research-category'
+          ? button.matches('[data-toggle-research-category="Player Enhancements"]')
+          : guidance.mode === 'research-upgrade'
+            ? button.matches('[data-start-research="player-speed-multiplier"]')
       : guidance.mode === 'ascension-entry'
-      ? button === openMilestonesButton
-      : button.matches('[data-claim-milestone]')
+        ? button === openMilestonesButton
+        : button.matches('[data-claim-milestone]')
   document.querySelectorAll('button').forEach((button) => {
     if (isAllowed(button)) return
     if (!onboardingDisabledButtons.has(button)) onboardingDisabledButtons.set(button, button.disabled)
@@ -522,6 +529,9 @@ function completeFirstLossGuidance() {
 function startSecondSectorGuidance() {
   onboardingSectorGuidance = { mode: 'next-sector' }
   clearOnboardingHighlights()
+  // This button may have been disabled before Sector II was claimed; the
+  // previous onboarding lock restores that old state, so enable the new target.
+  nextSectorButton.disabled = false
   highlightOnboardingTarget(nextSectorButton)
   syncOnboardingDisabledButtons()
 }
@@ -532,14 +542,44 @@ function completeSecondSectorGuidance() {
   onboarding?.completeActiveStep()
 }
 
+function startFirstResearchGuidance() {
+  onboardingResearchGuidance = { mode: 'research-entry' }
+  clearOnboardingHighlights()
+  highlightOnboardingTarget(openLabButton)
+  syncOnboardingDisabledButtons()
+}
+
+function advanceFirstResearchGuidance(mode, target) {
+  if (!onboardingResearchGuidance) return
+  onboardingResearchGuidance.mode = mode
+  clearOnboardingHighlights()
+  highlightOnboardingTarget(target)
+  syncOnboardingDisabledButtons()
+}
+
+function completeFirstResearchGuidance() {
+  onboardingResearchGuidance = null
+  clearOnboardingHighlights()
+  labPanel.classList.add('hidden')
+  menuContent.classList.remove('hidden')
+  setActiveMenuButton()
+  onboarding?.completeActiveStep()
+}
+
 document.addEventListener('click', (event) => {
-  const guidance = onboardingLossGuidance ?? onboardingSectorGuidance
+  const guidance = onboardingLossGuidance ?? onboardingSectorGuidance ?? onboardingResearchGuidance
   if (!guidance) return
   const button = event.target.closest('button')
   const isAllowed = guidance.mode === 'run-again' || guidance.mode === 'start-run'
     ? button === startButton
     : guidance.mode === 'next-sector'
       ? button === nextSectorButton
+      : guidance.mode === 'research-entry'
+        ? button === openLabButton
+        : guidance.mode === 'research-category'
+          ? Boolean(button?.matches('[data-toggle-research-category="Player Enhancements"]'))
+          : guidance.mode === 'research-upgrade'
+            ? Boolean(button?.matches('[data-start-research="player-speed-multiplier"]'))
       : guidance.mode === 'ascension-entry'
       ? button === openMilestonesButton
       : Boolean(button?.matches('[data-claim-milestone]'))
@@ -787,6 +827,7 @@ function getResearchStatBonus(stat) {
 }
 
 function getResearchCost(research, level) {
+  if (research.id === 'player-speed-multiplier' && level === 0) return 0
   const baseCost = getResearchCostBase(research, level)
   const discountedCost = baseCost * Math.max(0, 1 - getArtifactStatBonus('researchCostReduction'))
   return research.cost.currency === 'cash' ? Math.round(discountedCost * 100) / 100 : Math.ceil(discountedCost)
@@ -888,7 +929,8 @@ function renderResearchLab() {
     const buttonState = lockReason || active || full || noAvailableSlot
       ? 'research-locked'
       : canAfford ? 'research-affordable' : 'research-unaffordable'
-    const status = full ? t('research.max_level') : active ? t('research.in_progress') : lockReason || (freeResearch ? t('research.free_enabled') : t('research.cost', { cost: `${formatCurrency(research.cost.currency, cost)}${RESEARCH_CONFIG.durationsEnabled ? ` · ${formatDuration(duration)}` : ''}` }))
+    const tutorialFree = research.id === 'player-speed-multiplier' && level === 0
+    const status = full ? t('research.max_level') : active ? t('research.in_progress') : lockReason || (freeResearch || tutorialFree ? t('research.free_enabled') : t('research.cost', { cost: `${formatCurrency(research.cost.currency, cost)}${RESEARCH_CONFIG.durationsEnabled ? ` · ${formatDuration(duration)}` : ''}` }))
     return `<article class="research-card"><div><span class="research-level">${t('weapon.level', { level })}/${research.maxLevel}</span><h4>${research.name}</h4><p>${research.description}</p><p class="research-effect">${formatResearchEffect(research, level)} → ${formatResearchEffect(research, Math.min(level + 1, research.maxLevel))}</p><small>${status}</small></div><button class="${buttonState}" data-start-research="${research.id}" type="button" ${disabled ? 'disabled' : ''}>${full ? t('research.maxed') : t('research.start')}</button></article>`
     }).join('')}</div></section>`
   }).join('') : `<p class="research-empty">${t('research.no_search_results')}</p>`
@@ -903,7 +945,7 @@ function startResearch(researchId) {
   const cost = getResearchCost(research, level)
   const balance = research.cost.currency === 'cash' ? cash : chronoshards
   const researchAlreadyActive = RESEARCH_CONFIG.durationsEnabled && researchState.slots.some((slot) => slot?.researchId === researchId)
-  if (lockReason || level >= research.maxLevel || (RESEARCH_CONFIG.durationsEnabled && emptySlot < 0) || researchAlreadyActive || (!freeResearch && balance < cost)) return
+  if (lockReason || level >= research.maxLevel || (RESEARCH_CONFIG.durationsEnabled && emptySlot < 0) || researchAlreadyActive || (!freeResearch && balance < cost)) return false
   if (!freeResearch) {
     if (research.cost.currency === 'cash') updateCash(-cost)
     else updateChronoshards(-cost)
@@ -920,6 +962,7 @@ function startResearch(researchId) {
   saveResearchState()
   setLabMessage(RESEARCH_CONFIG.durationsEnabled ? t('research.started', { research: research.name, slot: emptySlot + 1 }) : t('research.upgraded', { research: research.name, level: level + 1 }))
   renderResearchLab()
+  return true
 }
 
 function unlockResearchSlot(slotNumber) {
@@ -1212,6 +1255,16 @@ function runCheatCommand(rawCommand) {
     claimAnomalyRewardIfEligible()
     if (isTowerDefenseRun() && score >= (getActiveAnomalyChallenge()?.rewardCellTarget ?? 1000)) finishTowerDefense(true)
     setCheatOutput(t('cheat.cell_granted', { amount: cellAmount, total: score }))
+    return
+  }
+  if (command === CHEAT_CONFIG.commands.cellObtain) {
+    const multiplier = Number(argumentsList[0])
+    if (!Number.isInteger(multiplier) || multiplier <= 0 || multiplier > 10_000) {
+      setCheatOutput(t('cheat.cell_obtain_usage'))
+      return
+    }
+    cellObtainMultiplier = multiplier
+    setCheatOutput(t('cheat.cell_obtain_set', { amount: multiplier }))
     return
   }
   if (command === CHEAT_CONFIG.commands.god) {
@@ -2018,6 +2071,7 @@ let ended = false
 let awaitingFirstInput = false
 let awaitingFirstInputNeedsArenaPopulation = false
 let score = 0
+let cellObtainMultiplier = 1
 let elapsed = 0
 let spawnTimer = 0
 let chronoCellTimer = 0
@@ -3396,6 +3450,7 @@ function endGame(cause = 'SIGNAL LOST') {
   startButton.textContent = t('menu.run_again')
   overlay.classList.remove('hidden')
   void onboarding?.start('first-loss')
+  if (featureUnlocks.researchLab && getResearchLevel('player-speed-multiplier') === 0) void onboarding?.start('research-first-loss')
   void showInterstitialAfterPlayerDeath()
 }
 
@@ -3576,7 +3631,7 @@ function updateGame(delta, total) {
       soundSystem.playCellCollect(cell.position)
       scene.remove(cell)
       cells.splice(index, 1)
-      const cellMultiplier = cellOverdriveTime > 0 ? 2 : 1
+      const cellMultiplier = (cellOverdriveTime > 0 ? 2 : 1) * cellObtainMultiplier
       score += cellMultiplier
       if (!sandboxState) {
         updateBankedCells(cellMultiplier)
@@ -4418,6 +4473,9 @@ openLabButton.addEventListener('click', (event) => {
   if (!tryUnlockFeature('researchLab', openLabButton)) return
   setLabMessage()
   openMenuPanel(labPanel, renderResearchLab)
+  if (onboardingResearchGuidance?.mode === 'research-entry') {
+    advanceFirstResearchGuidance('research-category', researchListElement.querySelector('[data-toggle-research-category="Player Enhancements"]'))
+  }
 })
 openSettingsButton.addEventListener('click', (event) => { event.stopPropagation(); openMenuPanel(settingsPanel, renderSettings) })
 openPatchNotesButton.addEventListener('click', () => openMenuPanel(patchNotesPanel))
@@ -4517,9 +4575,15 @@ labPanel.addEventListener('click', (event) => {
     if (collapsedResearchCategories.has(category)) collapsedResearchCategories.delete(category)
     else collapsedResearchCategories.add(category)
     renderResearchLab()
+    if (onboardingResearchGuidance?.mode === 'research-category' && category === 'Player Enhancements') {
+      advanceFirstResearchGuidance('research-upgrade', researchListElement.querySelector('[data-start-research="player-speed-multiplier"]'))
+    }
     return
   }
-  if (startResearchButton) startResearch(startResearchButton.dataset.startResearch)
+  if (startResearchButton) {
+    const startedResearch = startResearch(startResearchButton.dataset.startResearch)
+    if (startedResearch && onboardingResearchGuidance?.mode === 'research-upgrade' && startResearchButton.dataset.startResearch === 'player-speed-multiplier') completeFirstResearchGuidance()
+  }
   if (unlockSlotButton) unlockResearchSlot(Number.parseInt(unlockSlotButton.dataset.unlockSlot, 10))
 })
 
@@ -4853,6 +4917,7 @@ onboarding = createOnboarding({
   startTutorialRun: () => startRound(),
   startFirstLossGuidance,
   startSecondSectorGuidance,
+  startFirstResearchGuidance,
   onStepStarted: (step) => {
     if (step.id === 'quick-start') showOnboardingDirective()
     if (step.id === 'first-loss-guidance') gameOverTip.hidden = true

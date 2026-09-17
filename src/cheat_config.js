@@ -14,6 +14,7 @@ export const CHEAT_CONFIG = {
     sandbox: 'sandbox',
     anomaly: 'anomaly',
     cell: 'cell',
+    cellObtain: 'cell_obtain',
     god: 'god',
   },
   clearSaveTargets: ['currency', 'game_progress', 'milestones', 'research', 'buildings', 'weapons', 'artifacts', 'all'],
