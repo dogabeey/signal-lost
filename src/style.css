@@ -452,6 +452,7 @@ button:focus-visible { outline: 2px solid #fff4d2; outline-offset: 4px; }
 
 @media (max-width: 580px) and (orientation: landscape), (hover: none) and (pointer: coarse) and (orientation: landscape) {
   .overlay { justify-content: flex-start; padding-top: max(20px, 5svh); }
+  .menu-content { padding-top: 0; }
   .overlay .eyebrow { font-size: 9px; margin-bottom: 7px; }
   .overlay h1 { font-size: clamp(42px, 6vw, 66px); }
   .overlay > p:not(.eyebrow) { font-size: 13px; margin: 10px 0 14px; }
@@ -459,13 +460,14 @@ button:focus-visible { outline: 2px solid #fff4d2; outline-offset: 4px; }
   .sector-heading { font-size: 12px; margin-bottom: 10px; }
   .sector-carousel { margin-bottom: 8px; }
   .highest-cell { padding-top: 7px; }
-  .menu-actions { gap: 8px; margin-top: 8px; }
-  .menu-actions button, .pause-actions button { font-size: 12px; padding: 12px 17px; }
+  .menu-actions { gap: 5px; margin-top: 5px; }
+  .menu-actions button, .pause-actions button { font-size: 10px; padding: 7px 10px; }
   .menu-actions { grid-template-columns: repeat(4, minmax(0, 1fr)); position: static; width: min(100%, 520px); }
-  .menu-actions .menu-system-button, .menu-actions .menu-utility-button { bottom: auto; height: auto; left: auto; min-height: 42px; padding: 10px 8px; position: relative; right: auto; top: auto; width: 100%; }
+  .menu-actions .menu-system-button, .menu-actions .menu-utility-button { bottom: auto; height: 30px; left: auto; min-height: 30px; padding: 0; position: relative; right: auto; top: auto; width: 100%; }
   .menu-actions .menu-home-button { display: block; }
-  .menu-actions .menu-button-label { display: inline; }
-  .menu-actions .menu-button-icon { display: none; }
+  .menu-actions .menu-button-label { display: none; }
+  .menu-actions .menu-button-icon { align-items: center; display: inline-flex; height: 100%; justify-content: center; width: 100%; }
+  .menu-actions .menu-button-icon img { height: 23px; object-fit: contain; pointer-events: none; width: 23px; }
   .menu-actions .menu-button-lock { display: none !important; }
   .menu-actions .menu-system-button.is-locked { background: #e25858; box-shadow: 4px 4px 0 #7d2828; color: #2b1515; opacity: 0.82; }
   .menu-actions .menu-system-button.is-unlockable { background: #b9ed53; box-shadow: 4px 4px 0 #5c8525; color: #171c21; }

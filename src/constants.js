@@ -371,7 +371,7 @@ export const COLORS = {
   targetRing: '#ff795f',
 }
 
-export const CAMERA = { fov: 52, near: 0.1, far: 100, angle: 53, distance: 10, portraitDistanceMultiplier: 1.6, followStrength: 0.06 }
+export const CAMERA = { fov: 52, near: 0.1, far: 100, angle: 53, landscapeDistance: 8, portraitDistance: 16, followStrength: 0.06 }
 export const SCENE = {
   floorMetalness: 0.5,
   floorRoughness: 0.55,

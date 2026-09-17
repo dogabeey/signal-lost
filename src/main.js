@@ -1900,7 +1900,7 @@ const towerDefenseTower = createTowerDefenseTower()
 scene.add(towerDefenseTower)
 
 const camera = new THREE.PerspectiveCamera(CAMERA.fov, window.innerWidth / window.innerHeight, CAMERA.near, CAMERA.far)
-camera.position.set(0, CAMERA.distance * Math.tan(THREE.MathUtils.degToRad(CAMERA.angle)), CAMERA.distance)
+camera.position.set(0, getCameraHeight(), getCameraDistance())
 camera.lookAt(0, 0, 0)
 
 renderComposer = new EffectComposer(renderer)
@@ -4735,8 +4735,7 @@ function endBuildNavigation(event) {
 }
 
 function getCameraDistance() {
-  const isPortraitMobile = window.matchMedia('(hover: none) and (pointer: coarse) and (orientation: portrait)').matches
-  return CAMERA.distance * (isPortraitMobile ? CAMERA.portraitDistanceMultiplier : 1)
+  return window.matchMedia('(orientation: portrait)').matches ? CAMERA.portraitDistance : CAMERA.landscapeDistance
 }
 
 function getCameraHeight() {
