@@ -33,9 +33,13 @@ import { getAvailableLanguages, getPreferredLanguage, setLanguage, t } from './l
 import { ARTIFACT_ACHIEVEMENTS, getSteamAchievementStates, unlockSteamAchievementForArtifact } from './steam_achievements.js'
 import { getArtifactAsset, getBuildingAsset, getUiIconAsset, getWeaponAsset } from './asset_catalog.js'
 import { DAMAGE_TYPES } from './damage_types.js'
+import { initializeInterstitialAds, showInterstitialAfterPlayerDeath } from './ad_service.js'
+import { clearOnboardingProgress, createOnboarding } from './onboarding.js'
 import './style.css'
 
 const IS_STEAM_BUILD = import.meta.env.VITE_STEAM_BUILD === 'true'
+
+void initializeInterstitialAds()
 
 function getMenuIconMarkup(iconId, fallback) {
   return `<span class="menu-button-icon" aria-hidden="true"><img data-menu-icon src="${getUiIconAsset(iconId)}" alt=""><span class="menu-icon-fallback" hidden>${fallback}</span></span>`
@@ -69,6 +73,7 @@ document.querySelector('#app').innerHTML = `
     <div class="tower-health-hud hidden" id="tower-health-hud" role="status" aria-live="polite"><strong id="tower-health-label"></strong><div class="tower-health-track"><i id="tower-health-fill"></i></div></div>
     <div class="weapon-hud hidden" id="weapon-hud"></div>
     <aside class="instructions" aria-label="Game controls"><span class="controls-desktop"><span><b>MOVE</b> WASD</span><span><b>NAVIGATE</b> ↑↓</span><span><b>USE WEAPON</b> SPACE</span></span><span class="controls-mobile"><span><b>MOVE</b> JOYSTICK</span><span><b>SELECT / USE WEAPON</b> TAP A CARD</span></span></aside>
+    <p class="onboarding-directive hidden" id="onboarding-directive" role="status"><span aria-hidden="true">↔</span>${t('onboarding.drag_to_move')}</p>
     <footer class="build-footer" aria-label="Build information">
       <span>v${BUILD_INFO.version}</span><span>BUILD ${BUILD_INFO.number}</span>
     </footer>
@@ -429,6 +434,94 @@ const sectorOptions = document.querySelector('#sector-options')
 const previousSectorButton = document.querySelector('#previous-sector')
 const nextSectorButton = document.querySelector('#next-sector')
 const virtualJoystick = document.querySelector('#virtual-joystick')
+const onboardingDirective = document.querySelector('#onboarding-directive')
+
+let onboarding = null
+let onboardingLossGuidance = null
+const onboardingDisabledButtons = new Map()
+
+function showOnboardingDirective() {
+  onboardingDirective.classList.remove('hidden')
+  requestAnimationFrame(() => onboardingDirective.classList.add('is-visible'))
+}
+
+function hideOnboardingDirective() {
+  onboardingDirective.classList.remove('is-visible')
+  window.setTimeout(() => onboardingDirective.classList.add('hidden'), 260)
+}
+
+function clearOnboardingHighlights() {
+  document.querySelectorAll('.onboarding-highlight').forEach((element) => element.classList.remove('onboarding-highlight'))
+  for (const [button, wasDisabled] of onboardingDisabledButtons) {
+    button.disabled = wasDisabled
+    button.classList.remove('onboarding-disabled')
+  }
+  onboardingDisabledButtons.clear()
+}
+
+function highlightOnboardingTarget(target) {
+  if (!target) return
+  target.classList.add('onboarding-highlight')
+}
+
+function getClaimableMilestoneIds() {
+  return MILESTONES
+    .filter((milestone) => !milestoneState.claimed.includes(milestone.id) && (sectorHighScores[sectorKeys[milestone.sector - 1]] ?? 0) >= milestone.cells)
+    .map((milestone) => milestone.id)
+}
+
+function syncOnboardingDisabledButtons() {
+  if (!onboardingLossGuidance) return
+  const isAllowed = (button) => onboardingLossGuidance.mode === 'run-again'
+    ? button === startButton
+    : onboardingLossGuidance.mode === 'ascension-entry'
+      ? button === openMilestonesButton
+      : button.matches('[data-claim-milestone]')
+  document.querySelectorAll('button').forEach((button) => {
+    if (isAllowed(button)) return
+    if (!onboardingDisabledButtons.has(button)) onboardingDisabledButtons.set(button, button.disabled)
+    button.disabled = true
+    button.classList.add('onboarding-disabled')
+  })
+}
+
+function refreshAscensionOnboardingGuidance() {
+  if (onboardingLossGuidance?.mode !== 'ascension-claims') return
+  clearOnboardingHighlights()
+  const claimButtons = [...milestoneTrack.querySelectorAll('[data-claim-milestone]')]
+  claimButtons.forEach((button) => button.classList.add('onboarding-highlight'))
+  highlightOnboardingTarget(claimButtons[0])
+  syncOnboardingDisabledButtons()
+}
+
+function startFirstLossGuidance() {
+  const claimableMilestoneIds = getClaimableMilestoneIds()
+  onboardingLossGuidance = claimableMilestoneIds.length > 0
+    ? { mode: 'ascension-entry', claimableMilestoneIds }
+    : { mode: 'run-again' }
+  clearOnboardingHighlights()
+  highlightOnboardingTarget(onboardingLossGuidance.mode === 'run-again' ? startButton : openMilestonesButton)
+  syncOnboardingDisabledButtons()
+}
+
+function completeFirstLossGuidance() {
+  onboardingLossGuidance = null
+  clearOnboardingHighlights()
+  onboarding?.completeActiveStep()
+}
+
+document.addEventListener('click', (event) => {
+  if (!onboardingLossGuidance) return
+  const button = event.target.closest('button')
+  const isAllowed = onboardingLossGuidance.mode === 'run-again'
+    ? button === startButton
+    : onboardingLossGuidance.mode === 'ascension-entry'
+      ? button === openMilestonesButton
+      : Boolean(button?.matches('[data-claim-milestone]'))
+  if (isAllowed) return
+  event.preventDefault()
+  event.stopImmediatePropagation()
+}, true)
 
 let lastGameOverTip = ''
 
@@ -1149,8 +1242,11 @@ function runCheatCommand(rawCommand) {
     if (argument === 'buildings' || argument === 'all') clearBuildingsSave()
     if (argument === 'weapons' || argument === 'all') clearWeaponrySave()
     if (argument === 'artifacts' || argument === 'all') clearArtifactSave()
-    if (argument === 'all') clearFeatureUnlocks()
-    setCheatOutput(t('cheat.cleared', { target: argument.replace('_', ' ') }))
+    if (argument === 'all') {
+      clearFeatureUnlocks()
+      clearOnboardingProgress()
+    }
+    window.location.reload()
     return
   }
   setCheatOutput(t('cheat.unknown_command', { command }))
@@ -1346,6 +1442,10 @@ nextSectorButton.addEventListener('click', () => selectSector(selectedSectorInde
 openMilestonesButton.addEventListener('click', () => {
   milestoneSectorIndex = selectedSectorIndex
   openMenuPanel(milestonesPanel, renderMilestones)
+  if (onboardingLossGuidance?.mode === 'ascension-entry') {
+    onboardingLossGuidance.mode = 'ascension-claims'
+    refreshAscensionOnboardingGuidance()
+  }
 })
 closeMilestonesButton.addEventListener('click', () => {
   milestonesPanel.classList.add('hidden')
@@ -1396,6 +1496,16 @@ function claimMilestone(milestoneId) {
   renderSectorOptions()
   renderResearchLab()
   renderMilestones()
+  if (onboardingLossGuidance?.mode === 'ascension-claims') {
+    const remainingClaimable = getClaimableMilestoneIds()
+    if (remainingClaimable.length === 0) completeFirstLossGuidance()
+    else {
+      const nextMilestone = MILESTONES.find((milestone) => milestone.id === remainingClaimable[0])
+      if (nextMilestone) milestoneSectorIndex = nextMilestone.sector - 1
+      renderMilestones()
+      refreshAscensionOnboardingGuidance()
+    }
+  }
 }
 
 function renderMilestones() {
@@ -1872,6 +1982,8 @@ const timer = new THREE.Timer()
 let started = false
 let paused = false
 let ended = false
+let awaitingFirstInput = false
+let awaitingFirstInputNeedsArenaPopulation = false
 let score = 0
 let elapsed = 0
 let spawnTimer = 0
@@ -3166,6 +3278,8 @@ async function openAnomalyRunDialog() {
 }
 
 function returnToMainMenu() {
+  awaitingFirstInput = false
+  awaitingFirstInputNeedsArenaPopulation = false
   if (sandboxState) {
     clearSavedRound()
     paused = false
@@ -3226,6 +3340,8 @@ function endGame(cause = 'SIGNAL LOST') {
     return
   }
   started = false
+  awaitingFirstInput = false
+  awaitingFirstInputNeedsArenaPopulation = false
   ended = true
   paused = false
   shieldBubble.visible = false
@@ -3246,12 +3362,16 @@ function endGame(cause = 'SIGNAL LOST') {
   gameOverTip.hidden = false
   startButton.textContent = t('menu.run_again')
   overlay.classList.remove('hidden')
+  void onboarding?.start('first-loss')
+  void showInterstitialAfterPlayerDeath()
 }
 
 function finishTowerDefense(success) {
   if (!isTowerDefenseRun() || !started || ended) return
   if (success) claimAnomalyRewardIfEligible()
   started = false
+  awaitingFirstInput = false
+  awaitingFirstInputNeedsArenaPopulation = false
   ended = true
   paused = false
   clearSavedRound()
@@ -4052,7 +4172,7 @@ function animate(timestamp) {
   timer.update(timestamp)
   const delta = Math.min(timer.getDelta(), 0.05)
   const total = timer.getElapsed()
-  if (started && !paused) updateGame(delta, total)
+  if (started && !paused && !awaitingFirstInput) updateGame(delta, total)
   updatePlayerDeathEffects(delta)
   if (buildMode) {
     camera.position.set(buildCameraCenter.x, buildCameraHeight, buildCameraCenter.y + 0.01)
@@ -4154,18 +4274,38 @@ async function renderDisplaySettings() {
 
 function persistSettings() { saveSettings(); soundSystem.setMasterVolume(); renderSettings() }
 
-async function startRound(isAnomalyRun = false) {
+function activateAwaitingRound() {
+  if (!awaitingFirstInput) return false
+  if (awaitingFirstInputNeedsArenaPopulation) resetGame()
+  awaitingFirstInput = false
+  awaitingFirstInputNeedsArenaPopulation = false
+  onboarding?.completeActiveStep()
+  started = true
+  paused = false
+  void soundSystem.initialize()
+  if (!savedRound) trackSectorStarted({
+    sector: selectedSectorIndex + 1,
+    buildVersion: BUILD_INFO.version,
+    platform: window.steamShell ? 'steam' : 'web',
+  })
+  return true
+}
+
+function startRound(isAnomalyRun = false, { waitForFirstInput = true } = {}) {
   if (isAnomalyRun && !verifiedAnomalyTime) return
-  await soundSystem.initialize()
+  void soundSystem.initialize().catch(() => {})
   soundSystem.playButtonClick()
   const continuingRun = Boolean(savedRound)
+  const shouldWaitForFirstInput = waitForFirstInput
   if (continuingRun) restoreSavedRound()
   else {
     sandboxState = null
     anomalyRun = isAnomalyRun ? { challengeId: getWeeklyAnomalyChallenge().id, weekId: getAnomalyWeekId() } : null
-    resetGame()
+    resetGame(!shouldWaitForFirstInput)
   }
-  started = true
+  started = !shouldWaitForFirstInput
+  awaitingFirstInput = shouldWaitForFirstInput
+  awaitingFirstInputNeedsArenaPopulation = shouldWaitForFirstInput && !continuingRun
   ended = false
   paused = false
   overlayTitle.classList.remove('death-title')
@@ -4175,14 +4315,17 @@ async function startRound(isAnomalyRun = false) {
   overlay.classList.add('hidden')
   anomalyRunModal.classList.add('hidden')
   renderWeaponHud()
-  if (!continuingRun) trackSectorStarted({
+  if (!continuingRun && !shouldWaitForFirstInput) trackSectorStarted({
     sector: selectedSectorIndex + 1,
     buildVersion: BUILD_INFO.version,
     platform: window.steamShell ? 'steam' : 'web',
   })
 }
 
-startButton.addEventListener('click', () => startRound())
+startButton.addEventListener('click', () => {
+  if (onboardingLossGuidance?.mode === 'run-again') completeFirstLossGuidance()
+  startRound()
+})
 anomalyRunButton.addEventListener('click', openAnomalyRunDialog)
 cancelAnomalyRunButton.addEventListener('click', () => anomalyRunModal.classList.add('hidden'))
 confirmAnomalyRunButton.addEventListener('click', () => startRound(true))
@@ -4361,9 +4504,11 @@ hideLockedResearchesInput.addEventListener('change', () => {
 
 resetRoundButton.addEventListener('click', () => {
   clearSavedRound()
-  resetGame(!sandboxState)
+  resetGame(false)
+  awaitingFirstInput = true
+  awaitingFirstInputNeedsArenaPopulation = true
   paused = false
-  started = true
+  started = false
   pauseMenu.classList.add('hidden')
 })
 
@@ -4373,6 +4518,8 @@ surrenderButton.addEventListener('click', () => {
   sandboxState = null
   anomalyRun = null
   resetGame(true)
+  awaitingFirstInput = false
+  awaitingFirstInputNeedsArenaPopulation = false
   paused = false
   started = false
   ended = false
@@ -4395,6 +4542,7 @@ resumeGameButton.addEventListener('click', () => {
 returnMenuButton.addEventListener('click', returnToMainMenu)
 
 pauseButton.addEventListener('click', () => {
+  if (onboarding?.isActiveStep('quick-start')) return
   if (!started) return
   paused = !paused
   pauseMenu.classList.toggle('hidden', !paused)
@@ -4424,7 +4572,7 @@ cheatInput.addEventListener('keydown', (event) => {
 
 window.addEventListener('keydown', (event) => {
   if (!cheatConsole.classList.contains('hidden')) return
-  if (event.key === 'Escape' && started) {
+  if (event.key === 'Escape' && started && !onboarding?.isActiveStep('quick-start')) {
     event.preventDefault()
     paused = !paused
     pauseMenu.classList.toggle('hidden', !paused)
@@ -4435,6 +4583,7 @@ window.addEventListener('keydown', (event) => {
     toggleCheatConsole()
     return
   }
+  activateAwaitingRound()
   if (started && !paused && event.code === 'ArrowUp') { event.preventDefault(); weaponState.selected = (weaponState.selected - 1 + Math.max(weaponState.loadout.length, 1)) % Math.max(weaponState.loadout.length, 1); renderWeaponHud(); return }
   if (started && !paused && event.code === 'ArrowDown') { event.preventDefault(); weaponState.selected = (weaponState.selected + 1) % Math.max(weaponState.loadout.length, 1); renderWeaponHud(); return }
   if (started && !paused && event.code === 'Space') { event.preventDefault(); useWeapon(); return }
@@ -4522,6 +4671,7 @@ function releaseJoystick(event) {
 
 canvas.addEventListener('pointerdown', (event) => {
   if (buildMode) { beginBuildNavigation(event); return }
+  if (event.button === 0) activateAwaitingRound()
   if (!isMobileInputMode() || !started || paused || event.button !== 0 || joystickPointerId !== null) return
   event.preventDefault()
   joystickPointerId = event.pointerId
@@ -4664,6 +4814,19 @@ if (IS_STEAM_BUILD && sessionStorage.getItem(SAVE_SLOT_SESSION_KEY) !== String(a
 void syncSaveSlotsWithSteamCloud()
 if (IS_STEAM_BUILD) setInterval(uploadSaveSlotsToSteamCloud, 15_000)
 animate()
+onboarding = createOnboarding({
+  isSteamBuild: IS_STEAM_BUILD,
+  startTutorialRun: () => startRound(),
+  startFirstLossGuidance,
+  onStepStarted: (step) => {
+    if (step.id === 'quick-start') showOnboardingDirective()
+    if (step.id === 'first-loss-guidance') gameOverTip.hidden = true
+  },
+  onStepCompleted: (step) => {
+    if (step.id === 'quick-start') hideOnboardingDirective()
+  },
+})
+void onboarding.start()
 setInterval(() => {
   if (completeFinishedResearches() || !labPanel.classList.contains('hidden')) renderResearchLab()
 }, 1000)
