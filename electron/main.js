@@ -45,6 +45,7 @@ function createWindow() {
     minWidth: 960,
     minHeight: 540,
     backgroundColor: '#101b25',
+    icon: path.join(currentDirectory, 'icon.ico'),
     autoHideMenuBar: true,
     fullscreen: app.isPackaged,
     webPreferences: {
