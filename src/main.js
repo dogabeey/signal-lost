@@ -438,6 +438,7 @@ const onboardingDirective = document.querySelector('#onboarding-directive')
 
 let onboarding = null
 let onboardingLossGuidance = null
+let onboardingSectorGuidance = null
 const onboardingDisabledButtons = new Map()
 
 function showOnboardingDirective() {
@@ -471,10 +472,13 @@ function getClaimableMilestoneIds() {
 }
 
 function syncOnboardingDisabledButtons() {
-  if (!onboardingLossGuidance) return
-  const isAllowed = (button) => onboardingLossGuidance.mode === 'run-again'
+  const guidance = onboardingLossGuidance ?? onboardingSectorGuidance
+  if (!guidance) return
+  const isAllowed = (button) => guidance.mode === 'run-again' || guidance.mode === 'start-run'
     ? button === startButton
-    : onboardingLossGuidance.mode === 'ascension-entry'
+    : guidance.mode === 'next-sector'
+      ? button === nextSectorButton
+      : guidance.mode === 'ascension-entry'
       ? button === openMilestonesButton
       : button.matches('[data-claim-milestone]')
   document.querySelectorAll('button').forEach((button) => {
@@ -508,14 +512,35 @@ function completeFirstLossGuidance() {
   onboardingLossGuidance = null
   clearOnboardingHighlights()
   onboarding?.completeActiveStep()
+  if (getUnlockedSectorIndex() >= 1) {
+    milestonesPanel.classList.add('hidden')
+    menuContent.classList.remove('hidden')
+    void onboarding?.start('sector-2-unlocked')
+  }
+}
+
+function startSecondSectorGuidance() {
+  onboardingSectorGuidance = { mode: 'next-sector' }
+  clearOnboardingHighlights()
+  highlightOnboardingTarget(nextSectorButton)
+  syncOnboardingDisabledButtons()
+}
+
+function completeSecondSectorGuidance() {
+  onboardingSectorGuidance = null
+  clearOnboardingHighlights()
+  onboarding?.completeActiveStep()
 }
 
 document.addEventListener('click', (event) => {
-  if (!onboardingLossGuidance) return
+  const guidance = onboardingLossGuidance ?? onboardingSectorGuidance
+  if (!guidance) return
   const button = event.target.closest('button')
-  const isAllowed = onboardingLossGuidance.mode === 'run-again'
+  const isAllowed = guidance.mode === 'run-again' || guidance.mode === 'start-run'
     ? button === startButton
-    : onboardingLossGuidance.mode === 'ascension-entry'
+    : guidance.mode === 'next-sector'
+      ? button === nextSectorButton
+      : guidance.mode === 'ascension-entry'
       ? button === openMilestonesButton
       : Boolean(button?.matches('[data-claim-milestone]'))
   if (isAllowed) return
@@ -1438,7 +1463,15 @@ function selectSector(sectorIndex) {
 }
 
 previousSectorButton.addEventListener('click', () => selectSector(selectedSectorIndex - 1))
-nextSectorButton.addEventListener('click', () => selectSector(selectedSectorIndex + 1))
+nextSectorButton.addEventListener('click', () => {
+  selectSector(selectedSectorIndex + 1)
+  if (onboardingSectorGuidance?.mode === 'next-sector' && selectedSectorIndex >= 1) {
+    onboardingSectorGuidance.mode = 'start-run'
+    clearOnboardingHighlights()
+    highlightOnboardingTarget(startButton)
+    syncOnboardingDisabledButtons()
+  }
+})
 openMilestonesButton.addEventListener('click', () => {
   milestoneSectorIndex = selectedSectorIndex
   openMenuPanel(milestonesPanel, renderMilestones)
@@ -4324,6 +4357,7 @@ function startRound(isAnomalyRun = false, { waitForFirstInput = true } = {}) {
 
 startButton.addEventListener('click', () => {
   if (onboardingLossGuidance?.mode === 'run-again') completeFirstLossGuidance()
+  if (onboardingSectorGuidance?.mode === 'start-run') completeSecondSectorGuidance()
   startRound()
 })
 anomalyRunButton.addEventListener('click', openAnomalyRunDialog)
@@ -4818,6 +4852,7 @@ onboarding = createOnboarding({
   isSteamBuild: IS_STEAM_BUILD,
   startTutorialRun: () => startRound(),
   startFirstLossGuidance,
+  startSecondSectorGuidance,
   onStepStarted: (step) => {
     if (step.id === 'quick-start') showOnboardingDirective()
     if (step.id === 'first-loss-guidance') gameOverTip.hidden = true
