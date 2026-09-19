@@ -723,6 +723,10 @@ function getActiveAnomalyChallenge() {
 function isTowerDefenseRun() {
   return getActiveAnomalyChallenge()?.type === 'tower-defense'
 }
+
+function isVoidReaperAnomalyRun() {
+  return getActiveAnomalyChallenge()?.type === 'void-reaper'
+}
 let featureUnlocks = (() => { try { const saved = JSON.parse(localStorage.getItem(FEATURE_UNLOCKS_STORAGE_KEY)); return { researchLab: Boolean(saved?.researchLab), buildingSystem: Boolean(saved?.buildingSystem), weaponry: Boolean(saved?.weaponry) } } catch { return { researchLab: false, buildingSystem: false, weaponry: false } } })()
 if (milestoneState.claimed.includes('sector-1-10') && !featureUnlocks.researchLab) {
   featureUnlocks.researchLab = true
@@ -2201,7 +2205,8 @@ function formatAnomalyDate(date) {
 }
 
 function getWeeklyAnomalyChallenge(weekId = getAnomalyWeekId()) {
-  return ANOMALY_CONFIG.challenges[Number(weekId) % ANOMALY_CONFIG.challenges.length]
+  const scheduledChallengeId = ANOMALY_CONFIG.scheduledChallenges?.[weekId]
+  return ANOMALY_CONFIG.challenges.find((challenge) => challenge.id === scheduledChallengeId) ?? ANOMALY_CONFIG.challenges[Number(weekId) % ANOMALY_CONFIG.challenges.length]
 }
 
 function getAnomalyReward(sectorIndex) {
@@ -2634,7 +2639,7 @@ function scheduleObstacle(savedWarning) {
   }
   for (const ultimateEnemy of ultimateEnemies) {
     ultimateEnemy.mesh.visible = !hidden
-    ultimateEnemy.arrow.visible = !hidden && ultimateEnemy.phase === 'telegraph'
+    ultimateEnemy.indicator.visible = !hidden && ultimateEnemy.phase === 'telegraph'
     ultimateEnemy.trail.visible = !hidden
   }
   const position = savedWarning?.position ?? (towerChallenge && type !== 'regular'
@@ -2902,21 +2907,26 @@ function createUltimateEnemy(type) {
   const config = ULTIMATE_ENEMY_TYPES[type]
   if (!config) return
   const angle = Math.random() * Math.PI * 2
-  const direction = new THREE.Vector3(Math.cos(angle), 0, Math.sin(angle))
   const outerRadius = getArenaLimit() + config.edgeOffset
-  const start = direction.clone().multiplyScalar(-outerRadius).setY(GAME.playerStartHeight)
-  const end = direction.clone().multiplyScalar(outerRadius).setY(GAME.playerStartHeight)
+  const start = new THREE.Vector3(Math.cos(angle) * outerRadius, GAME.playerStartHeight, Math.sin(angle) * outerRadius)
+  const destinationAngle = angle + Math.PI + THREE.MathUtils.randFloatSpread(Math.PI / 2)
+  const end = new THREE.Vector3(Math.cos(destinationAngle) * outerRadius, GAME.playerStartHeight, Math.sin(destinationAngle) * outerRadius)
   const pathDirection = end.clone().sub(start).normalize()
   const pathLength = start.distanceTo(end)
   const mesh = createUltimateEnemyVisual(THREE)
   mesh.scale.setScalar(config.scale)
   mesh.position.copy(start)
   mesh.rotation.y = Math.atan2(pathDirection.x, pathDirection.z)
-  const arrow = new THREE.ArrowHelper(pathDirection, new THREE.Vector3(start.x, 0.08, start.z), pathLength, config.eyeColor, 1.1, 0.54)
-  arrow.line.material.transparent = true
-  arrow.line.material.opacity = 0.82
-  arrow.cone.material.transparent = true
-  arrow.cone.material.opacity = 0.94
+  const indicator = new THREE.Group()
+  const indicatorArrows = []
+  const arrowCount = Math.max(8, Math.floor(pathLength / 2.2))
+  for (let index = 0; index < arrowCount; index += 1) {
+    const arrow = new THREE.ArrowHelper(pathDirection, new THREE.Vector3(start.x, 0.08, start.z), 1.15, config.eyeColor, 0.44, 0.26)
+    arrow.line.material.transparent = true
+    arrow.cone.material.transparent = true
+    indicator.add(arrow)
+    indicatorArrows.push(arrow)
+  }
   const trail = new THREE.Mesh(
     new THREE.CylinderGeometry(config.sweepRadius, config.sweepRadius, pathLength, 12, 1, true),
     new THREE.MeshBasicMaterial({ color: config.emissive, transparent: true, opacity: 0.05, depthWrite: false }),
@@ -2924,12 +2934,13 @@ function createUltimateEnemy(type) {
   trail.position.copy(start).add(end).multiplyScalar(0.5)
   trail.position.y = 0.13
   trail.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), pathDirection)
-  scene.add(mesh, arrow, trail)
-  ultimateEnemies.push({ type, config, mesh, arrow, trail, start, end, direction: pathDirection, phase: 'telegraph', age: 0, draggingPlayer: false })
+  trail.visible = false
+  scene.add(mesh, indicator, trail)
+  ultimateEnemies.push({ type, config, mesh, indicator, indicatorArrows, trail, start, end, direction: pathDirection, pathLength, trailBaseLength: pathLength, phase: 'telegraph', age: 0, draggingPlayer: false })
 }
 
 function removeUltimateEnemy(entry) {
-  scene.remove(entry.mesh, entry.arrow, entry.trail)
+  scene.remove(entry.mesh, entry.indicator, entry.trail)
   const index = ultimateEnemies.indexOf(entry)
   if (index >= 0) ultimateEnemies.splice(index, 1)
 }
@@ -2947,23 +2958,52 @@ function destroyCollectiblesInUltimatePath(start, end, radius) {
   }
 }
 
+function prepareNextUltimateEnemyPass(entry) {
+  const startAngle = Math.atan2(entry.end.z, entry.end.x)
+  const destinationAngle = startAngle + Math.PI + THREE.MathUtils.randFloatSpread(Math.PI / 2)
+  const outerRadius = getArenaLimit() + entry.config.edgeOffset
+  entry.start.copy(entry.end)
+  entry.end.set(Math.cos(destinationAngle) * outerRadius, GAME.playerStartHeight, Math.sin(destinationAngle) * outerRadius)
+  entry.direction.copy(entry.end).sub(entry.start).normalize()
+  entry.pathLength = entry.start.distanceTo(entry.end)
+  entry.age = 0
+  entry.phase = 'telegraph'
+  entry.draggingPlayer = false
+  entry.mesh.position.copy(entry.start)
+  entry.mesh.rotation.set(0, Math.atan2(entry.direction.x, entry.direction.z), 0)
+  entry.indicator.visible = true
+  for (const arrow of entry.indicatorArrows) arrow.setDirection(entry.direction)
+  entry.trail.visible = false
+  entry.trail.scale.set(1, 1, 1)
+  entry.trail.position.copy(entry.start).add(entry.end).multiplyScalar(0.5)
+  entry.trail.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), entry.direction)
+}
+
 function updateUltimateEnemies(delta, total) {
   for (const entry of [...ultimateEnemies]) {
     entry.age += delta
     if (entry.phase === 'telegraph') {
       const pulse = 0.65 + (Math.sin(total * 11) + 1) * 0.18
-      entry.arrow.line.material.opacity = pulse
-      entry.arrow.cone.material.opacity = Math.min(1, pulse + 0.2)
-      entry.trail.material.opacity = 0.04 + (Math.sin(total * 8) + 1) * 0.025
+      for (const [index, arrow] of entry.indicatorArrows.entries()) {
+        const progress = (index / entry.indicatorArrows.length + total * 0.42) % 1
+        arrow.position.copy(entry.start).lerp(entry.end, progress)
+        arrow.position.y = 0.08
+        arrow.line.material.opacity = pulse
+        arrow.cone.material.opacity = Math.min(1, pulse + 0.2)
+      }
       if (entry.age >= entry.config.telegraphDuration) {
         entry.phase = 'charge'
-        entry.arrow.visible = false
+        entry.indicator.visible = false
+        entry.trail.visible = true
         entry.trail.material.opacity = 0.48
       }
       continue
     }
     const previousPosition = entry.mesh.position.clone()
     entry.mesh.position.addScaledVector(entry.direction, entry.config.speed * delta)
+    const travelled = Math.min(entry.pathLength, entry.start.distanceTo(entry.mesh.position))
+    entry.trail.position.copy(entry.start).add(entry.mesh.position).multiplyScalar(0.5)
+    entry.trail.scale.set(1, Math.max(0.001, travelled / entry.trailBaseLength), 1)
     entry.mesh.rotation.z = Math.sin(total * 18) * 0.1
     const eyeMaterial = entry.mesh.userData.eyeMaterial
     if (eyeMaterial) eyeMaterial.emissiveIntensity = 3.2 + Math.sin(total * 24) * 1.4
@@ -2979,8 +3019,14 @@ function updateUltimateEnemies(delta, total) {
       player.position.y = GAME.playerStartHeight
       keepInsideArena(player.position)
     }
-    if (entry.mesh.position.clone().sub(entry.end).dot(entry.direction) >= 0) removeUltimateEnemy(entry)
+    if (entry.mesh.position.clone().sub(entry.end).dot(entry.direction) >= 0) prepareNextUltimateEnemyPass(entry)
   }
+}
+
+function updateVoidReaperAnomaly() {
+  const challenge = getActiveAnomalyChallenge()
+  if (!isVoidReaperAnomalyRun() || elapsed < (challenge.spawnDelay ?? 10) || ultimateEnemies.some((entry) => entry.type === 'voidReaper')) return
+  createUltimateEnemy('voidReaper')
 }
 
 // Add special entities here with registerDebugSpawnable('entityId', () => createSpecialEntity(randomPositionNearPlayer())).
@@ -3242,7 +3288,7 @@ function resetGame(populateArena = true) {
   spores.length = 0
   for (const fallingObstacle of fallingObstacles) scene.remove(fallingObstacle.obstacle, fallingObstacle.shadow, fallingObstacle.targetRing)
   fallingObstacles.length = 0
-  for (const ultimateEnemy of ultimateEnemies) scene.remove(ultimateEnemy.mesh, ultimateEnemy.arrow, ultimateEnemy.trail)
+  for (const ultimateEnemy of ultimateEnemies) scene.remove(ultimateEnemy.mesh, ultimateEnemy.indicator, ultimateEnemy.trail)
   ultimateEnemies.length = 0
   for (const fireHazard of fireHazards) scene.remove(fireHazard.visual, fireHazard.light)
   fireHazards.length = 0
@@ -3816,6 +3862,7 @@ function updateGame(delta, total) {
     }
   }
 
+  updateVoidReaperAnomaly()
   updateUltimateEnemies(delta, total)
 
   const bangersToDetonate = []
