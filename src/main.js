@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import * as Quarks from 'three.quarks'
+import { Capacitor } from '@capacitor/core'
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js'
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js'
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
@@ -34,11 +35,12 @@ import { getAvailableLanguages, getPreferredLanguage, setLanguage, t } from './l
 import { ARTIFACT_ACHIEVEMENTS, getSteamAchievementStates, unlockSteamAchievementForArtifact } from './steam_achievements.js'
 import { getArtifactAsset, getBuildingAsset, getUiIconAsset, getWeaponAsset } from './asset_catalog.js'
 import { DAMAGE_TYPES } from './damage_types.js'
-import { initializeInterstitialAds, showInterstitialAfterPlayerDeath } from './ad_service.js'
+import { initializeInterstitialAds, showInterstitialAfterPlayerDeath, showRewardedAdForAetherium } from './ad_service.js'
 import { clearOnboardingProgress, createOnboarding } from './onboarding.js'
 import './style.css'
 
 const IS_STEAM_BUILD = import.meta.env.VITE_STEAM_BUILD === 'true'
+const SHOW_AETHERIUM_AD_CLAIM = import.meta.env.DEV || (!IS_STEAM_BUILD && Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android')
 
 void initializeInterstitialAds()
 
@@ -65,6 +67,7 @@ document.querySelector('#app').innerHTML = `
       <div class="hud-left">
         <div class="cash-balance"><span class="currency-label">CASH</span><span id="cash">$000</span></div>
         <div class="chronoshard-balance"><span class="currency-label">CHRONOSHARDS</span><span id="chronoshards">✦ 0</span></div>
+        <div class="aetherium-balance"><span id="aetherium"><img src="${getUiIconAsset('aetherium')}" alt="Aetherium">0</span></div>
       </div>
       <div class="hud-sector" id="hud-sector" aria-label="Current difficulty sector"></div>
       <dl class="run-cell-counter"><div><dt>CELLS</dt><dd id="score">000</dd></div></dl>
@@ -82,6 +85,7 @@ document.querySelector('#app').innerHTML = `
       <div class="virtual-joystick-knob"></div>
     </div>
     <div class="cash-indicators" id="cash-indicators" aria-live="polite"></div>
+    <button class="aetherium-ad-claim${SHOW_AETHERIUM_AD_CLAIM ? '' : ' hidden'}" id="aetherium-ad-claim" type="button" aria-label="Watch an ad to claim 5 Aetherium"><img class="ad-badge" src="${getUiIconAsset('adReward')}" alt=""><span>CLAIM 5</span><img src="${getUiIconAsset('aetherium')}" alt="Aetherium"></button>
     <div class="build-grid-ui hidden" id="build-grid-ui" aria-label="Build locations"></div>
     <div class="milestone-claim-toast hidden" id="milestone-claim-toast" role="status" aria-live="polite"></div>
     <div class="feature-lock-toast hidden" id="feature-lock-toast" role="status" aria-live="polite"></div>
@@ -428,6 +432,8 @@ const resumeGameButton = document.querySelector('#resume-game-button')
 const returnMenuButton = document.querySelector('#return-menu-button')
 const cashElement = document.querySelector('#cash')
 const chronoshardsElement = document.querySelector('#chronoshards')
+const aetheriumElement = document.querySelector('#aetherium')
+const aetheriumAdClaimButton = document.querySelector('#aetherium-ad-claim')
 const cashIndicators = document.querySelector('#cash-indicators')
 const highestCellsElement = document.querySelector('#highest-cells')
 const sectorRequirementElement = document.querySelector('#sector-requirement')
@@ -607,7 +613,7 @@ const activeSaveSlot = IS_STEAM_BUILD ? Math.min(SAVE_SLOT_COUNT, Math.max(1, Nu
 const slotStoragePrefix = IS_STEAM_BUILD ? `asteroid-belt-slot-${activeSaveSlot}-` : ''
 const slotStorageKeys = IS_STEAM_BUILD ? Object.fromEntries(Object.entries(STORAGE_KEYS).map(([name, key]) => [name, `${slotStoragePrefix}${key.replace('asteroid-belt-', '')}`])) : STORAGE_KEYS
 const { cellBank: CELL_BANK_STORAGE_KEY, sector: SECTOR_STORAGE_KEY, sectorHighScores: SECTOR_HIGH_SCORES_STORAGE_KEY, cash: CASH_STORAGE_KEY,
-  chronoshards: CHRONOSHARDS_STORAGE_KEY, researchLab: RESEARCH_LAB_STORAGE_KEY, savedRound: SAVED_ROUND_STORAGE_KEY,
+  chronoshards: CHRONOSHARDS_STORAGE_KEY, aetherium: AETHERIUM_STORAGE_KEY, researchLab: RESEARCH_LAB_STORAGE_KEY, savedRound: SAVED_ROUND_STORAGE_KEY,
   buildings: BUILDINGS_STORAGE_KEY, featureUnlocks: FEATURE_UNLOCKS_STORAGE_KEY, milestones: MILESTONES_STORAGE_KEY,
   settings: SETTINGS_STORAGE_KEY, weaponry: WEAPONRY_STORAGE_KEY, anomalyRewards: ANOMALY_REWARDS_STORAGE_KEY, artifacts: ARTIFACTS_STORAGE_KEY } = slotStorageKeys
 const firstSlotKey = 'asteroid-belt-slot-1-cash'
@@ -696,6 +702,7 @@ let selectedSectorIndex = Math.min(readStoredNumber(SECTOR_STORAGE_KEY), getUnlo
 let milestoneSectorIndex = selectedSectorIndex
 let cash = readStoredNumber(CASH_STORAGE_KEY)
 let chronoshards = readStoredNumber(CHRONOSHARDS_STORAGE_KEY)
+let aetherium = readStoredNumber(AETHERIUM_STORAGE_KEY)
 let savedRound = readSavedRound()
 let sandboxState = null
 const anomalyRewardState = (() => {
@@ -1384,6 +1391,21 @@ function updateChronoshards(amount = 0) {
   return adjustedAmount
 }
 
+function updateAetherium(amount = 0) {
+  aetherium = Math.max(0, aetherium + amount)
+  writeStoredNumber(AETHERIUM_STORAGE_KEY, aetherium)
+  aetheriumElement.innerHTML = `<img src="${getUiIconAsset('aetherium')}" alt="">${formatCompactNumber(aetherium)}`
+  return amount
+}
+
+aetheriumAdClaimButton.addEventListener('click', async () => {
+  if (!SHOW_AETHERIUM_AD_CLAIM || aetheriumAdClaimButton.disabled) return
+  aetheriumAdClaimButton.disabled = true
+  const claimed = await showRewardedAdForAetherium({ debug: import.meta.env.DEV })
+  if (claimed) updateAetherium(5)
+  aetheriumAdClaimButton.disabled = false
+})
+
 function showCashIndicator(position, amount) {
   showCurrencyIndicator(position, `+$${amount}`, 'cash-indicator')
 }
@@ -2067,6 +2089,7 @@ let buildNavigationPinch = null
 let buildNavigationClickSuppressed = false
 const cells = []
 const chronoCells = []
+const aetheriumPickups = []
 const obstacles = []
 const fallingObstacles = []
 const ultimateEnemies = []
@@ -2098,6 +2121,7 @@ let cellObtainMultiplier = 1
 let elapsed = 0
 let spawnTimer = 0
 let chronoCellTimer = 0
+let aetheriumSpawnTimer = 0
 let obstacleSpawnTimer = 0
 let hazardTimer = 0
 let shockwaveTimer = 0
@@ -2125,7 +2149,7 @@ const fallingRockGeometry = new THREE.IcosahedronGeometry(ENTITIES.obstacleRadiu
 const { createShooterProjectile: createShooterProjectileVisual, createAutocannonProjectile: createAutocannonProjectileVisual, createSplinter: createSplinterVisual } = createProjectileVisualFactory({ THREE, COLORS, ENTITIES })
 const { createCell: createCellVisual, createChronoCell: createChronoCellVisual, createBooster: createBoosterVisual } = createCellVisualFactory({ THREE, COLORS, ENTITIES })
 const createSpikedObstacle = createEnemyVisualFactory({ THREE, ENTITIES })
-const { createExplosion: createExplosionVisual, createBangerPulse: createBangerPulseVisual, createShockwave: createShockwaveVisual, createShieldBreak: createShieldBreakVisual, createPoisonTrail: createPoisonTrailVisual, createPlayerDeath: createPlayerDeathVisual } = createEffectVisualFactory({ THREE, Quarks, particleRenderer, COLORS, getQuality: () => settings.graphics.quality })
+const { createExplosion: createExplosionVisual, createBangerPulse: createBangerPulseVisual, createShockwave: createShockwaveVisual, createShieldBreak: createShieldBreakVisual, createPoisonTrail: createPoisonTrailVisual, createPlayerDeath: createPlayerDeathVisual, createFieryRockFire: createFieryRockFireVisual, createFallingRockImpact: createFallingRockImpactVisual } = createEffectVisualFactory({ THREE, Quarks, particleRenderer, COLORS, getQuality: () => settings.graphics.quality })
 const creeperColor = new THREE.Color(COLORS.creeper)
 const poisonCreeperColor = new THREE.Color(COLORS.poisonCreeper)
 const creeperEmissive = new THREE.Color(COLORS.creeperEmissive)
@@ -2432,7 +2456,8 @@ function setBuildModeEntityVisibility(hidden) {
   for (const warning of obstacleSpawnWarnings) { warning.ring.visible = !hidden; warning.glow.visible = !hidden; warning.beam.visible = !hidden }
   for (const explosion of explosions) { for (const emitter of explosion.emitters) emitter.visible = !hidden; explosion.light.visible = !hidden }
   for (const effect of playerDeathEffects) { for (const emitter of effect.emitters) emitter.visible = !hidden; effect.light.visible = !hidden }
-  for (const fireHazard of fireHazards) { fireHazard.visual.visible = !hidden; fireHazard.light.visible = !hidden }
+  for (const pickup of aetheriumPickups) pickup.visible = !hidden
+  for (const fireHazard of fireHazards) { fireHazard.ground.visible = !hidden; for (const emitter of fireHazard.emitters) emitter.visible = !hidden; fireHazard.light.visible = !hidden }
   for (const poisonTrail of poisonTrails) for (const emitter of poisonTrail.emitters) emitter.visible = !hidden
   for (const piece of splinterPieces) piece.piece.visible = !hidden
   for (const pulse of bangerPulses) pulse.pulse.visible = !hidden
@@ -2948,6 +2973,19 @@ function destroyCollectiblesInUltimatePath(start, end, radius) {
     scene.remove(chronoCells[index])
     chronoCells.splice(index, 1)
   }
+
+  for (let index = aetheriumPickups.length - 1; index >= 0; index -= 1) {
+    const pickup = aetheriumPickups[index]
+    pickup.rotation.y += delta * 1.7
+    pickup.position.y = GAME.playerStartHeight + Math.sin(total * 3.4 + pickup.userData.phase) * 0.18
+    pickup.userData.ring.rotation.z += delta * 2.5
+    if (pickup.position.distanceTo(player.position) < GAME.cellPickupRadius) {
+      updateAetherium(1)
+      showCurrencyIndicator(pickup.position, '+1 AETHERIUM', 'aetherium-indicator')
+      scene.remove(pickup)
+      aetheriumPickups.splice(index, 1)
+    }
+  }
 }
 
 function updateUltimateEnemies(delta, total) {
@@ -3000,51 +3038,34 @@ function registerDefaultDebugSpawnables() {
 registerDefaultDebugSpawnables()
 
 function createFireHazard(position, savedFire) {
-  const visual = new THREE.Group()
-  visual.position.set(position.x, 0.05, position.z)
   const ground = new THREE.Mesh(
     new THREE.CylinderGeometry(GAME.fieryRockFireRadius, GAME.fieryRockFireRadius * 0.82, 0.06, 32),
     new THREE.MeshBasicMaterial({ color: COLORS.fire, transparent: true, opacity: 0.34, depthWrite: false }),
   )
-  visual.add(ground)
+  ground.position.set(position.x, 0.05, position.z)
+  const effect = createFieryRockFireVisual(position, GAME.fieryRockFireRadius)
+  scene.add(ground, ...effect.emitters, effect.light)
+  fireHazards.push({ ground, ...effect, position: position.clone(), age: savedFire?.age ?? 0 })
+}
 
-  const flames = []
-  for (let index = 0; index < GAME.fieryRockFlameCount; index += 1) {
-    const angle = (index / GAME.fieryRockFlameCount) * Math.PI * 2 + Math.random() * 0.45
-    const distance = index === 0 ? 0 : THREE.MathUtils.randFloat(0.18, GAME.fieryRockFireRadius * 0.66)
-    const height = THREE.MathUtils.randFloat(0.75, 1.7) * (index === 0 ? 1.3 : 1)
-    const flame = new THREE.Mesh(
-      new THREE.ConeGeometry(THREE.MathUtils.randFloat(0.15, 0.32), height, 5),
-      new THREE.MeshStandardMaterial({ color: index % 3 === 0 ? '#ffe19a' : COLORS.fire, emissive: COLORS.fieryRockEmissive, emissiveIntensity: 2.6, transparent: true, opacity: 0.86, roughness: 0.45, depthWrite: false }),
-    )
-    flame.position.set(Math.cos(angle) * distance, height / 2, Math.sin(angle) * distance)
-    flame.rotation.z = THREE.MathUtils.randFloatSpread(0.28)
-    flame.rotation.x = THREE.MathUtils.randFloatSpread(0.28)
-    flame.userData.baseHeight = height
-    flame.userData.phase = Math.random() * Math.PI * 2
-    visual.add(flame)
-    flames.push(flame)
-  }
+function createAetheriumVisual() {
+  const crystal = new THREE.Group()
+  const core = new THREE.Mesh(new THREE.OctahedronGeometry(0.38, 1), new THREE.MeshStandardMaterial({ color: '#9af8ff', emissive: '#4f5dff', emissiveIntensity: 2.8, metalness: 0.5, roughness: 0.14 }))
+  const shell = new THREE.Mesh(new THREE.OctahedronGeometry(0.52, 1), new THREE.MeshBasicMaterial({ color: '#b9faff', transparent: true, opacity: 0.24, wireframe: true, depthWrite: false }))
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.58, 0.025, 8, 28), new THREE.MeshBasicMaterial({ color: '#c8ffff', transparent: true, opacity: 0.9, depthWrite: false }))
+  ring.rotation.x = Math.PI / 2
+  const light = new THREE.PointLight('#74eaff', 3.5, 5)
+  crystal.add(core, shell, ring, light)
+  crystal.userData.ring = ring
+  return crystal
+}
 
-  const embers = []
-  for (let index = 0; index < GAME.fieryRockEmberCount; index += 1) {
-    const ember = new THREE.Mesh(
-      new THREE.OctahedronGeometry(THREE.MathUtils.randFloat(0.035, 0.08), 0),
-      new THREE.MeshBasicMaterial({ color: '#ffe19a', transparent: true, opacity: 0.9, depthWrite: false }),
-    )
-    ember.userData.angle = Math.random() * Math.PI * 2
-    ember.userData.distance = THREE.MathUtils.randFloat(0.1, GAME.fieryRockFireRadius * 0.72)
-    ember.userData.height = THREE.MathUtils.randFloat(0.2, 1.7)
-    ember.userData.speed = THREE.MathUtils.randFloat(0.7, 1.5)
-    ember.userData.phase = Math.random() * Math.PI * 2
-    visual.add(ember)
-    embers.push(ember)
-  }
-
-  const light = new THREE.PointLight(COLORS.fire, 5.5, GAME.fieryRockFireRadius * 3)
-  light.position.set(position.x, 1.2, position.z)
-  scene.add(visual, light)
-  fireHazards.push({ visual, ground, flames, embers, light, position: position.clone(), age: savedFire?.age ?? 0 })
+function addAetheriumPickup(savedPickup) {
+  const pickup = createAetheriumVisual()
+  pickup.position.set(savedPickup?.position?.x ?? 0, GAME.playerStartHeight, savedPickup?.position?.z ?? 0)
+  pickup.userData.phase = savedPickup?.phase ?? Math.random() * Math.PI * 2
+  scene.add(pickup)
+  aetheriumPickups.push(pickup)
 }
 
 function createPoisonTrail(position, savedTrail) {
@@ -3219,6 +3240,7 @@ function updateAnomalyScout(delta, total) {
 function resetGame(populateArena = true) {
   clearObjects(cells)
   clearObjects(chronoCells)
+  clearObjects(aetheriumPickups)
   clearObjects(boosters)
   for (const obstacle of obstacles) {
     scene.remove(obstacle, obstacle.userData.rangeIndicator, obstacle.userData.magnetPulse)
@@ -3231,7 +3253,7 @@ function resetGame(populateArena = true) {
   fallingObstacles.length = 0
   for (const ultimateEnemy of ultimateEnemies) scene.remove(ultimateEnemy.mesh, ultimateEnemy.arrow, ultimateEnemy.trail)
   ultimateEnemies.length = 0
-  for (const fireHazard of fireHazards) scene.remove(fireHazard.visual, fireHazard.light)
+  for (const fireHazard of fireHazards) scene.remove(fireHazard.ground, ...fireHazard.emitters, fireHazard.light)
   fireHazards.length = 0
   for (const poisonTrail of poisonTrails) scene.remove(...poisonTrail.emitters)
   poisonTrails.length = 0
@@ -3272,6 +3294,7 @@ function resetGame(populateArena = true) {
   elapsed = 0
   spawnTimer = 0
   chronoCellTimer = 0
+  aetheriumSpawnTimer = 0
   obstacleSpawnTimer = 0
   hazardTimer = 0
   shockwaveTimer = 0
@@ -3329,6 +3352,7 @@ function saveCurrentRound() {
     elapsed,
     spawnTimer,
     chronoCellTimer,
+    aetheriumSpawnTimer,
     obstacleSpawnTimer,
     hazardTimer,
     shockwaveTimer,
@@ -3343,6 +3367,7 @@ function saveCurrentRound() {
     weaponRechargeTimers: Object.fromEntries(weaponRechargeTimers),
     cells: cells.map((cell) => ({ position: serializePosition(cell.position), phase: cell.userData.phase, cashValue: cell.userData.cashValue })),
     chronoCells: chronoCells.map((cell) => ({ position: serializePosition(cell.position), phase: cell.userData.phase, age: cell.userData.age, isMapToEarth: Boolean(cell.userData.isMapToEarth) })),
+    aetheriumPickups: aetheriumPickups.map((pickup) => ({ position: serializePosition(pickup.position), phase: pickup.userData.phase })),
     boosters: boosters.map((booster) => ({ type: booster.userData.type, position: serializePosition(booster.position) })),
     obstacles: obstacles.map((obstacle) => ({ id: obstacle.userData.id, position: serializePosition(obstacle.position), type: obstacle.userData.type, age: obstacle.userData.age, lifetimeAge: obstacle.userData.lifetimeAge, speed: obstacle.userData.speed, pulseTimer: obstacle.userData.pulseTimer, shotCooldown: obstacle.userData.shotCooldown, teleportTimer: obstacle.userData.teleportTimer, poisonTrailTimer: obstacle.userData.poisonTrailTimer, teleportTarget: obstacle.userData.teleportTarget && serializePosition(obstacle.userData.teleportTarget), magnetPulsePhase: obstacle.userData.magnetPulsePhase, electronStunnedOnce: obstacle.userData.electronStunnedOnce })),
     spores: spores.map((entry) => ({ position: serializePosition(entry.spore.position), direction: serializePosition(entry.direction), generation: entry.generation, age: entry.age })),
@@ -3380,6 +3405,7 @@ function restoreSavedRound() {
   elapsed = savedRound.elapsed ?? 0
   spawnTimer = savedRound.spawnTimer ?? 0
   chronoCellTimer = savedRound.chronoCellTimer ?? 0
+  aetheriumSpawnTimer = savedRound.aetheriumSpawnTimer ?? 0
   obstacleSpawnTimer = savedRound.obstacleSpawnTimer ?? 0
   hazardTimer = savedRound.hazardTimer ?? 0
   shockwaveTimer = savedRound.shockwaveTimer ?? 0
@@ -3401,6 +3427,7 @@ function restoreSavedRound() {
   createAnomalyScout(savedRound.anomalyScout)
   for (const cell of savedRound.cells ?? []) addCell(cell)
   for (const chronoCell of savedRound.chronoCells ?? []) addChronoCell(chronoCell)
+  for (const pickup of savedRound.aetheriumPickups ?? []) addAetheriumPickup(pickup)
   for (const obstacle of savedRound.obstacles ?? []) createObstacle(new THREE.Vector3(obstacle.position.x, obstacle.position.y, obstacle.position.z), obstacle.type, obstacle)
   for (const booster of savedRound.boosters ?? []) addBooster(booster.type, booster)
   for (const spore of savedRound.spores ?? []) createSpore(new THREE.Vector3(spore.position.x, spore.position.y, spore.position.z), new THREE.Vector3(spore.direction.x, spore.direction.y, spore.direction.z), spore.generation ?? 1, spore)
@@ -4205,6 +4232,8 @@ function updateGame(delta, total) {
       fallingObstacle.landed = true
       if (!fallingObstacle.impactTriggered) {
         fallingObstacle.impactTriggered = true
+        const impact = createFallingRockImpactVisual(fallingObstacle.target, 0.9, FALLING_ROCK_TYPES[fallingObstacle.type].color)
+        scene.add(...impact.emitters)
         if (fallingObstacle.type === 'fieryRock') createFireHazard(fallingObstacle.target)
         if (fallingObstacle.type === 'splinter') createSplinterPieces(fallingObstacle.target)
       }
@@ -4226,23 +4255,10 @@ function updateGame(delta, total) {
     const fade = Math.max(0, 1 - progress)
     fireHazard.ground.scale.setScalar(pulse * (0.9 + progress * 0.2))
     fireHazard.ground.material.opacity = 0.34 * fade
-    fireHazard.visual.rotation.y += delta * 0.5
-    for (const flame of fireHazard.flames) {
-      const flicker = 0.82 + Math.sin(fireHazard.age * 12 + flame.userData.phase) * 0.18
-      flame.scale.y = flicker * fade
-      flame.material.opacity = 0.86 * fade
-    }
-    for (const ember of fireHazard.embers) {
-      const emberAge = (fireHazard.age * ember.userData.speed + ember.userData.phase) % 1
-      const distance = ember.userData.distance * (0.55 + emberAge * 0.7)
-      ember.position.set(Math.cos(ember.userData.angle + fireHazard.age) * distance, emberAge * ember.userData.height + 0.16, Math.sin(ember.userData.angle + fireHazard.age) * distance)
-      ember.material.opacity = 0.85 * fade * (1 - emberAge)
-      ember.scale.setScalar(0.6 + (1 - emberAge) * 0.7)
-    }
     fireHazard.light.intensity = Math.max(0, (5.5 + Math.sin(fireHazard.age * 14)) * fade)
     if (planarDistance(player.position, fireHazard.position) < GAME.fieryRockFireRadius) applyPlayerStatusDamage('fire', 'fiery-rock')
     if (progress >= 1) {
-      scene.remove(fireHazard.visual, fireHazard.light)
+      scene.remove(fireHazard.ground, ...fireHazard.emitters, fireHazard.light)
       fireHazards.splice(index, 1)
     }
   }
@@ -4308,6 +4324,7 @@ function updateGame(delta, total) {
   spawnTimer += delta
   boosterTimer += delta
   chronoCellTimer += delta
+  aetheriumSpawnTimer += delta
   obstacleSpawnTimer += delta
   hazardTimer += delta
   const cellSpawnRateBonus = getResearchStatBonus('cellSpawnRate') + score * getResearchStatBonus('cellSpawnRatePerCell')
@@ -4330,6 +4347,10 @@ function updateGame(delta, total) {
   if (simulatesCells && chronoCellTimer > GAME.chronoCellSpawnInterval / (1 + getResearchStatBonus('chronoSpawnRate'))) {
     addChronoCell()
     chronoCellTimer = 0
+  }
+  if (aetheriumSpawnTimer >= 120) {
+    addAetheriumPickup()
+    aetheriumSpawnTimer = 0
   }
   if (simulatesEnemies && obstacleSpawnTimer > obstacleSpawnInterval) {
     const availableSlots = Math.max(0, getActiveEnemyCapacity() - obstacles.length - obstacleSpawnWarnings.length)
@@ -4998,6 +5019,7 @@ completeFinishedResearches()
 updateBankedCells()
 updateCash()
 updateChronoshards()
+updateAetherium()
 renderMilestones()
 renderResearchLab()
 renderSettings()

@@ -26,27 +26,31 @@ export function createEffectVisualFactory({ THREE, Quarks, particleRenderer, COL
     return texture
   })()
 
-  function createParticles({ position, color, count, life, size, speed, radius = 0, gravity = 0, duration = 0.05, texture = null, renderMode = Quarks.RenderMode.BillBoard }) {
+  function createParticles({ position, color, count, life, size, speed, radius = 0, gravity = 0, duration = 0.05, texture = null, renderMode = Quarks.RenderMode.BillBoard, instancingGeometry, sizeOverLife, looping = false, emissionRate = 0, force = null }) {
     const material = new THREE.MeshBasicMaterial({ color, map: texture, transparent: true, opacity: 1, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: true })
     const system = new Quarks.ParticleSystem({
-      autoDestroy: true,
-      looping: false,
+      autoDestroy: !looping,
+      looping,
       duration,
       shape: new Quarks.SphereEmitter({ radius, thickness: 1 }),
       startLife: new Quarks.IntervalValue(life * 0.72, life),
       startSpeed: new Quarks.IntervalValue(speed * 0.65, speed),
       startSize: new Quarks.IntervalValue(size * 0.55, size),
       startColor: new Quarks.ColorRange(colorVector(color, 0.95), colorVector('#ffffff', 0.7)),
-      emissionBursts: [{ time: 0, count: new Quarks.ConstantValue(qualityCount(count)), cycle: 1, interval: 0.01, probability: 1 }],
+      emissionOverTime: emissionRate ? new Quarks.ConstantValue(qualityCount(emissionRate)) : undefined,
+      emissionBursts: emissionRate ? [] : [{ time: 0, count: new Quarks.ConstantValue(qualityCount(count)), cycle: 1, interval: 0.01, probability: 1 }],
       behaviors: [
         new Quarks.ColorOverLife(new Quarks.Gradient(
           [[colorVector3(color), 0], [colorVector3(color), 0.55], [colorVector3(color), 1]],
           [[0.95, 0], [0.55, 0.55], [0, 1]],
         )),
         ...(gravity ? [new Quarks.ApplyForce(new Quarks.Vector3(0, -1, 0), new Quarks.ConstantValue(gravity))] : []),
+        ...(force ? [new Quarks.ApplyForce(force.direction, new Quarks.ConstantValue(force.magnitude))] : []),
+        ...(sizeOverLife ? [new Quarks.SizeOverLife(sizeOverLife)] : []),
       ],
       material,
       renderMode,
+      ...(instancingGeometry ? { instancingGeometry } : {}),
       worldSpace: true,
     })
     system.emitter.position.copy(position)
@@ -62,7 +66,21 @@ export function createEffectVisualFactory({ THREE, Quarks, particleRenderer, COL
 
   return {
     createExplosion(position, radius) {
-      const emitter = createParticles({ position, color: COLORS.banger, count: 30, life: 0.48, size: Math.max(0.12, radius * 0.34), speed: Math.max(2.4, radius * 4), radius: radius * 0.18 })
+      const expansion = new Quarks.PiecewiseBezier([
+        [new Quarks.Bezier(0.05, radius, radius, radius), 0],
+        [new Quarks.Bezier(radius, radius, radius, radius), 0.18],
+      ])
+      const emitter = createParticles({
+        position,
+        color: COLORS.banger,
+        count: 1,
+        life: 0.65,
+        size: 1,
+        speed: 0,
+        instancingGeometry: new THREE.SphereGeometry(1, 16, 12),
+        renderMode: Quarks.RenderMode.Mesh,
+        sizeOverLife: expansion,
+      })
       return { emitters: [emitter], light: createLight(position, COLORS.banger, 10, radius * 2) }
     },
     createBangerPulse(position) {
@@ -91,6 +109,20 @@ export function createEffectVisualFactory({ THREE, Quarks, particleRenderer, COL
       const emitter = createParticles({ position, color: COLORS.playerRing, count: 64, life: 0.9, size: 0.22, speed: 8.8, radius: 0.2, gravity: 5 })
       const coreEmitter = createParticles({ position, color: '#fff4cf', count: 22, life: 0.32, size: 0.4, speed: 3.2, radius: 0.05 })
       return { emitters: [emitter, coreEmitter], light: createLight(position, '#fff4cf', 22, 18) }
+    },
+    createFieryRockFire(position, radius) {
+      const firePosition = position.clone()
+      firePosition.y = 0.08
+      const flames = createParticles({ position: firePosition, color: COLORS.fire, count: 0, life: 0.7, size: radius * 0.55, speed: 0.28, radius: radius * 0.55, duration: 1, looping: true, emissionRate: 14, force: { direction: new Quarks.Vector3(0, 1, 0), magnitude: 1.25 } })
+      const embers = createParticles({ position: firePosition, color: '#ffe19a', count: 0, life: 1.15, size: 0.075, speed: 0.62, radius: radius * 0.48, duration: 1, looping: true, emissionRate: 7, force: { direction: new Quarks.Vector3(0, 1, 0), magnitude: 0.72 } })
+      return { emitters: [flames, embers], light: createLight(new THREE.Vector3(position.x, 1.2, position.z), COLORS.fire, 5.5, radius * 3) }
+    },
+    createFallingRockImpact(position, radius, color) {
+      const impactPosition = position.clone()
+      impactPosition.y = 0.08
+      const dust = createParticles({ position: impactPosition, color: '#d9c7a0', count: 26, life: 0.62, size: radius * 0.42, speed: radius * 2.8, radius: radius * 0.24, force: { direction: new Quarks.Vector3(0, 1, 0), magnitude: 0.28 } })
+      const shards = createParticles({ position: impactPosition, color, count: 18, life: 0.48, size: radius * 0.13, speed: radius * 5, radius: radius * 0.12, gravity: 7, instancingGeometry: new THREE.TetrahedronGeometry(1, 0), renderMode: Quarks.RenderMode.Mesh })
+      return { emitters: [dust, shards] }
     },
   }
 }

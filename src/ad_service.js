@@ -4,6 +4,7 @@ import { Capacitor } from '@capacitor/core'
 // Google's official Android/iOS interstitial test unit. Replace this with the
 // production ad unit from AdMob before publishing the mobile build.
 const INTERSTITIAL_AD_UNIT_ID = 'ca-app-pub-3940256099942544/1033173712'
+const REWARDED_AD_UNIT_ID = 'ca-app-pub-3940256099942544/5224354917'
 
 let isNativeAdPlatform = false
 let isInitialized = false
@@ -54,5 +55,22 @@ export async function showInterstitialAfterPlayerDeath() {
   } finally {
     isShowing = false
     void prepareInterstitial()
+  }
+}
+
+// The web debug path intentionally simulates a completed ad so the reward flow
+// remains testable without exposing it in distribution browser builds.
+export async function showRewardedAdForAetherium({ debug = false } = {}) {
+  if (!isNativeAdPlatform) return debug
+  if (!isInitialized || isShowing) return false
+  isShowing = true
+  try {
+    await AdMob.prepareRewardVideoAd({ adId: REWARDED_AD_UNIT_ID })
+    const reward = await AdMob.showRewardVideoAd()
+    return Boolean(reward)
+  } catch {
+    return false
+  } finally {
+    isShowing = false
   }
 }

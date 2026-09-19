@@ -50,10 +50,20 @@ button { font: inherit; }
 .cash-balance #cash { color: #63f5cd; font-size: 24px; margin-left: 7px; }
 .chronoshard-balance { color: #9ab6b8; font-family: 'Trebuchet MS', Arial, sans-serif; font-size: 11px; font-weight: 700; letter-spacing: 0.1em; }
 .chronoshard-balance #chronoshards { color: #b59aff; font-size: 17px; margin-left: 6px; }
+.aetherium-balance { font:700 11px 'Trebuchet MS', Arial, sans-serif; }
+.aetherium-balance #aetherium { align-items:center; color:#8df6ff; display:inline-flex; font-size:17px; gap:5px; text-shadow:0 0 10px rgba(95,235,255,.7); }
+.aetherium-balance img { height:18px; width:18px; }
+.aetherium-ad-claim { align-items:center; background:rgba(18,29,65,.94); border:1px solid #71e9ff; bottom:84px; box-shadow:0 0 16px rgba(77,208,255,.3), inset 0 0 18px rgba(109,101,255,.14); color:#e5ffff; display:flex; font:800 11px 'Trebuchet MS',Arial,sans-serif; gap:7px; left:28px; letter-spacing:.08em; padding:9px 12px; position:absolute; z-index:5; }
+.aetherium-ad-claim.hidden { display:none; }
+.aetherium-ad-claim:hover { background:#243979; box-shadow:0 0 22px rgba(108,236,255,.65); transform:translateY(-1px); }
+.aetherium-ad-claim:disabled { cursor:wait; opacity:.55; }
+.aetherium-ad-claim img { height:19px; width:19px; }
+.aetherium-ad-claim .ad-badge { height:19px; width:19px; }
 .cash-indicators { inset: 0; pointer-events: none; position: absolute; z-index: 2; }
-.cash-indicator, .chronoshard-indicator { animation: cash-gain 800ms ease-out forwards; font-family: 'Trebuchet MS', Arial, sans-serif; font-size: 24px; font-weight: 700; left: 50%; position: absolute; top: 50%; transform: translate(-50%, -50%); }
+.cash-indicator, .chronoshard-indicator, .aetherium-indicator { animation: cash-gain 800ms ease-out forwards; font-family: 'Trebuchet MS', Arial, sans-serif; font-size: 24px; font-weight: 700; left: 50%; position: absolute; top: 50%; transform: translate(-50%, -50%); }
 .cash-indicator { color: #63f5cd; text-shadow: 0 0 12px #00b487; }
 .chronoshard-indicator { color: #b59aff; text-shadow: 0 0 12px #5933c7; }
+.aetherium-indicator { color:#8df6ff; text-shadow:0 0 12px #3e69ff; }
 
 @keyframes cash-gain {
   from { opacity: 1; transform: translate(-50%, -50%) scale(0.85); }

@@ -30,6 +30,8 @@ const uiIconAssets = {
   artifacts: publicAsset('ui/artifacts.svg'),
   shield: publicAsset('ui/shield-charge.svg'),
   pause: publicAsset('ui/pause.svg'),
+  aetherium: publicAsset('ui/aetherium.svg'),
+  adReward: publicAsset('ui/ad-reward.svg'),
 }
 
 export function getArtifactAsset(icon) {
