@@ -10,6 +10,7 @@ const ENCYCLOPEDIA_ENTRIES_BASE = [
   { id: 'porter', category: 'Enemies', name: 'Porter', model: 'spiked-enemy', firstSector: 5, description: 'Occasionally teleports itself to random locations.' },
   { id: 'magnet', category: 'Enemies', name: 'Magnet', model: 'spiked-enemy', firstSector: 6, description: 'Pulls the ship toward itself while it is within range.' },
   { id: 'spore', category: 'Enemies', name: 'Spore', model: 'spiked-enemy', firstSector: 7, description: 'Bursts into small pieces of itself, then burst into even smaller pieces again.' },
+  { id: 'voidReaper', category: 'Ultimate Enemy', categoryKey: 'ultimate_enemy', name: 'Void Reaper', model: 'ultimate-enemy', firstSector: Infinity, description: 'A horrifying alien raider that marks a lethal path before tearing across the arena.' },
   { id: 'stoneRock', category: 'Meteors', name: 'Stone Rock', model: 'falling-rock', firstSector: 1, description: 'A standard falling meteor. Avoid its marked impact point.' },
   { id: 'fieryRock', category: 'Meteors', name: 'Fiery Rock', model: 'falling-rock', firstSector: 3, description: 'A burning meteor that leaves a damaging fire hazard after impact.' },
   { id: 'splinter', category: 'Meteors', name: 'Splinter', model: 'falling-rock', firstSector: 2, description: 'Shatters on impact and sends fragments outward.' },
@@ -17,7 +18,7 @@ const ENCYCLOPEDIA_ENTRIES_BASE = [
 
 export const ENCYCLOPEDIA_ENTRIES = ENCYCLOPEDIA_ENTRIES_BASE.map((entry) => ({
   ...entry,
-  category: t(`encyclopedia.category.${entry.category.toLowerCase()}`, {}, entry.category),
+  category: t(`encyclopedia.category.${entry.categoryKey ?? entry.category.toLowerCase()}`, {}, entry.category),
   name: t(`enemy.${entry.id}.name`, {}, entry.name),
   description: t(`enemy.${entry.id}.description`, {}, entry.description),
 }))

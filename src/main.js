@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js'
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js'
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
-import { ANIMATION, CAMERA, COLORS, DIFFICULTY, ENEMY_TYPES as OBSTACLE_TYPES, ENTITIES, FALLING_ROCK_TYPES, GAME, LIGHTING, SCENE, SOUND } from './constants.js'
+import { ANIMATION, CAMERA, COLORS, DIFFICULTY, ENEMY_TYPES as OBSTACLE_TYPES, ENTITIES, FALLING_ROCK_TYPES, GAME, LIGHTING, SCENE, SOUND, ULTIMATE_ENEMY_TYPES } from './constants.js'
 import { RESEARCH_CONFIG } from './research_config.js'
 import { CHEAT_CONFIG } from './cheat_config.js'
 import { BUILD_INFO } from './build_info.js'
@@ -13,7 +13,7 @@ import { BUILDING_CONFIG } from './building_config.js'
 import { createPlayerShip } from './three/player_ship.js'
 import { createBuildingVisual } from './three/buildings.js'
 import { createDroneVisual } from './three/drones.js'
-import { createEnemyVisualFactory } from './three/enemies.js'
+import { createEnemyVisualFactory, createUltimateEnemyVisual } from './three/enemies.js'
 import { createCellVisualFactory } from './three/cells.js'
 import { createArenaVisuals } from './three/arena.js'
 import { createProjectileVisualFactory } from './three/projectiles.js'
@@ -1223,6 +1223,20 @@ function runGainArtifactCommand(argumentsList) {
   setCheatOutput(t('cheat.artifact_unique', { artifact: artifact.name }))
 }
 
+function runSpawnEnemyCommand(argumentsList) {
+  if (!started || ended) {
+    setCheatOutput(t('cheat.spawn_requires_round'))
+    return
+  }
+  const spawnable = debugSpawnables.get(argumentsList[0]?.toLocaleLowerCase())
+  if (!spawnable || argumentsList.length !== 1) {
+    setCheatOutput(t('cheat.spawn_usage', { entities: [...debugSpawnables.values()].map((entry) => entry.id).join(', ') }))
+    return
+  }
+  spawnable.spawn()
+  setCheatOutput(t('cheat.spawned', { entity: spawnable.id }))
+}
+
 function runCheatCommand(rawCommand) {
   const [command, ...argumentsList] = rawCommand.trim().toLowerCase().split(/\s+/)
   const argument = argumentsList[0]
@@ -1233,6 +1247,10 @@ function runCheatCommand(rawCommand) {
   }
   if (command === CHEAT_CONFIG.commands.gainArtifact) {
     runGainArtifactCommand(argumentsList)
+    return
+  }
+  if (command === CHEAT_CONFIG.commands.spawn) {
+    runSpawnEnemyCommand(argumentsList)
     return
   }
   if (command === CHEAT_CONFIG.commands.anomaly) {
@@ -2048,6 +2066,7 @@ const cells = []
 const chronoCells = []
 const obstacles = []
 const fallingObstacles = []
+const ultimateEnemies = []
 const fireHazards = []
 const poisonTrails = []
 const splinterPieces = []
@@ -2064,6 +2083,7 @@ const nukeWaves = []
 const droneStrikes = []
 const playerDeathEffects = []
 const obstacleSpawnWarnings = []
+const debugSpawnables = new Map()
 const timer = new THREE.Timer()
 let started = false
 let paused = false
@@ -2120,9 +2140,10 @@ function renderEncyclopediaModel(entry, canvas) {
   const keyLight = new THREE.DirectionalLight('#fff4cf', 2.8)
   keyLight.position.set(2, 3, 4)
   previewScene.add(keyLight)
-  const source = entry.model === 'spiked-enemy' ? OBSTACLE_TYPES[entry.id] : FALLING_ROCK_TYPES[entry.id]
+  const source = entry.model === 'spiked-enemy' ? OBSTACLE_TYPES[entry.id] : entry.model === 'ultimate-enemy' ? ULTIMATE_ENEMY_TYPES[entry.id] : FALLING_ROCK_TYPES[entry.id]
   const material = new THREE.MeshStandardMaterial({ color: source.color, emissive: source.emissive, emissiveIntensity: source.emissiveIntensity ?? 1.35, metalness: ENTITIES.obstacleMetalness, roughness: ENTITIES.obstacleRoughness })
-  const model = entry.model === 'spiked-enemy' ? createSpikedObstacle(material, entry.id) : new THREE.Mesh(fallingRockGeometry, material)
+  const model = entry.model === 'spiked-enemy' ? createSpikedObstacle(material, entry.id) : entry.model === 'ultimate-enemy' ? createUltimateEnemyVisual(THREE) : new THREE.Mesh(fallingRockGeometry, material)
+  if (entry.model === 'ultimate-enemy') model.scale.setScalar(source.scale)
   model.rotation.set(0.28, -0.55, 0.14)
   previewScene.add(model)
   renderer.render(previewScene, previewCamera)
@@ -2234,13 +2255,16 @@ function awardTowerDefenseCell() {
 function renderEncyclopedia() {
   const unlockedSector = getUnlockedSectorIndex() + 1
   const maskDescription = (description) => [...description].map((character) => character === ' ' ? ' ' : '?').join('')
-  encyclopediaList.innerHTML = ENCYCLOPEDIA_ENTRIES.map((entry) => {
+  const renderEntry = (entry) => {
     const unlocked = entry.firstSector <= unlockedSector
     const icon = unlocked
       ? `<canvas data-encyclopedia-model="${entry.id}" width="210" height="150" aria-label="${entry.name} model"></canvas>`
       : `<div class="encyclopedia-unknown-icon" role="img" aria-label="${t('encyclopedia.unknown_enemy')}">?</div>`
     return `<article class="encyclopedia-entry ${unlocked ? '' : 'locked'}"><h3>${entry.name}</h3>${icon}<p>${unlocked ? entry.description : maskDescription(entry.description)}</p></article>`
-  }).join('')
+  }
+  const categories = new Map()
+  for (const entry of ENCYCLOPEDIA_ENTRIES) categories.set(entry.category, [...(categories.get(entry.category) ?? []), entry])
+  encyclopediaList.innerHTML = [...categories.entries()].map(([category, entries]) => `<section class="encyclopedia-category"><h3>${category}</h3><div class="encyclopedia-category-grid">${entries.map(renderEntry).join('')}</div></section>`).join('')
   for (const canvas of encyclopediaList.querySelectorAll('[data-encyclopedia-model]')) {
     const entry = ENCYCLOPEDIA_ENTRIES.find((item) => item.id === canvas.dataset.encyclopediaModel)
     if (entry) renderEncyclopediaModel(entry, canvas)
@@ -2608,6 +2632,11 @@ function scheduleObstacle(savedWarning) {
       break
     }
   }
+  for (const ultimateEnemy of ultimateEnemies) {
+    ultimateEnemy.mesh.visible = !hidden
+    ultimateEnemy.arrow.visible = !hidden && ultimateEnemy.phase === 'telegraph'
+    ultimateEnemy.trail.visible = !hidden
+  }
   const position = savedWarning?.position ?? (towerChallenge && type !== 'regular'
     ? randomArenaEdgePosition()
     : randomArenaPosition(GAME.obstacleMinDistance))
@@ -2869,6 +2898,104 @@ function createFallingObstacle(target, savedObstacle, type = savedObstacle?.type
   if (!savedObstacle) soundSystem.playFallingObstacle(target)
 }
 
+function createUltimateEnemy(type) {
+  const config = ULTIMATE_ENEMY_TYPES[type]
+  if (!config) return
+  const angle = Math.random() * Math.PI * 2
+  const direction = new THREE.Vector3(Math.cos(angle), 0, Math.sin(angle))
+  const outerRadius = getArenaLimit() + config.edgeOffset
+  const start = direction.clone().multiplyScalar(-outerRadius).setY(GAME.playerStartHeight)
+  const end = direction.clone().multiplyScalar(outerRadius).setY(GAME.playerStartHeight)
+  const pathDirection = end.clone().sub(start).normalize()
+  const pathLength = start.distanceTo(end)
+  const mesh = createUltimateEnemyVisual(THREE)
+  mesh.scale.setScalar(config.scale)
+  mesh.position.copy(start)
+  mesh.rotation.y = Math.atan2(pathDirection.x, pathDirection.z)
+  const arrow = new THREE.ArrowHelper(pathDirection, new THREE.Vector3(start.x, 0.08, start.z), pathLength, config.eyeColor, 1.1, 0.54)
+  arrow.line.material.transparent = true
+  arrow.line.material.opacity = 0.82
+  arrow.cone.material.transparent = true
+  arrow.cone.material.opacity = 0.94
+  const trail = new THREE.Mesh(
+    new THREE.CylinderGeometry(config.sweepRadius, config.sweepRadius, pathLength, 12, 1, true),
+    new THREE.MeshBasicMaterial({ color: config.emissive, transparent: true, opacity: 0.05, depthWrite: false }),
+  )
+  trail.position.copy(start).add(end).multiplyScalar(0.5)
+  trail.position.y = 0.13
+  trail.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), pathDirection)
+  scene.add(mesh, arrow, trail)
+  ultimateEnemies.push({ type, config, mesh, arrow, trail, start, end, direction: pathDirection, phase: 'telegraph', age: 0, draggingPlayer: false })
+}
+
+function removeUltimateEnemy(entry) {
+  scene.remove(entry.mesh, entry.arrow, entry.trail)
+  const index = ultimateEnemies.indexOf(entry)
+  if (index >= 0) ultimateEnemies.splice(index, 1)
+}
+
+function destroyCollectiblesInUltimatePath(start, end, radius) {
+  for (let index = cells.length - 1; index >= 0; index -= 1) {
+    if (planarDistanceToSegment(cells[index].position, start, end) > radius) continue
+    scene.remove(cells[index])
+    cells.splice(index, 1)
+  }
+  for (let index = chronoCells.length - 1; index >= 0; index -= 1) {
+    if (planarDistanceToSegment(chronoCells[index].position, start, end) > radius) continue
+    scene.remove(chronoCells[index])
+    chronoCells.splice(index, 1)
+  }
+}
+
+function updateUltimateEnemies(delta, total) {
+  for (const entry of [...ultimateEnemies]) {
+    entry.age += delta
+    if (entry.phase === 'telegraph') {
+      const pulse = 0.65 + (Math.sin(total * 11) + 1) * 0.18
+      entry.arrow.line.material.opacity = pulse
+      entry.arrow.cone.material.opacity = Math.min(1, pulse + 0.2)
+      entry.trail.material.opacity = 0.04 + (Math.sin(total * 8) + 1) * 0.025
+      if (entry.age >= entry.config.telegraphDuration) {
+        entry.phase = 'charge'
+        entry.arrow.visible = false
+        entry.trail.material.opacity = 0.48
+      }
+      continue
+    }
+    const previousPosition = entry.mesh.position.clone()
+    entry.mesh.position.addScaledVector(entry.direction, entry.config.speed * delta)
+    entry.mesh.rotation.z = Math.sin(total * 18) * 0.1
+    const eyeMaterial = entry.mesh.userData.eyeMaterial
+    if (eyeMaterial) eyeMaterial.emissiveIntensity = 3.2 + Math.sin(total * 24) * 1.4
+    for (const mandible of entry.mesh.userData.mandibles ?? []) mandible.rotation.z += Math.sin(total * 16 + mandible.position.x) * delta * 0.7
+    destroyCollectiblesInUltimatePath(previousPosition, entry.mesh.position, entry.config.sweepRadius)
+    if (started && planarDistanceToSegment(player.position, previousPosition, entry.mesh.position) <= entry.config.sweepRadius + GAME.playerRadius * 0.4) {
+      const shielded = shieldCharges > 0 || shieldInvulnerability > 0
+      endGame('VOID REAPER')
+      entry.draggingPlayer ||= shielded && started
+    }
+    if (entry.draggingPlayer && started) {
+      player.position.copy(entry.mesh.position).addScaledVector(entry.direction, -entry.config.sweepRadius * 0.4)
+      player.position.y = GAME.playerStartHeight
+      keepInsideArena(player.position)
+    }
+    if (entry.mesh.position.clone().sub(entry.end).dot(entry.direction) >= 0) removeUltimateEnemy(entry)
+  }
+}
+
+// Add special entities here with registerDebugSpawnable('entityId', () => createSpecialEntity(randomPositionNearPlayer())).
+function registerDebugSpawnable(id, spawn) {
+  debugSpawnables.set(id.toLocaleLowerCase(), { id, spawn })
+}
+
+function registerDefaultDebugSpawnables() {
+  for (const enemyType of Object.keys(OBSTACLE_TYPES)) registerDebugSpawnable(enemyType, () => createObstacle(randomPositionNearPlayer(), enemyType))
+  for (const meteorType of Object.keys(FALLING_ROCK_TYPES)) registerDebugSpawnable(meteorType, () => createFallingObstacle(randomPositionNearPlayer(), undefined, meteorType))
+  for (const ultimateType of Object.keys(ULTIMATE_ENEMY_TYPES)) registerDebugSpawnable(ultimateType, () => createUltimateEnemy(ultimateType))
+}
+
+registerDefaultDebugSpawnables()
+
 function createFireHazard(position, savedFire) {
   const visual = new THREE.Group()
   visual.position.set(position.x, 0.05, position.z)
@@ -3115,6 +3242,8 @@ function resetGame(populateArena = true) {
   spores.length = 0
   for (const fallingObstacle of fallingObstacles) scene.remove(fallingObstacle.obstacle, fallingObstacle.shadow, fallingObstacle.targetRing)
   fallingObstacles.length = 0
+  for (const ultimateEnemy of ultimateEnemies) scene.remove(ultimateEnemy.mesh, ultimateEnemy.arrow, ultimateEnemy.trail)
+  ultimateEnemies.length = 0
   for (const fireHazard of fireHazards) scene.remove(fireHazard.visual, fireHazard.light)
   fireHazards.length = 0
   for (const poisonTrail of poisonTrails) scene.remove(poisonTrail.visual)
@@ -3686,6 +3815,8 @@ function updateGame(delta, total) {
       chronoCells.splice(index, 1)
     }
   }
+
+  updateUltimateEnemies(delta, total)
 
   const bangersToDetonate = []
   const sporesToDetonate = []

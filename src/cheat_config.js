@@ -12,6 +12,7 @@ export const CHEAT_CONFIG = {
     gainArtifact: 'gain_artifact',
     clearSave: 'clear_save',
     sandbox: 'sandbox',
+    spawn: 'spawn',
     anomaly: 'anomaly',
     cell: 'cell',
     cellObtain: 'cell_obtain',

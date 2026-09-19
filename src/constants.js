@@ -529,3 +529,7 @@ export const FALLING_ROCK_TYPES = {
   fieryRock: { name: 'Fiery Rock', color: COLORS.fieryRock, emissive: COLORS.fieryRockEmissive, emissiveIntensity: 2.1 },
   splinter: { name: 'Splinter', color: COLORS.splinter, emissive: COLORS.splinterEmissive, emissiveIntensity: 1.2 },
 }
+
+export const ULTIMATE_ENEMY_TYPES = {
+  voidReaper: { name: 'Void Reaper', color: '#151021', emissive: '#8d35ff', eyeColor: '#d9ff6a', telegraphDuration: 3, speed: 24, scale: 2, sweepRadius: GAME.playerRadius * 2, edgeOffset: 3 },
+}

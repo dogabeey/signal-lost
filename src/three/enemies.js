@@ -66,3 +66,50 @@ export function createEnemyVisualFactory({ THREE, ENTITIES }) {
     return enemy
   }
 }
+
+export function createUltimateEnemyVisual(THREE) {
+  const ship = new THREE.Group()
+  const hull = new THREE.MeshStandardMaterial({ color: '#151021', emissive: '#3b0d72', emissiveIntensity: 1.8, metalness: 0.82, roughness: 0.2 })
+  const carapace = new THREE.MeshStandardMaterial({ color: '#372052', emissive: '#6b1caa', emissiveIntensity: 1.3, metalness: 0.6, roughness: 0.26 })
+  const eyeMaterial = new THREE.MeshStandardMaterial({ color: '#d9ff6a', emissive: '#9dff15', emissiveIntensity: 3.8, metalness: 0.18, roughness: 0.18 })
+  const mouthMaterial = new THREE.MeshBasicMaterial({ color: '#06030a' })
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.66, 12, 8), hull)
+  body.scale.set(1.5, 0.62, 1.05)
+  body.castShadow = true
+  ship.add(body)
+  const crown = new THREE.Mesh(new THREE.ConeGeometry(0.72, 0.64, 6), carapace)
+  crown.rotation.x = Math.PI / 2
+  crown.position.z = -0.23
+  crown.castShadow = true
+  ship.add(crown)
+  const eyeSocket = new THREE.Mesh(new THREE.SphereGeometry(0.26, 10, 7), mouthMaterial)
+  eyeSocket.scale.set(1.45, 0.72, 0.3)
+  eyeSocket.position.set(0, 0.04, 0.72)
+  ship.add(eyeSocket)
+  const eye = new THREE.Mesh(new THREE.SphereGeometry(0.14, 10, 8), eyeMaterial)
+  eye.scale.set(1.55, 0.7, 0.32)
+  eye.position.set(0, 0.04, 0.79)
+  ship.add(eye)
+  const mandibles = []
+  for (const side of [-1, 1]) {
+    const wing = new THREE.Mesh(new THREE.ConeGeometry(0.38, 1.45, 4), carapace)
+    wing.position.set(side * 0.93, -0.04, -0.08)
+    wing.rotation.set(0, side * Math.PI / 2, side * 0.48)
+    wing.castShadow = true
+    ship.add(wing)
+    const mandible = new THREE.Mesh(new THREE.ConeGeometry(0.11, 0.92, 5), eyeMaterial)
+    mandible.position.set(side * 0.5, -0.16, 0.78)
+    mandible.rotation.set(side * 0.42, 0, side * 0.26)
+    ship.add(mandible)
+    mandibles.push(mandible)
+  }
+  for (let index = 0; index < 4; index += 1) {
+    const spine = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.58, 5), carapace)
+    spine.position.set((index - 1.5) * 0.3, 0.34, -0.42)
+    spine.rotation.x = -Math.PI / 2.9
+    ship.add(spine)
+  }
+  ship.userData.eyeMaterial = eyeMaterial
+  ship.userData.mandibles = mandibles
+  return ship
+}
