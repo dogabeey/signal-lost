@@ -52,8 +52,8 @@
     }
   },
   "devDependencies": {
-    "@capacitor/cli": "^8.5.2",
-    "electron": "^40.6.1",
+    "@capacitor/cli": "^8.4.3",
+    "electron": "^44.4.3",
     "electron-builder": "^26.0.12",
     "playwright": "^1.62.1",
     "vite": "^8.2.0"
@@ -63,6 +63,7 @@
     "@capacitor/android": "^8.5.2",
     "@capacitor/core": "^8.5.2",
     "steamworks.js": "^0.4.0",
-    "three": "^0.185.1"
+    "three": "^0.185.1",
+    "three.quarks": "^0.17.1"
   }
 }
