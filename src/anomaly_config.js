@@ -6,7 +6,6 @@ const ANOMALY_CONFIG_BASE = {
   rewardCellTarget: 250,
   rewardBaseChronoshards: 10,
   rewardChronoshardStepPerSector: 2,
-  scheduledChallenges: { 3: 'void-reaper' }, // Week 3 from the 2026-09-02 anchor begins on 2026-09-23.
   challenges: [
     {
       id: 'cell-scout',
@@ -29,14 +28,6 @@ const ANOMALY_CONFIG_BASE = {
       enemyTypes: ['regular', 'chaser', 'creeper', 'shooter'],
       enemySpawnWeights: { regular: 0.4, chaser: 0.25, creeper: 0.2, shooter: 0.15 },
       enemyMovementSpeeds: { chaser: 2.4, creeper: 1.25, shooter: 1.1 },
-    },
-    {
-      id: 'void-reaper',
-      name: 'Void Reaper Incursion',
-      description: 'Survive the Void Reaper as it repeatedly tears across the arena and destroying both player and cells!',
-      type: 'void-reaper',
-      rewardCellTarget: 250,
-      spawnDelay: 10,
     },
   ],
 }
