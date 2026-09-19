@@ -1,61 +1,96 @@
-export function createEffectVisualFactory({ THREE, COLORS, getQuality = () => 'high' }) {
-  const detail = () => ({ low: 0.45, medium: 0.7, high: 1 }[getQuality()] ?? 1)
-  function ring(inner, outer, segments, color, opacity = 1) {
-    const mesh = new THREE.Mesh(new THREE.RingGeometry(inner, outer, segments), new THREE.MeshBasicMaterial({ color, transparent: true, opacity, side: THREE.DoubleSide, depthWrite: false }))
-    mesh.rotation.x = -Math.PI / 2
-    return mesh
+// Gameplay owns short-lived lights and lifetimes; Quarks owns all particle motion.
+export function createEffectVisualFactory({ THREE, Quarks, particleRenderer, COLORS, getQuality = () => 'high' }) {
+  const density = () => ({ low: 0.45, medium: 0.7, high: 1 }[getQuality()] ?? 1)
+  const qualityCount = (count) => Math.max(1, Math.round(count * density()))
+  const colorVector = (color, alpha = 1) => {
+    const value = new THREE.Color(color)
+    return new Quarks.Vector4(value.r, value.g, value.b, alpha)
   }
+  const colorVector3 = (color) => {
+    const value = new THREE.Color(color)
+    return new Quarks.Vector3(value.r, value.g, value.b)
+  }
+  const poisonResidueTexture = (() => {
+    const canvas = document.createElement('canvas')
+    canvas.width = 128
+    canvas.height = 128
+    const context = canvas.getContext('2d')
+    const gradient = context.createRadialGradient(64, 64, 9, 64, 64, 64)
+    gradient.addColorStop(0, 'rgba(255,255,255,0.9)')
+    gradient.addColorStop(0.58, 'rgba(255,255,255,0.68)')
+    gradient.addColorStop(1, 'rgba(255,255,255,0)')
+    context.fillStyle = gradient
+    context.fillRect(0, 0, 128, 128)
+    const texture = new THREE.CanvasTexture(canvas)
+    texture.colorSpace = THREE.SRGBColorSpace
+    return texture
+  })()
+
+  function createParticles({ position, color, count, life, size, speed, radius = 0, gravity = 0, duration = 0.05, texture = null, renderMode = Quarks.RenderMode.BillBoard }) {
+    const material = new THREE.MeshBasicMaterial({ color, map: texture, transparent: true, opacity: 1, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: true })
+    const system = new Quarks.ParticleSystem({
+      autoDestroy: true,
+      looping: false,
+      duration,
+      shape: new Quarks.SphereEmitter({ radius, thickness: 1 }),
+      startLife: new Quarks.IntervalValue(life * 0.72, life),
+      startSpeed: new Quarks.IntervalValue(speed * 0.65, speed),
+      startSize: new Quarks.IntervalValue(size * 0.55, size),
+      startColor: new Quarks.ColorRange(colorVector(color, 0.95), colorVector('#ffffff', 0.7)),
+      emissionBursts: [{ time: 0, count: new Quarks.ConstantValue(qualityCount(count)), cycle: 1, interval: 0.01, probability: 1 }],
+      behaviors: [
+        new Quarks.ColorOverLife(new Quarks.Gradient(
+          [[colorVector3(color), 0], [colorVector3(color), 0.55], [colorVector3(color), 1]],
+          [[0.95, 0], [0.55, 0.55], [0, 1]],
+        )),
+        ...(gravity ? [new Quarks.ApplyForce(new Quarks.Vector3(0, -1, 0), new Quarks.ConstantValue(gravity))] : []),
+      ],
+      material,
+      renderMode,
+      worldSpace: true,
+    })
+    system.emitter.position.copy(position)
+    particleRenderer.addSystem(system)
+    return system.emitter
+  }
+
+  function createLight(position, color, intensity, distance) {
+    const light = new THREE.PointLight(color, intensity, distance)
+    light.position.copy(position)
+    return light
+  }
+
   return {
     createExplosion(position, radius) {
-      const shockwave = ring(0.18, 0.42, Math.round(64 * detail()), COLORS.banger)
-      shockwave.position.set(position.x, 0.05, position.z)
-      const blast = new THREE.Mesh(new THREE.SphereGeometry(1, Math.round(24 * detail()), Math.round(16 * detail())), new THREE.MeshBasicMaterial({ color: COLORS.banger, transparent: true, opacity: 0.65, wireframe: true, depthWrite: false }))
-      blast.position.set(position.x, 0.85, position.z)
-      const light = new THREE.PointLight(COLORS.banger, 10, radius * 2); light.position.copy(blast.position)
-      return { shockwave, blast, light }
+      const emitter = createParticles({ position, color: COLORS.banger, count: 30, life: 0.48, size: Math.max(0.12, radius * 0.34), speed: Math.max(2.4, radius * 4), radius: radius * 0.18 })
+      return { emitters: [emitter], light: createLight(position, COLORS.banger, 10, radius * 2) }
     },
     createBangerPulse(position) {
-      const pulse = ring(0.22, 0.42, 48, COLORS.banger, 0.9); pulse.position.set(position.x, 0.06, position.z); return pulse
+      const pulse = new THREE.Mesh(new THREE.RingGeometry(0.22, 0.42, 48), new THREE.MeshBasicMaterial({ color: COLORS.banger, transparent: true, opacity: 0.9, side: THREE.DoubleSide, depthWrite: false }))
+      pulse.rotation.x = -Math.PI / 2
+      pulse.position.set(position.x, 0.06, position.z)
+      return pulse
     },
     createShockwave(origin) {
-      const shockwave = ring(0.2, 0.42, 64, COLORS.slowAura, 0.95); shockwave.position.set(origin.x, 0.07, origin.z); return shockwave
+      const shockwave = new THREE.Mesh(new THREE.RingGeometry(0.2, 0.42, 64), new THREE.MeshBasicMaterial({ color: COLORS.slowAura, transparent: true, opacity: 0.95, side: THREE.DoubleSide, depthWrite: false }))
+      shockwave.rotation.x = -Math.PI / 2
+      shockwave.position.set(origin.x, 0.07, origin.z)
+      return shockwave
     },
     createShieldBreak(position) {
-      const sphere = new THREE.Mesh(new THREE.SphereGeometry(0.78, 24, 16), new THREE.MeshBasicMaterial({ color: '#8cfff0', transparent: true, opacity: 0.84, wireframe: true, depthWrite: false }))
-      sphere.position.copy(position)
-      const light = new THREE.PointLight('#63f5cd', 12, 10)
-      light.position.copy(position)
-      return { sphere, light }
+      const emitter = createParticles({ position, color: '#8cfff0', count: 38, life: 0.55, size: 0.19, speed: 5.4, radius: 0.22 })
+      return { emitters: [emitter], light: createLight(position, '#63f5cd', 12, 10) }
     },
-    createPoisonTrail(position, radius) {
-      const visual = new THREE.Group()
-      visual.position.set(position.x, 0.035, position.z)
-      const pool = new THREE.Mesh(new THREE.CircleGeometry(radius, 16), new THREE.MeshBasicMaterial({ color: COLORS.poisonTrail, transparent: true, opacity: 0.48, depthWrite: false }))
-      pool.rotation.x = -Math.PI / 2
-      visual.add(pool)
-      const vapor = Array.from({ length: Math.max(1, Math.round(3 * detail())) }, (_, index) => {
-        const puff = new THREE.Mesh(new THREE.SphereGeometry(0.16 + index * 0.035, 6, 4), new THREE.MeshBasicMaterial({ color: COLORS.poisonTrail, transparent: true, opacity: 0.62, depthWrite: false }))
-        const angle = index * Math.PI * 2 / 3
-        puff.position.set(Math.cos(angle) * radius * 0.42, 0.12 + index * 0.05, Math.sin(angle) * radius * 0.42)
-        puff.userData.phase = angle
-        visual.add(puff)
-        return puff
-      })
-      return { visual, pool, vapor }
+    createPoisonTrail(position, radius, duration) {
+      const residuePosition = position.clone()
+      residuePosition.y = 0.045
+      const emitter = createParticles({ position: residuePosition, color: COLORS.poisonTrail, count: 7, life: duration, size: radius * 1.35, speed: 0, radius: radius * 0.56, duration: 0.05, texture: poisonResidueTexture, renderMode: Quarks.RenderMode.HorizontalBillBoard })
+      return { emitters: [emitter] }
     },
     createPlayerDeath(position) {
-      const flash = new THREE.Mesh(new THREE.SphereGeometry(0.95, 24, 16), new THREE.MeshBasicMaterial({ color: '#fff4cf', transparent: true, opacity: 1, depthWrite: false })); flash.position.copy(position)
-      const blast = new THREE.Mesh(new THREE.IcosahedronGeometry(0.7, 2), new THREE.MeshBasicMaterial({ color: COLORS.playerRing, transparent: true, opacity: 0.95, wireframe: true, depthWrite: false })); blast.position.copy(position)
-      const shockwave = ring(0.24, 0.5, 64, COLORS.player); shockwave.position.set(position.x, 0.06, position.z)
-      const innerShockwave = shockwave.clone(); innerShockwave.material = shockwave.material.clone()
-      const light = new THREE.PointLight('#fff4cf', 22, 18); light.position.copy(position)
-      const fragments = Array.from({ length: Math.max(6, Math.round(18 * detail())) }, () => {
-        const fragment = new THREE.Mesh(new THREE.TetrahedronGeometry(THREE.MathUtils.randFloat(0.08, 0.19), 0), new THREE.MeshBasicMaterial({ color: Math.random() > 0.45 ? COLORS.playerRing : COLORS.player, transparent: true, opacity: 1, depthWrite: false }))
-        fragment.position.copy(position)
-        fragment.userData.velocity = new THREE.Vector3(Math.random() - 0.5, Math.random() * 0.75 + 0.18, Math.random() - 0.5).normalize().multiplyScalar(THREE.MathUtils.randFloat(4, 10))
-        return fragment
-      })
-      return { flash, blast, shockwave, innerShockwave, light, fragments }
+      const emitter = createParticles({ position, color: COLORS.playerRing, count: 64, life: 0.9, size: 0.22, speed: 8.8, radius: 0.2, gravity: 5 })
+      const coreEmitter = createParticles({ position, color: '#fff4cf', count: 22, life: 0.32, size: 0.4, speed: 3.2, radius: 0.05 })
+      return { emitters: [emitter, coreEmitter], light: createLight(position, '#fff4cf', 22, 18) }
     },
   }
 }

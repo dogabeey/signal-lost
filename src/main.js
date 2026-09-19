@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import * as Quarks from 'three.quarks'
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js'
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js'
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
@@ -1895,6 +1896,8 @@ renderer.outputColorSpace = THREE.SRGBColorSpace
 
 const scene = new THREE.Scene()
 scene.background = new THREE.Color(COLORS.background)
+const particleRenderer = new Quarks.BatchedRenderer()
+scene.add(particleRenderer)
 
 function createTowerDefenseTower() {
   const tower = new THREE.Group()
@@ -2122,7 +2125,7 @@ const fallingRockGeometry = new THREE.IcosahedronGeometry(ENTITIES.obstacleRadiu
 const { createShooterProjectile: createShooterProjectileVisual, createAutocannonProjectile: createAutocannonProjectileVisual, createSplinter: createSplinterVisual } = createProjectileVisualFactory({ THREE, COLORS, ENTITIES })
 const { createCell: createCellVisual, createChronoCell: createChronoCellVisual, createBooster: createBoosterVisual } = createCellVisualFactory({ THREE, COLORS, ENTITIES })
 const createSpikedObstacle = createEnemyVisualFactory({ THREE, ENTITIES })
-const { createExplosion: createExplosionVisual, createBangerPulse: createBangerPulseVisual, createShockwave: createShockwaveVisual, createShieldBreak: createShieldBreakVisual, createPoisonTrail: createPoisonTrailVisual, createPlayerDeath: createPlayerDeathVisual } = createEffectVisualFactory({ THREE, COLORS, getQuality: () => settings.graphics.quality })
+const { createExplosion: createExplosionVisual, createBangerPulse: createBangerPulseVisual, createShockwave: createShockwaveVisual, createShieldBreak: createShieldBreakVisual, createPoisonTrail: createPoisonTrailVisual, createPlayerDeath: createPlayerDeathVisual } = createEffectVisualFactory({ THREE, Quarks, particleRenderer, COLORS, getQuality: () => settings.graphics.quality })
 const creeperColor = new THREE.Color(COLORS.creeper)
 const poisonCreeperColor = new THREE.Color(COLORS.poisonCreeper)
 const creeperEmissive = new THREE.Color(COLORS.creeperEmissive)
@@ -2427,10 +2430,10 @@ function setBuildModeEntityVisibility(hidden) {
     fallingObstacle.targetRing.visible = !hidden
   }
   for (const warning of obstacleSpawnWarnings) { warning.ring.visible = !hidden; warning.glow.visible = !hidden; warning.beam.visible = !hidden }
-  for (const explosion of explosions) { explosion.shockwave.visible = !hidden; explosion.blast.visible = !hidden; explosion.light.visible = !hidden }
-  for (const effect of playerDeathEffects) { effect.flash.visible = !hidden; effect.blast.visible = !hidden; effect.shockwave.visible = !hidden; effect.innerShockwave.visible = !hidden; effect.light.visible = !hidden; for (const fragment of effect.fragments) fragment.visible = !hidden }
+  for (const explosion of explosions) { for (const emitter of explosion.emitters) emitter.visible = !hidden; explosion.light.visible = !hidden }
+  for (const effect of playerDeathEffects) { for (const emitter of effect.emitters) emitter.visible = !hidden; effect.light.visible = !hidden }
   for (const fireHazard of fireHazards) { fireHazard.visual.visible = !hidden; fireHazard.light.visible = !hidden }
-  for (const poisonTrail of poisonTrails) poisonTrail.visual.visible = !hidden
+  for (const poisonTrail of poisonTrails) for (const emitter of poisonTrail.emitters) emitter.visible = !hidden
   for (const piece of splinterPieces) piece.piece.visible = !hidden
   for (const pulse of bangerPulses) pulse.pulse.visible = !hidden
   for (const wave of shockwaves) wave.shockwave.visible = !hidden
@@ -3045,9 +3048,10 @@ function createFireHazard(position, savedFire) {
 }
 
 function createPoisonTrail(position, savedTrail) {
-  const { visual, pool, vapor } = createPoisonTrailVisual(position, ENTITIES.poisonCreeperTrailRadius)
-  scene.add(visual)
-  poisonTrails.push({ visual, pool, vapor, position: position.clone(), age: savedTrail?.age ?? 0 })
+  const duration = GAME.poisonTrailDuration * (1 - getResearchStatBonus('poisonTrailDurationReduction'))
+  const effect = createPoisonTrailVisual(position, ENTITIES.poisonCreeperTrailRadius, duration)
+  scene.add(...effect.emitters)
+  poisonTrails.push({ ...effect, position: position.clone(), age: savedTrail?.age ?? 0 })
 }
 
 function createSplinterPiece(position, direction, age = 0) {
@@ -3116,7 +3120,7 @@ function updateOrbitalElectron(delta, total, effectRangeMultiplier) {
 
 function createExplosion(position, radius) {
   const effect = createExplosionVisual(position, radius)
-  scene.add(effect.shockwave, effect.blast, effect.light)
+  scene.add(...effect.emitters, effect.light)
   explosions.push({ ...effect, radius, age: 0 })
 }
 
@@ -3140,7 +3144,7 @@ function triggerShockwave() {
 
 function createPlayerDeathEffect(position) {
   const effect = createPlayerDeathVisual(position)
-  scene.add(effect.flash, effect.blast, effect.shockwave, effect.innerShockwave, effect.light, ...effect.fragments)
+  scene.add(...effect.emitters, effect.light)
   playerDeathEffects.push({ ...effect, age: 0 })
 }
 
@@ -3149,26 +3153,9 @@ function updatePlayerDeathEffects(delta) {
     const effect = playerDeathEffects[index]
     effect.age += delta
     const progress = Math.min(effect.age / GAME.playerDeathVfxDuration, 1)
-    effect.flash.scale.setScalar(THREE.MathUtils.lerp(0.25, 3.8, progress))
-    effect.flash.material.opacity = Math.max(0, 1 - progress * 3.5)
-    effect.blast.scale.setScalar(THREE.MathUtils.lerp(0.2, 5.4, progress))
-    effect.blast.rotation.y += delta * 12
-    effect.blast.rotation.x += delta * 7
-    effect.blast.material.opacity = 0.95 * (1 - progress)
-    effect.shockwave.scale.setScalar(THREE.MathUtils.lerp(0.2, 15, progress))
-    effect.shockwave.material.opacity = 1 - progress
-    effect.innerShockwave.scale.setScalar(THREE.MathUtils.lerp(0.1, 8, progress))
-    effect.innerShockwave.material.opacity = Math.max(0, 1 - progress * 1.8)
     effect.light.intensity = 22 * (1 - progress)
-    for (const fragment of effect.fragments) {
-      fragment.position.addScaledVector(fragment.userData.velocity, delta)
-      fragment.userData.velocity.y -= delta * 7
-      fragment.rotation.x += delta * 12
-      fragment.rotation.z += delta * 9
-      fragment.material.opacity = 1 - progress
-    }
     if (progress === 1) {
-      scene.remove(effect.flash, effect.blast, effect.shockwave, effect.innerShockwave, effect.light, ...effect.fragments)
+      scene.remove(...effect.emitters, effect.light)
       playerDeathEffects.splice(index, 1)
     }
   }
@@ -3246,13 +3233,13 @@ function resetGame(populateArena = true) {
   ultimateEnemies.length = 0
   for (const fireHazard of fireHazards) scene.remove(fireHazard.visual, fireHazard.light)
   fireHazards.length = 0
-  for (const poisonTrail of poisonTrails) scene.remove(poisonTrail.visual)
+  for (const poisonTrail of poisonTrails) scene.remove(...poisonTrail.emitters)
   poisonTrails.length = 0
   for (const splinterPiece of splinterPieces) scene.remove(splinterPiece.piece)
   splinterPieces.length = 0
-  for (const explosion of explosions) scene.remove(explosion.shockwave, explosion.blast, explosion.light)
+  for (const explosion of explosions) scene.remove(...explosion.emitters, explosion.light)
   explosions.length = 0
-  for (const effect of shieldBreakEffects) scene.remove(effect.sphere, effect.light)
+  for (const effect of shieldBreakEffects) scene.remove(...effect.emitters, effect.light)
   shieldBreakEffects.length = 0
   for (const bangerPulse of bangerPulses) scene.remove(bangerPulse.pulse)
   bangerPulses.length = 0
@@ -3267,7 +3254,7 @@ function resetGame(populateArena = true) {
   for (const wave of nukeWaves) scene.remove(wave.ring, wave.glow)
   nukeWaves.length = 0
   shockwavePushes.length = 0
-  for (const deathEffect of playerDeathEffects) scene.remove(deathEffect.flash, deathEffect.blast, deathEffect.shockwave, deathEffect.innerShockwave, deathEffect.light, ...deathEffect.fragments)
+  for (const deathEffect of playerDeathEffects) scene.remove(...deathEffect.emitters, deathEffect.light)
   playerDeathEffects.length = 0
   for (const warning of obstacleSpawnWarnings) scene.remove(warning.ring, warning.glow, warning.beam)
   obstacleSpawnWarnings.length = 0
@@ -3528,7 +3515,7 @@ function returnToMainMenu() {
 function triggerShieldBreakExplosion() {
   const position = player.position.clone()
   const shieldBreak = createShieldBreakVisual(position)
-  scene.add(shieldBreak.sphere, shieldBreak.light)
+  scene.add(...shieldBreak.emitters, shieldBreak.light)
   shieldBreakEffects.push({ ...shieldBreak, age: 0 })
   soundSystem.playShieldBreak(position)
   cameraShakeTime = SHIELD_BREAK_SHAKE_DURATION
@@ -4103,13 +4090,9 @@ function updateGame(delta, total) {
     const explosion = explosions[index]
     explosion.age += delta
     const progress = Math.min(explosion.age / GAME.bangerExplosionVfxDuration, 1)
-    explosion.shockwave.scale.setScalar(THREE.MathUtils.lerp(0.3, explosion.radius / 0.42, progress))
-    explosion.shockwave.material.opacity = 1 - progress
-    explosion.blast.scale.setScalar(THREE.MathUtils.lerp(0.2, explosion.radius, progress))
-    explosion.blast.material.opacity = 0.65 * (1 - progress)
     explosion.light.intensity = 10 * (1 - progress)
     if (progress === 1) {
-      scene.remove(explosion.shockwave, explosion.blast, explosion.light)
+      scene.remove(...explosion.emitters, explosion.light)
       explosions.splice(index, 1)
     }
   }
@@ -4118,11 +4101,9 @@ function updateGame(delta, total) {
     const effect = shieldBreakEffects[index]
     effect.age += delta
     const progress = Math.min(effect.age / 0.42, 1)
-    effect.sphere.scale.setScalar(THREE.MathUtils.lerp(0.45, 4.8, progress))
-    effect.sphere.material.opacity = 0.84 * (1 - progress) ** 2
     effect.light.intensity = 12 * (1 - progress)
     if (progress === 1) {
-      scene.remove(effect.sphere, effect.light)
+      scene.remove(...effect.emitters, effect.light)
       shieldBreakEffects.splice(index, 1)
     }
   }
@@ -4272,18 +4253,9 @@ function updateGame(delta, total) {
     const duration = GAME.poisonTrailDuration * (1 - getResearchStatBonus('poisonTrailDurationReduction'))
     const progress = poisonTrail.age / duration
     const fade = Math.max(0, 1 - progress)
-    const pulse = 1 + Math.sin(total * 5 + index) * 0.08
-    poisonTrail.pool.scale.setScalar(pulse * (0.92 + progress * 0.16))
-    poisonTrail.pool.material.opacity = 0.48 * fade
-    for (const puff of poisonTrail.vapor) {
-      const rise = (Math.sin(total * 2.8 + puff.userData.phase) + 1) / 2
-      puff.position.y = 0.1 + rise * 0.26
-      puff.material.opacity = 0.62 * fade * (0.55 + rise * 0.45)
-      puff.scale.setScalar(0.9 + rise * 0.62)
-    }
     if (planarDistance(player.position, poisonTrail.position) < ENTITIES.poisonCreeperTrailRadius) applyPlayerStatusDamage('poison', 'poison-creeper-trail')
     if (progress >= 1) {
-      scene.remove(poisonTrail.visual)
+      scene.remove(...poisonTrail.emitters)
       poisonTrails.splice(index, 1)
     }
   }
@@ -4393,6 +4365,7 @@ function animate(timestamp) {
   const total = timer.getElapsed()
   if (started && !paused && !awaitingFirstInput) updateGame(delta, total)
   updatePlayerDeathEffects(delta)
+  particleRenderer.update(delta)
   if (buildMode) {
     camera.position.set(buildCameraCenter.x, buildCameraHeight, buildCameraCenter.y + 0.01)
     camera.lookAt(buildCameraCenter.x, 0, buildCameraCenter.y)
