@@ -1,4 +1,4 @@
-package com.dogabeey.asteroidbelt;
+package com.solaris.asteroidbelt;
 
 import com.getcapacitor.BridgeActivity;
 

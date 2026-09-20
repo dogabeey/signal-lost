@@ -86,6 +86,7 @@ document.querySelector('#app').innerHTML = `
     </div>
     <div class="cash-indicators" id="cash-indicators" aria-live="polite"></div>
     <button class="aetherium-ad-claim${SHOW_AETHERIUM_AD_CLAIM ? '' : ' hidden'}" id="aetherium-ad-claim" type="button" aria-label="Watch an ad to claim 5 Aetherium"><img class="ad-badge" src="${getUiIconAsset('adReward')}" alt=""><span>CLAIM 5</span><img src="${getUiIconAsset('aetherium')}" alt="Aetherium"></button>
+    <section class="debug-reward-screen hidden" id="debug-reward-screen" aria-live="polite"><p>DEBUG REWARDED AD</p><strong>WHITE SCREEN TEST</strong><span id="debug-reward-countdown">10</span><button id="debug-reward-granted" type="button" disabled hidden>REWARD GRANTED</button></section>
     <div class="build-grid-ui hidden" id="build-grid-ui" aria-label="Build locations"></div>
     <div class="milestone-claim-toast hidden" id="milestone-claim-toast" role="status" aria-live="polite"></div>
     <div class="feature-lock-toast hidden" id="feature-lock-toast" role="status" aria-live="polite"></div>
@@ -434,6 +435,9 @@ const cashElement = document.querySelector('#cash')
 const chronoshardsElement = document.querySelector('#chronoshards')
 const aetheriumElement = document.querySelector('#aetherium')
 const aetheriumAdClaimButton = document.querySelector('#aetherium-ad-claim')
+const debugRewardScreen = document.querySelector('#debug-reward-screen')
+const debugRewardCountdown = document.querySelector('#debug-reward-countdown')
+const debugRewardGrantedButton = document.querySelector('#debug-reward-granted')
 const cashIndicators = document.querySelector('#cash-indicators')
 const highestCellsElement = document.querySelector('#highest-cells')
 const sectorRequirementElement = document.querySelector('#sector-requirement')
@@ -613,7 +617,7 @@ const activeSaveSlot = IS_STEAM_BUILD ? Math.min(SAVE_SLOT_COUNT, Math.max(1, Nu
 const slotStoragePrefix = IS_STEAM_BUILD ? `asteroid-belt-slot-${activeSaveSlot}-` : ''
 const slotStorageKeys = IS_STEAM_BUILD ? Object.fromEntries(Object.entries(STORAGE_KEYS).map(([name, key]) => [name, `${slotStoragePrefix}${key.replace('asteroid-belt-', '')}`])) : STORAGE_KEYS
 const { cellBank: CELL_BANK_STORAGE_KEY, sector: SECTOR_STORAGE_KEY, sectorHighScores: SECTOR_HIGH_SCORES_STORAGE_KEY, cash: CASH_STORAGE_KEY,
-  chronoshards: CHRONOSHARDS_STORAGE_KEY, aetherium: AETHERIUM_STORAGE_KEY, researchLab: RESEARCH_LAB_STORAGE_KEY, savedRound: SAVED_ROUND_STORAGE_KEY,
+  chronoshards: CHRONOSHARDS_STORAGE_KEY, aetherium: AETHERIUM_STORAGE_KEY, aetheriumAdClaimAt: AETHERIUM_AD_CLAIM_AT_STORAGE_KEY, researchLab: RESEARCH_LAB_STORAGE_KEY, savedRound: SAVED_ROUND_STORAGE_KEY,
   buildings: BUILDINGS_STORAGE_KEY, featureUnlocks: FEATURE_UNLOCKS_STORAGE_KEY, milestones: MILESTONES_STORAGE_KEY,
   settings: SETTINGS_STORAGE_KEY, weaponry: WEAPONRY_STORAGE_KEY, anomalyRewards: ANOMALY_REWARDS_STORAGE_KEY, artifacts: ARTIFACTS_STORAGE_KEY } = slotStorageKeys
 const firstSlotKey = 'asteroid-belt-slot-1-cash'
@@ -703,6 +707,7 @@ let milestoneSectorIndex = selectedSectorIndex
 let cash = readStoredNumber(CASH_STORAGE_KEY)
 let chronoshards = readStoredNumber(CHRONOSHARDS_STORAGE_KEY)
 let aetherium = readStoredNumber(AETHERIUM_STORAGE_KEY)
+let aetheriumAdClaimAt = readStoredNumber(AETHERIUM_AD_CLAIM_AT_STORAGE_KEY)
 let savedRound = readSavedRound()
 let sandboxState = null
 const anomalyRewardState = (() => {
@@ -1088,13 +1093,14 @@ function tryUnlockFeature(feature, button) {
 }
 
 function renderFeatureUnlockButtons() {
+  const roundResumeLocked = Boolean(savedRound)
   for (const [feature, button] of [['researchLab', openLabButton], ['buildingSystem', openBuildingButton], ['weaponry', openWeaponryButton]]) {
     const unlock = RESEARCH_CONFIG.featureUnlocks[feature]
     const unlocked = featureUnlocks[feature]
     const sectorReady = getUnlockedSectorIndex() + 1 >= unlock.minSector && (!unlock.requiredMilestone || milestoneState.claimed.includes(unlock.requiredMilestone))
     const name = feature === 'researchLab' ? t('menu.research_lab') : feature === 'buildingSystem' ? t('menu.buildings') : t('menu.weaponry')
-    button.className = `menu-system-button ${unlocked ? 'is-unlocked' : sectorReady ? 'is-unlockable' : 'is-locked'}${button.classList.contains('is-active') ? ' is-active' : ''}`
-    button.disabled = false
+    button.className = `menu-system-button ${unlocked ? 'is-unlocked' : sectorReady ? 'is-unlockable' : 'is-locked'}${roundResumeLocked ? ' is-round-locked' : ''}${button.classList.contains('is-active') ? ' is-active' : ''}`
+    button.disabled = roundResumeLocked
     button.querySelector('.menu-button-label').textContent = unlocked ? name : sectorReady ? t('menu.unlock_feature', { feature: name, cost: unlock.chronoshardCost }) : t('menu.feature_sector', { feature: name, sector: formatSectorNumber(unlock.minSector) })
     const lockOverlay = button.querySelector('.menu-button-lock')
     lockOverlay.hidden = unlocked || !shouldShowCompactSystemLocks()
@@ -1398,13 +1404,106 @@ function updateAetherium(amount = 0) {
   return amount
 }
 
+const AETHERIUM_AD_REWARD = 5
+const AETHERIUM_AD_COOLDOWN_MS = 15 * 60 * 1000
+let aetheriumAdClaimInProgress = false
+
+function getAetheriumAdCooldownRemaining() {
+  return Math.max(0, AETHERIUM_AD_COOLDOWN_MS - (Date.now() - aetheriumAdClaimAt))
+}
+
+function refreshAetheriumAdClaimButton() {
+  if (!SHOW_AETHERIUM_AD_CLAIM) return
+  const remainingMs = getAetheriumAdCooldownRemaining()
+  const remainingSeconds = Math.ceil(remainingMs / 1000)
+  aetheriumAdClaimButton.classList.toggle('hidden', remainingMs > 0)
+  aetheriumAdClaimButton.disabled = aetheriumAdClaimInProgress
+  aetheriumAdClaimButton.title = remainingMs > 0
+    ? `Next Aetherium reward in ${formatDuration(remainingSeconds)}`
+    : 'Watch an ad to claim 5 Aetherium'
+}
+
+function showDebugRewardedAd() {
+  debugRewardScreen.classList.remove('hidden')
+  debugRewardCountdown.hidden = false
+  debugRewardGrantedButton.hidden = true
+  debugRewardGrantedButton.disabled = true
+  let remaining = 10
+  debugRewardCountdown.textContent = String(remaining)
+
+  return new Promise((resolve) => {
+    const countdown = window.setInterval(() => {
+      remaining -= 1
+      debugRewardCountdown.textContent = String(Math.max(remaining, 0))
+      if (remaining > 0) return
+      window.clearInterval(countdown)
+      debugRewardCountdown.hidden = true
+      debugRewardGrantedButton.hidden = false
+      debugRewardGrantedButton.disabled = false
+    }, 1000)
+
+    debugRewardGrantedButton.addEventListener('click', () => {
+      window.clearInterval(countdown)
+      debugRewardScreen.classList.add('hidden')
+      resolve(true)
+    }, { once: true })
+  })
+}
+
+function flyAetheriumRewardToHud(count = AETHERIUM_AD_REWARD) {
+  const source = aetheriumAdClaimButton.getBoundingClientRect()
+  const destination = aetheriumElement.getBoundingClientRect()
+  const sourceX = source.left + source.width / 2
+  const sourceY = source.top + source.height / 2
+  const destinationX = destination.left + destination.width / 2
+  const destinationY = destination.top + destination.height / 2
+  const gameShell = document.querySelector('.game-shell')
+
+  for (let index = 0; index < count; index += 1) {
+    const token = document.createElement('img')
+    token.className = 'aetherium-fly-token'
+    token.src = getUiIconAsset('aetherium')
+    token.alt = ''
+    token.style.left = `${sourceX}px`
+    token.style.top = `${sourceY}px`
+    gameShell.append(token)
+    const delay = index * 90
+    const arcY = Math.min(sourceY, destinationY) - 42 - (index % 2) * 18
+    const animation = token.animate([
+      { opacity: 0, transform: 'translate(-50%, -50%) scale(0.5)' },
+      { offset: 0.16, opacity: 1, transform: 'translate(-50%, -50%) scale(1.05)' },
+      { offset: 0.62, opacity: 1, transform: `translate(calc(-50% + ${(destinationX - sourceX) * 0.62}px), calc(-50% + ${arcY - sourceY}px)) scale(1.12)` },
+      { opacity: 0, transform: `translate(calc(-50% + ${destinationX - sourceX}px), calc(-50% + ${destinationY - sourceY}px)) scale(0.42)` },
+    ], { duration: 680, delay, easing: 'cubic-bezier(.2,.78,.26,1)', fill: 'forwards' })
+    animation.finished.then(() => token.remove()).catch(() => token.remove())
+  }
+}
+
 aetheriumAdClaimButton.addEventListener('click', async () => {
-  if (!SHOW_AETHERIUM_AD_CLAIM || aetheriumAdClaimButton.disabled) return
-  aetheriumAdClaimButton.disabled = true
-  const claimed = await showRewardedAdForAetherium({ debug: import.meta.env.DEV })
-  if (claimed) updateAetherium(5)
-  aetheriumAdClaimButton.disabled = false
+  if (!SHOW_AETHERIUM_AD_CLAIM || aetheriumAdClaimInProgress || getAetheriumAdCooldownRemaining() > 0) return
+  aetheriumAdClaimInProgress = true
+  const shouldResumeAfterAd = started && !paused
+  if (shouldResumeAfterAd) paused = true
+  refreshAetheriumAdClaimButton()
+
+  try {
+    const claimed = import.meta.env.DEV
+      ? await showDebugRewardedAd()
+      : await showRewardedAdForAetherium({ debug: false })
+    if (!claimed) return
+    updateAetherium(AETHERIUM_AD_REWARD)
+    flyAetheriumRewardToHud(AETHERIUM_AD_REWARD)
+    aetheriumAdClaimAt = Date.now()
+    writeStoredNumber(AETHERIUM_AD_CLAIM_AT_STORAGE_KEY, aetheriumAdClaimAt)
+  } finally {
+    if (shouldResumeAfterAd) paused = false
+    aetheriumAdClaimInProgress = false
+    refreshAetheriumAdClaimButton()
+  }
 })
+
+refreshAetheriumAdClaimButton()
+if (SHOW_AETHERIUM_AD_CLAIM) window.setInterval(refreshAetheriumAdClaimButton, 1000)
 
 function showCashIndicator(position, amount) {
   showCurrencyIndicator(position, `+$${amount}`, 'cash-indicator')
@@ -1539,8 +1638,9 @@ function renderSectorOptions() {
   const nextMilestone = MILESTONES.find((milestone) => milestone.sector === selectedSectorIndex + 1 && !milestoneState.claimed.includes(milestone.id))
   const sectorBestCells = sectorHighScores[sectorKeys[selectedSectorIndex]] ?? 0
   sectorRequirementElement.textContent = nextMilestone ? sectorBestCells >= nextMilestone.cells ? t('milestone.ready') : t('milestone.next', { cells: nextMilestone.cells }) : t('milestone.complete')
-  previousSectorButton.disabled = selectedSectorIndex === 0
-  nextSectorButton.disabled = selectedSectorIndex >= unlockedSectorIndex
+  const roundResumeLocked = Boolean(savedRound)
+  previousSectorButton.disabled = roundResumeLocked || selectedSectorIndex === 0
+  nextSectorButton.disabled = roundResumeLocked || selectedSectorIndex >= unlockedSectorIndex
   const claimableCount = MILESTONES.filter((milestone) => !milestoneState.claimed.includes(milestone.id) && (sectorHighScores[sectorKeys[milestone.sector - 1]] ?? 0) >= milestone.cells).length
   milestoneClaimCount.textContent = String(claimableCount)
   milestoneClaimCount.hidden = claimableCount === 0
@@ -1549,7 +1649,7 @@ function renderSectorOptions() {
 }
 
 function selectSector(sectorIndex) {
-  if (sectorIndex < 0 || sectorIndex > getUnlockedSectorIndex()) return
+  if (savedRound || sectorIndex < 0 || sectorIndex > getUnlockedSectorIndex()) return
   selectedSectorIndex = sectorIndex
   writeStoredNumber(SECTOR_STORAGE_KEY, selectedSectorIndex)
   applyDifficulty()
@@ -3383,13 +3483,13 @@ function saveCurrentRound() {
     warnings: obstacleSpawnWarnings.map((warning) => ({ position: serializePosition(warning.position), type: warning.type, age: warning.age })),
   }
   persistSavedRound(savedRound)
-  updateStartButton()
+  renderSectorOptions()
 }
 
 function clearSavedRound() {
   savedRound = null
   persistSavedRound(null)
-  updateStartButton()
+  renderSectorOptions()
 }
 
 function restoreSavedRound() {
@@ -4595,6 +4695,7 @@ homeButton.addEventListener('click', (event) => {
 
 openLabButton.addEventListener('click', (event) => {
   event.stopPropagation()
+  if (savedRound) return
   if (!tryUnlockFeature('researchLab', openLabButton)) return
   setLabMessage()
   openMenuPanel(labPanel, renderResearchLab)
@@ -4666,8 +4767,8 @@ overlay.addEventListener('click', (event) => {
     setActiveMenuButton()
   }
 })
-openBuildingButton.addEventListener('click', (event) => { event.stopPropagation(); if (!tryUnlockFeature('buildingSystem', openBuildingButton)) return; openMenuPanel(buildingPanel, renderBuildings) })
-openWeaponryButton.addEventListener('click', (event) => { event.stopPropagation(); if (started || !tryUnlockFeature('weaponry', openWeaponryButton)) return; openMenuPanel(weaponryPanel, renderWeaponry) })
+openBuildingButton.addEventListener('click', (event) => { event.stopPropagation(); if (savedRound || !tryUnlockFeature('buildingSystem', openBuildingButton)) return; openMenuPanel(buildingPanel, renderBuildings) })
+openWeaponryButton.addEventListener('click', (event) => { event.stopPropagation(); if (savedRound || started || !tryUnlockFeature('weaponry', openWeaponryButton)) return; openMenuPanel(weaponryPanel, renderWeaponry) })
 openEncyclopediaButton.addEventListener('click', (event) => { event.stopPropagation(); openMenuPanel(encyclopediaPanel, renderEncyclopedia) })
 openArtifactsButton.addEventListener('click', (event) => { event.stopPropagation(); openMenuPanel(artifactPanel, renderArtifacts) })
 closeEncyclopediaButton.addEventListener('click', () => { encyclopediaPanel.classList.add('hidden'); menuContent.classList.remove('hidden') })

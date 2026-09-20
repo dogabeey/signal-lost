@@ -5,6 +5,7 @@ export const STORAGE_KEYS = Object.freeze({
   cash: 'asteroid-belt-cash',
   chronoshards: 'asteroid-belt-chronoshards',
   aetherium: 'asteroid-belt-aetherium',
+  aetheriumAdClaimAt: 'asteroid-belt-aetherium-ad-claim-at',
   researchLab: 'asteroid-belt-research-lab',
   savedRound: 'asteroid-belt-saved-round',
   buildings: 'asteroid-belt-buildings',

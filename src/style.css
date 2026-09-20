@@ -59,6 +59,13 @@ button { font: inherit; }
 .aetherium-ad-claim:disabled { cursor:wait; opacity:.55; }
 .aetherium-ad-claim img { height:19px; width:19px; }
 .aetherium-ad-claim .ad-badge { height:19px; width:19px; }
+.debug-reward-screen { align-items:center; background:#fff; color:#18213b; display:flex; flex-direction:column; gap:14px; inset:0; justify-content:center; position:absolute; text-align:center; z-index:100; }
+.debug-reward-screen.hidden { display:none; }
+.debug-reward-screen p { color:#4c5a79; font:800 12px 'Trebuchet MS',Arial,sans-serif; letter-spacing:.14em; margin:0; }
+.debug-reward-screen strong { font:800 clamp(28px,8vw,54px) 'Trebuchet MS',Arial,sans-serif; }
+.debug-reward-screen span { color:#10182d; font:800 72px/1 'Trebuchet MS',Arial,sans-serif; }
+.debug-reward-screen button { background:#63f5cd; box-shadow:4px 4px 0 #276b62; color:#10232b; font-weight:800; }
+.aetherium-fly-token { filter:drop-shadow(0 0 8px rgba(95,235,255,.92)); height:25px; pointer-events:none; position:absolute; width:25px; z-index:101; }
 .cash-indicators { inset: 0; pointer-events: none; position: absolute; z-index: 2; }
 .cash-indicator, .chronoshard-indicator, .aetherium-indicator { animation: cash-gain 800ms ease-out forwards; font-family: 'Trebuchet MS', Arial, sans-serif; font-size: 24px; font-weight: 700; left: 50%; position: absolute; top: 50%; transform: translate(-50%, -50%); }
 .cash-indicator { color: #63f5cd; text-shadow: 0 0 12px #00b487; }
@@ -494,3 +501,4 @@ button:focus-visible { outline: 2px solid #fff4d2; outline-offset: 4px; }
 #open-lab-button.is-unlockable { background: #354865; box-shadow: 4px 4px 0 #202b3d; color: #e2edff; }
 #open-weaponry-button.is-unlockable { background: #623d55; box-shadow: 4px 4px 0 #3a2432; color: #ffe7f2; }
 #open-building-button.is-unlockable { background: #6c4b35; box-shadow: 4px 4px 0 #402c20; color: #fff0d8; }
+#open-lab-button.is-round-locked, #open-weaponry-button.is-round-locked, #open-building-button.is-round-locked { background: #414858; box-shadow: 4px 4px 0 #242936; color: #a7aeba; cursor: not-allowed; filter: grayscale(1); opacity: 0.62; }
