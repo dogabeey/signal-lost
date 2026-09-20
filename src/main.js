@@ -1405,6 +1405,7 @@ function updateAetherium(amount = 0) {
 }
 
 const AETHERIUM_AD_REWARD = 5
+const AETHERIUM_PICKUP_REWARD = 2
 const AETHERIUM_AD_COOLDOWN_MS = 15 * 60 * 1000
 let aetheriumAdClaimInProgress = false
 
@@ -3076,15 +3077,9 @@ function destroyCollectiblesInUltimatePath(start, end, radius) {
 
   for (let index = aetheriumPickups.length - 1; index >= 0; index -= 1) {
     const pickup = aetheriumPickups[index]
-    pickup.rotation.y += delta * 1.7
-    pickup.position.y = GAME.playerStartHeight + Math.sin(total * 3.4 + pickup.userData.phase) * 0.18
-    pickup.userData.ring.rotation.z += delta * 2.5
-    if (pickup.position.distanceTo(player.position) < GAME.cellPickupRadius) {
-      updateAetherium(1)
-      showCurrencyIndicator(pickup.position, '+1 AETHERIUM', 'aetherium-indicator')
-      scene.remove(pickup)
-      aetheriumPickups.splice(index, 1)
-    }
+    if (planarDistanceToSegment(pickup.position, start, end) > radius) continue
+    scene.remove(pickup)
+    aetheriumPickups.splice(index, 1)
   }
 }
 
@@ -3928,6 +3923,19 @@ function updateGame(delta, total) {
       scene.remove(chronoCell)
       chronoCells.splice(index, 1)
     }
+  }
+
+  for (let index = aetheriumPickups.length - 1; index >= 0; index -= 1) {
+    const pickup = aetheriumPickups[index]
+    pickup.rotation.y += delta * 1.7
+    pickup.position.y = GAME.playerStartHeight + Math.sin(total * 3.4 + pickup.userData.phase) * 0.18
+    pickup.userData.ring.rotation.z += delta * 2.5
+    if (pickup.position.distanceTo(player.position) >= GAME.cellPickupRadius) continue
+    soundSystem.playCellCollect(pickup.position)
+    updateAetherium(AETHERIUM_PICKUP_REWARD)
+    showCurrencyIndicator(pickup.position, `+${AETHERIUM_PICKUP_REWARD} AETHERIUM`, 'aetherium-indicator')
+    scene.remove(pickup)
+    aetheriumPickups.splice(index, 1)
   }
 
   updateUltimateEnemies(delta, total)
