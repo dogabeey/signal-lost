@@ -25,3 +25,8 @@ server/.env
 *.njsproj
 *.sln
 *.sw?
+
+*.gradle
+*.zip
+*.tar.gz
+*.rar
