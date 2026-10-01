@@ -36,13 +36,16 @@ import { ARTIFACT_ACHIEVEMENTS, getSteamAchievementStates, unlockSteamAchievemen
 import { getArtifactAsset, getBuildingAsset, getUiIconAsset, getWeaponAsset } from './asset_catalog.js'
 import { DAMAGE_TYPES } from './damage_types.js'
 import { initializeInterstitialAds, showInterstitialAfterPlayerDeath, showRewardedAdForAetherium } from './ad_service.js'
+import { recoverMarketTransaction } from './market/repository.js'
+import { initializeGameMarket, getGameMarket } from './market/game_market.js'
+import { getMarketPanelMarkup, createMarketUI } from './market/ui.js'
 import { clearOnboardingProgress, createOnboarding } from './onboarding.js'
 import './style.css'
+import './market/ui.css'
 
 const IS_STEAM_BUILD = import.meta.env.VITE_STEAM_BUILD === 'true'
 const SHOW_AETHERIUM_AD_CLAIM = import.meta.env.DEV || (!IS_STEAM_BUILD && Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android')
 
-void initializeInterstitialAds()
 
 function getMenuIconMarkup(iconId, fallback) {
   return `<span class="menu-button-icon" aria-hidden="true"><img data-menu-icon src="${getUiIconAsset(iconId)}" alt=""><span class="menu-icon-fallback" hidden>${fallback}</span></span>`
@@ -136,11 +139,13 @@ document.querySelector('#app').innerHTML = `
           ${getSystemMenuButtonMarkup({ id: 'open-lab-button', iconId: 'researchLab', fallback: 'RL', label: t('menu.research_lab') })}
           ${getSystemMenuButtonMarkup({ id: 'open-weaponry-button', iconId: 'weaponry', fallback: 'W', label: t('menu.weaponry') })}
           ${getSystemMenuButtonMarkup({ id: 'open-building-button', iconId: 'buildingSystem', fallback: 'BS', label: t('menu.buildings') })}
+          ${getSystemMenuButtonMarkup({ id: 'open-market-button', iconId: 'market', fallback: 'M', label: t('menu.market') })}
           ${getUtilityMenuButtonMarkup({ id: 'open-encyclopedia-button', iconId: 'encyclopedia', fallback: 'E', label: t('menu.encyclopedia') })}
           ${getUtilityMenuButtonMarkup({ id: 'open-settings-button', iconId: 'settings', fallback: 'S', label: t('menu.settings') })}
           ${getUtilityMenuButtonMarkup({ id: 'open-artifacts-button', iconId: 'artifacts', fallback: 'A', label: t('menu.artifacts') })}
           ${IS_STEAM_BUILD ? `<button class="menu-exit-button" id="exit-game-button" type="button">${t('menu.exit_game')}</button>` : ''}
       </div>
+      ${getMarketPanelMarkup()}
       <section class="milestones-panel hidden" id="milestones-panel" aria-label="Ascension">
         <div class="milestones-header"><div><p class="eyebrow">BEST SINGLE RUN</p><h2>ASCENSION</h2><p>MAX CELLS <strong id="milestone-max-cells">000</strong></p></div><button class="secondary-button" id="close-milestones-button" type="button">BACK</button></div>
         <div class="milestone-sector-nav"><button id="previous-milestone-sector" type="button" aria-label="View previous milestone sector">‹</button><strong id="milestone-sector-label">SECTOR I</strong><button id="next-milestone-sector" type="button" aria-label="View next milestone sector">›</button></div>
@@ -203,6 +208,9 @@ const anomalyTimeWarning = document.querySelector('#anomaly-time-warning')
 const confirmAnomalyRunButton = document.querySelector('#confirm-anomaly-run')
 const cancelAnomalyRunButton = document.querySelector('#cancel-anomaly-run')
 const menuContent = document.querySelector('#menu-content')
+const marketPanel = document.querySelector('#market-panel')
+const openMarketButton = document.querySelector('#open-market-button')
+const marketUI = createMarketUI({ panel: marketPanel, getMarket: getGameMarket, artifacts: ARTIFACT_CONFIG.artifacts })
 const openMilestonesButton = document.querySelector('#open-milestones-button')
 const milestonesPanel = document.querySelector('#milestones-panel')
 const closeMilestonesButton = document.querySelector('#close-milestones-button')
@@ -612,7 +620,9 @@ const SAVE_SLOT_KEY = 'asteroid-belt-active-save-slot'
 const SAVE_SLOT_SESSION_KEY = 'asteroid-belt-save-slot-session'
 const STEAM_CLOUD_SESSION_KEY = 'asteroid-belt-steam-cloud-synced-v1'
 const SAVE_SLOT_COUNT = 3
+recoverMarketTransaction(localStorage)
 migrateLegacyStorage()
+void initializeInterstitialAds()
 const activeSaveSlot = IS_STEAM_BUILD ? Math.min(SAVE_SLOT_COUNT, Math.max(1, Number.parseInt(localStorage.getItem(SAVE_SLOT_KEY) ?? '1', 10) || 1)) : 1
 const slotStoragePrefix = IS_STEAM_BUILD ? `asteroid-belt-slot-${activeSaveSlot}-` : ''
 const slotStorageKeys = IS_STEAM_BUILD ? Object.fromEntries(Object.entries(STORAGE_KEYS).map(([name, key]) => [name, `${slotStoragePrefix}${key.replace('asteroid-belt-', '')}`])) : STORAGE_KEYS
@@ -4653,6 +4663,7 @@ cancelAnomalyRunButton.addEventListener('click', () => anomalyRunModal.classList
 confirmAnomalyRunButton.addEventListener('click', () => startRound(true))
 
 function hideMenuPanels() {
+  marketPanel.classList.add('hidden')
   labPanel.classList.add('hidden')
   buildingPanel.classList.add('hidden')
   buildingDraftModal.classList.add('hidden')
@@ -4670,6 +4681,7 @@ function hideMenuPanels() {
 }
 
 const menuPanelButtons = new Map([
+  [marketPanel, openMarketButton],
   [labPanel, openLabButton],
   [buildingPanel, openBuildingButton],
   [weaponryPanel, openWeaponryButton],
@@ -4700,6 +4712,11 @@ homeButton.addEventListener('click', (event) => {
   event.stopPropagation()
   closeMenuPanelsForHome()
 })
+openMarketButton.addEventListener('click', (event) => {
+  event.stopPropagation()
+  openMenuPanel(marketPanel, marketUI.open)
+})
+document.querySelector('#close-market-button').addEventListener('click', closeMenuPanelsForHome)
 
 openLabButton.addEventListener('click', (event) => {
   event.stopPropagation()
@@ -5121,6 +5138,29 @@ function uploadSaveSlotsToSteamCloud() {
   if (!IS_STEAM_BUILD || !window.steamShell?.writeSaveSlotsToCloud) return
   window.steamShell.writeSaveSlotsToCloud(JSON.stringify({ version: 1, slots: getAllSaveSlotData() })).catch((error) => console.warn('[Steamworks] cloud slot upload failed:', error))
 }
+
+initializeGameMarket({
+  storage: localStorage,
+  currencyKeys: { cash: CASH_STORAGE_KEY, chronoshards: CHRONOSHARDS_STORAGE_KEY, aetherium: AETHERIUM_STORAGE_KEY },
+  artifactsKey: ARTIFACTS_STORAGE_KEY,
+  artifacts: ARTIFACT_CONFIG.artifacts,
+  scope: `slot-${activeSaveSlot}`,
+  onCommit(state) {
+    cash = state.balances.cash
+    chronoshards = state.balances.chronoshards
+    aetherium = state.balances.aetherium
+    artifactState = state.artifacts
+    // Refresh exact balances: purchased Chronoshards must not gain Dark Core bonuses.
+    updateCash()
+    updateChronoshards()
+    updateAetherium()
+    renderArtifacts()
+    renderWeaponry()
+    applyDifficulty()
+    syncBuildings()
+    if (!marketPanel.classList.contains('hidden')) marketUI.render()
+  },
+})
 
 applyDifficulty()
 syncBuildings()

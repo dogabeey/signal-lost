@@ -14,6 +14,7 @@ dist-ssr
 *.local
 .env
 server/.env
+server/market/*.sqlite*
 
 # Editor directories and files
 .vscode/*

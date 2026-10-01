@@ -5,6 +5,9 @@
   "type": "module",
   "main": "electron/main.js",
   "scripts": {
+    "test:market": "node --test tests/market.test.js tests/market_google_play.test.js",
+    "test:market:ui": "node tests/market_ui.smoke.mjs",
+    "market:server": "node server/market/server.js",
     "dev": "vite",
     "build": "vite build && powershell -NoProfile -Command \"Remove-Item -LiteralPath 'dist.zip' -Force -ErrorAction SilentlyContinue; tar.exe -a -c -f dist.zip -C dist .\"",
     "build:steam:web": "powershell -NoProfile -Command \"$env:VITE_STEAM_BUILD='true'; vite build\"",
@@ -62,6 +65,8 @@
     "@capacitor-community/admob": "^8.1.0",
     "@capacitor/android": "^8.5.2",
     "@capacitor/core": "^8.5.2",
+    "capacitor-plugin-cdv-purchase": "^13.18.0",
+    "google-auth-library": "^11.1.0",
     "steamworks.js": "^0.4.0",
     "three": "^0.185.1",
     "three.quarks": "^0.17.1"

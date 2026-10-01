@@ -1,5 +1,6 @@
 import { AdMob } from '@capacitor-community/admob'
 import { Capacitor } from '@capacitor/core'
+import { hasMarketEntitlement } from './market/repository.js'
 
 // Google's official Android/iOS interstitial test unit. Replace this with the
 // production ad unit from AdMob before publishing the mobile build.
@@ -13,7 +14,7 @@ let isLoaded = false
 let isShowing = false
 
 async function prepareInterstitial() {
-  if (!isNativeAdPlatform || !isInitialized || isLoading || isLoaded || isShowing) return false
+  if (hasMarketEntitlement('remove-ads') || !isNativeAdPlatform || !isInitialized || isLoading || isLoaded || isShowing) return false
   isLoading = true
   try {
     await AdMob.prepareInterstitial({ adId: INTERSTITIAL_AD_UNIT_ID })
@@ -44,7 +45,7 @@ export async function initializeInterstitialAds() {
 }
 
 export async function showInterstitialAfterPlayerDeath() {
-  if (!isNativeAdPlatform || !isInitialized || !isLoaded || isShowing) return false
+  if (hasMarketEntitlement('remove-ads') || !isNativeAdPlatform || !isInitialized || !isLoaded || isShowing) return false
   isShowing = true
   isLoaded = false
   try {

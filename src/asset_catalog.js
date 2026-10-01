@@ -32,6 +32,9 @@ const uiIconAssets = {
   pause: publicAsset('ui/pause.svg'),
   aetherium: publicAsset('ui/aetherium.svg'),
   adReward: publicAsset('ui/ad-reward.svg'),
+  market: publicAsset('ui/market.svg'),
+  chronoshards: publicAsset('ui/chronoshards.svg'),
+  marketSpecial: publicAsset('ui/market-special.svg'),
 }
 
 export function getArtifactAsset(icon) {
