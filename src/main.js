@@ -219,6 +219,8 @@ const marketUI = createMarketUI({ panel: marketPanel, getMarket: getGameMarket, 
 let dailyMissions
 let dailyMissionsUI
 let missionPlayAccumulator = 0
+let missionRoundId = crypto.randomUUID()
+let missionFrameTotals = { travelDistance: 0, playSeconds: 0, stationarySeconds: 0, rangedSeconds: 0 }
 let missionsPreviousPaused = false
 const openMilestonesButton = document.querySelector('#open-milestones-button')
 const milestonesPanel = document.querySelector('#milestones-panel')
@@ -1984,6 +1986,7 @@ function buyWeapons(quantity) {
   saveWeaponState()
   renderWeaponry()
   renderWeaponReveal()
+  if (!sandboxState) dailyMissions?.record('weaponCards', quantity)
 }
 function continueWeaponReveal() {
   if (weaponRevealIndex < weaponRevealQueue.length - 1) {
@@ -2605,6 +2608,7 @@ function placeBuildingAt(x, z) {
   updateCash(-cost)
   const building = { id: crypto.randomUUID(), type: selectedBuildingType, x, z, upgrades: {}, spent: cost }
   buildingState.placed.push(building); saveBuildings(); createBuildingMesh(building); renderBuildings()
+  if (!sandboxState) dailyMissions?.record('buildingActions')
 }
 function renderBuildings() {
   enterBuildModeButton.disabled = started
@@ -2991,8 +2995,14 @@ function resolveObstacleCollisions() {
 
         const firstType = OBSTACLE_TYPES[first.userData.type]
         const secondType = OBSTACLE_TYPES[second.userData.type]
-        if (first.userData.type === 'creeper' && secondType.speed === 0) first.userData.staticCollisionSlow = GAME.creeperStaticCollisionSlowDuration
-        if (second.userData.type === 'creeper' && firstType.speed === 0) second.userData.staticCollisionSlow = GAME.creeperStaticCollisionSlowDuration
+        if (first.userData.type === 'creeper' && secondType.speed === 0) {
+          first.userData.staticCollisionSlow = GAME.creeperStaticCollisionSlowDuration
+          if (!sandboxState && second.userData.type === 'regular') dailyMissions?.record('slowedCreepers', 1, first.userData.id)
+        }
+        if (second.userData.type === 'creeper' && firstType.speed === 0) {
+          second.userData.staticCollisionSlow = GAME.creeperStaticCollisionSlowDuration
+          if (!sandboxState && first.userData.type === 'regular') dailyMissions?.record('slowedCreepers', 1, second.userData.id)
+        }
 
         const distance = Math.sqrt(distanceSquared)
         const normalX = distance > 0.001 ? offsetX / distance : (firstIndex + secondIndex) % 2 ? 1 : -1
@@ -3054,7 +3064,7 @@ function createFallingObstacle(target, savedObstacle, type = savedObstacle?.type
   targetRing.position.set(target.x, 0.03, target.z)
 
   scene.add(obstacle, shadow, targetRing)
-  fallingObstacles.push({ obstacle, shadow, targetRing, target: target.clone(), type, age: savedObstacle?.age ?? 0, landed: savedObstacle?.landed ?? false, impactTriggered: savedObstacle?.impactTriggered ?? false })
+  fallingObstacles.push({ id: savedObstacle?.id ?? crypto.randomUUID(), missionThreatened: savedObstacle?.missionThreatened ?? false, obstacle, shadow, targetRing, target: target.clone(), type, age: savedObstacle?.age ?? 0, landed: savedObstacle?.landed ?? false, impactTriggered: savedObstacle?.impactTriggered ?? false })
   if (!savedObstacle) soundSystem.playFallingObstacle(target)
 }
 
@@ -3418,6 +3428,9 @@ function resetGame(populateArena = true) {
   orbitalArc.visible = false
   score = 0
   elapsed = 0
+  missionRoundId = crypto.randomUUID()
+  missionPlayAccumulator = 0
+  missionFrameTotals = { travelDistance: 0, playSeconds: 0, stationarySeconds: 0, rangedSeconds: 0 }
   spawnTimer = 0
   chronoCellTimer = 0
   aetheriumSpawnTimer = 0
@@ -3476,6 +3489,7 @@ function saveCurrentRound() {
     playerHeading: player.rotation.y,
     score,
     elapsed,
+    missionRoundId,
     spawnTimer,
     chronoCellTimer,
     aetheriumSpawnTimer,
@@ -3498,7 +3512,7 @@ function saveCurrentRound() {
     obstacles: obstacles.map((obstacle) => ({ id: obstacle.userData.id, position: serializePosition(obstacle.position), type: obstacle.userData.type, age: obstacle.userData.age, lifetimeAge: obstacle.userData.lifetimeAge, speed: obstacle.userData.speed, pulseTimer: obstacle.userData.pulseTimer, shotCooldown: obstacle.userData.shotCooldown, teleportTimer: obstacle.userData.teleportTimer, poisonTrailTimer: obstacle.userData.poisonTrailTimer, teleportTarget: obstacle.userData.teleportTarget && serializePosition(obstacle.userData.teleportTarget), magnetPulsePhase: obstacle.userData.magnetPulsePhase, electronStunnedOnce: obstacle.userData.electronStunnedOnce })),
     spores: spores.map((entry) => ({ position: serializePosition(entry.spore.position), direction: serializePosition(entry.direction), generation: entry.generation, age: entry.age })),
     shooterProjectiles: shooterProjectiles.map((projectile) => ({ position: serializePosition(projectile.projectile.position), direction: serializePosition(projectile.direction), age: projectile.age, distanceTravelled: projectile.distanceTravelled, maxRange: projectile.maxRange, targetTower: Boolean(projectile.targetTower) })),
-    fallingObstacles: fallingObstacles.map((fallingObstacle) => ({ target: serializePosition(fallingObstacle.target), type: fallingObstacle.type, age: fallingObstacle.age, landed: fallingObstacle.landed, impactTriggered: fallingObstacle.impactTriggered })),
+    fallingObstacles: fallingObstacles.map((fallingObstacle) => ({ id: fallingObstacle.id, missionThreatened: fallingObstacle.missionThreatened, target: serializePosition(fallingObstacle.target), type: fallingObstacle.type, age: fallingObstacle.age, landed: fallingObstacle.landed, impactTriggered: fallingObstacle.impactTriggered })),
     fireHazards: fireHazards.map((fireHazard) => ({ position: serializePosition(fireHazard.position), age: fireHazard.age })),
     poisonTrails: poisonTrails.map((poisonTrail) => ({ position: serializePosition(poisonTrail.position), age: poisonTrail.age })),
     splinterPieces: splinterPieces.map((entry) => ({ position: serializePosition(entry.piece.position), direction: serializePosition(entry.direction), age: entry.age })),
@@ -3529,6 +3543,7 @@ function restoreSavedRound() {
   playerTargetHeading = player.rotation.y
   score = savedRound.score ?? 0
   elapsed = savedRound.elapsed ?? 0
+  missionRoundId = savedRound.missionRoundId ?? crypto.randomUUID()
   spawnTimer = savedRound.spawnTimer ?? 0
   chronoCellTimer = savedRound.chronoCellTimer ?? 0
   aetheriumSpawnTimer = savedRound.aetheriumSpawnTimer ?? 0
@@ -3767,6 +3782,8 @@ function getEffectivePlayerSpeed() {
 }
 
 function updateGame(delta, total) {
+  const missionStartX = player.position.x
+  const missionStartZ = player.position.z
   for (const state of playerDamageStates.values()) state.exposed = false
   const difficulty = getCurrentDifficulty()
   const anomalyDifficultyMultiplier = isTowerDefenseRun() ? (getActiveAnomalyChallenge()?.difficultyMultiplier ?? 1) : 1
@@ -4132,6 +4149,7 @@ function updateGame(delta, total) {
       for (const material of obstacle.userData.creeperTipMaterials ?? []) material.emissiveIntensity = tipPulse
     }
     if (obstacle.userData.type === 'banger') {
+      if (!sandboxState) dailyMissions?.observeBomber(obstacle.userData.id, playerOffset.length() <= effectiveRange, obstacle.userData.age < ENTITIES.bangerFuseDuration)
       obstacle.userData.age += delta * obstacleSpeedMultiplier
       const fuseProgress = Math.min(obstacle.userData.age / ENTITIES.bangerFuseDuration, 1)
       const fusePulse = (Math.sin(obstacle.userData.age * ANIMATION.bangerFusePulseSpeed) + 1) / 2
@@ -4368,6 +4386,7 @@ function updateGame(delta, total) {
     fallingObstacle.targetRing.material.opacity = ANIMATION.targetRingBaseOpacity - progress * ANIMATION.targetRingOpacityFade
 
     const horizontalDistance = player.position.distanceTo(fallingObstacle.target)
+    if (!fallingObstacle.landed && progress < 0.82 && horizontalDistance <= GAME.playerRadius + 0.3) fallingObstacle.missionThreatened = true
     if (!fallingObstacle.landed && progress > 0.82 && horizontalDistance < GAME.playerRadius) {
       if (fallingObstacle.type === 'fieryRock') applyPlayerStatusDamage('fire', 'fiery-rock-impact')
       else endGame('METEOR IMPACT')
@@ -4376,6 +4395,7 @@ function updateGame(delta, total) {
     if (progress === 1) {
       fallingObstacle.landed = true
       if (!fallingObstacle.impactTriggered) {
+        if (!sandboxState && started && fallingObstacle.missionThreatened && horizontalDistance >= GAME.playerRadius) dailyMissions?.record('dodgedMeteors', 1, fallingObstacle.id)
         fallingObstacle.impactTriggered = true
         const impact = createFallingRockImpactVisual(fallingObstacle.target, 0.9, FALLING_ROCK_TYPES[fallingObstacle.type].color)
         scene.add(...impact.emitters)
@@ -4514,11 +4534,20 @@ function updateGame(delta, total) {
 
   elapsed += delta
   if (started && !sandboxState) {
+    const travelled = Math.hypot(player.position.x - missionStartX, player.position.z - missionStartZ)
+    const inRangedRange = obstacles.some((enemy) => enemy.userData.type === 'shooter' && planarDistance(player.position, enemy.position) <= getEffectiveEnemyRange('shooter', OBSTACLE_TYPES.shooter.range))
+    missionFrameTotals.travelDistance += travelled
+    missionFrameTotals.playSeconds += delta
+    if (travelled <= 0.0001) missionFrameTotals.stationarySeconds += delta
+    if (inRangedRange) missionFrameTotals.rangedSeconds += delta
     missionPlayAccumulator += delta
     if (missionPlayAccumulator >= 1) {
-      const seconds = Math.floor(missionPlayAccumulator)
-      missionPlayAccumulator -= seconds
-      dailyMissions?.record('playSeconds', seconds)
+      dailyMissions?.recordBatch([
+        ...Object.entries(missionFrameTotals).map(([metric, amount]) => ({ metric, amount })),
+        { metric: 'roundSeconds', amount: missionFrameTotals.playSeconds, eventId: missionRoundId },
+      ])
+      missionPlayAccumulator = 0
+      missionFrameTotals = { travelDistance: 0, playSeconds: 0, stationarySeconds: 0, rangedSeconds: 0 }
     }
   }
   updateHud()
@@ -4850,7 +4879,7 @@ exitBuildModeButton.addEventListener('click', exitBuildMode)
 buildingDraftModal.addEventListener('click', (event) => { const button = event.target.closest('[data-building-offer]'); if (button) unlockBuildingOffer(button.dataset.buildingOffer) })
 buildBar.addEventListener('click', (event) => { const button = event.target.closest('[data-select-building]'); if (!button) return; selectedBuildingType = button.dataset.selectBuilding; renderBuildings() })
 buildGridUi.addEventListener('click', (event) => { if (buildNavigationClickSuppressed) { buildNavigationClickSuppressed = false; return } const button = event.target.closest('[data-build-x]'); if (button) placeBuildingAt(Number(button.dataset.buildX), Number(button.dataset.buildZ)) })
-buildingUpgrade.addEventListener('click', (event) => { const upgrade = event.target.closest('[data-upgrade-building]'); const destroy = event.target.closest('[data-destroy-building]'); if (event.target.closest('[data-close-building-upgrade]')) { buildingUpgrade.classList.add('hidden'); return } if (destroy) { const building = buildingState.placed.find((entry) => entry.id === destroy.dataset.destroyBuilding); if (!building || !window.confirm(t('building.demolish_confirm', { building: BUILDING_CONFIG.types[building.type].name, refund: formatCompactNumber(getBuildingRefund(building)) }))) return; updateCash(getBuildingRefund(building)); buildingState.placed = buildingState.placed.filter((entry) => entry.id !== building.id); saveBuildings(); syncBuildings(); renderBuildings(); buildingUpgrade.classList.add('hidden'); return } if (upgrade) { const building = buildingState.placed.find((entry) => entry.id === upgrade.dataset.upgradeBuilding); if (!building) return; const cost = getBuildingUpgradeCost(building, upgrade.dataset.upgradeKey); if (cash < cost) return; updateCash(-cost); building.upgrades[upgrade.dataset.upgradeKey] = (building.upgrades[upgrade.dataset.upgradeKey] ?? 0) + 1; building.spent = (building.spent ?? BUILDING_CONFIG.types[building.type].baseCost) + cost; saveBuildings(); syncBuildings(); openBuildingUpgrade(building) } })
+buildingUpgrade.addEventListener('click', (event) => { const upgrade = event.target.closest('[data-upgrade-building]'); const destroy = event.target.closest('[data-destroy-building]'); if (event.target.closest('[data-close-building-upgrade]')) { buildingUpgrade.classList.add('hidden'); return } if (destroy) { const building = buildingState.placed.find((entry) => entry.id === destroy.dataset.destroyBuilding); if (!building || !window.confirm(t('building.demolish_confirm', { building: BUILDING_CONFIG.types[building.type].name, refund: formatCompactNumber(getBuildingRefund(building)) }))) return; updateCash(getBuildingRefund(building)); buildingState.placed = buildingState.placed.filter((entry) => entry.id !== building.id); saveBuildings(); syncBuildings(); renderBuildings(); buildingUpgrade.classList.add('hidden'); return } if (upgrade) { const building = buildingState.placed.find((entry) => entry.id === upgrade.dataset.upgradeBuilding); if (!building) return; const cost = getBuildingUpgradeCost(building, upgrade.dataset.upgradeKey); if (cash < cost) return; updateCash(-cost); building.upgrades[upgrade.dataset.upgradeKey] = (building.upgrades[upgrade.dataset.upgradeKey] ?? 0) + 1; building.spent = (building.spent ?? BUILDING_CONFIG.types[building.type].baseCost) + cost; saveBuildings(); syncBuildings(); openBuildingUpgrade(building); if (!sandboxState) dailyMissions?.record('buildingActions') } })
 
 labPanel.addEventListener('click', (event) => {
   const categoryToggle = event.target.closest('[data-toggle-research-category]')

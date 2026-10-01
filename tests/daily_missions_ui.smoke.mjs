@@ -16,6 +16,7 @@ try {
   await page.goto(url, { waitUntil: 'networkidle' })
   assert.equal(await page.locator('#missions-badge').textContent(), '3')
   const debug = async (command) => {
+    await page.evaluate(() => document.activeElement?.blur())
     await page.keyboard.press('"')
     await page.locator('#cheat-input').fill(command)
     await page.locator('#cheat-input').press('Enter')

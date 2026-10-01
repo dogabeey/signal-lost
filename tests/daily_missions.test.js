@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { createDailyMissions, createMissionRepository, getMissionReward, missionCalendar } from '../src/daily_missions.js'
+import { createDailyMissions, createMissionRepository, getMissionReward, missionCalendar, MISSION_TEMPLATES } from '../src/daily_missions.js'
 import { MARKET_JOURNAL_KEY } from '../src/market/repository.js'
 
 class MemoryStorage {
@@ -61,29 +61,30 @@ test('missed days catch up only to capacity and preserve unfinished progress', (
   setTime(Date.parse('2026-10-15T00:00:00+03:00'))
   service.refresh()
   assert.equal(service.getState().missions.length, 9)
-  assert.equal(service.getState().missions[0].progress, 5)
+  assert.equal(service.getState().missions[1].progress, 5)
 })
 test('new and completed notification counts form a union and disappear after seeing/claiming', () => {
   const { service } = setup()
   assert.equal(service.getNotificationCount(), 3)
-  service.record('cells', 20)
+  service.record('cells', 100)
   assert.equal(service.getNotificationCount(), 3)
   service.markSeen()
   assert.equal(service.getNotificationCount(), 1)
-  service.claimMission(service.getState().missions[0].id)
+  service.claimMission(service.getState().missions[1].id)
   assert.equal(service.getNotificationCount(), 0)
 })
 test('progress is capped, completion counts once and unknown metrics do nothing', () => {
   const { service } = setup()
-  service.record('cells', 20)
+  service.record('cells', 100)
   assert.equal(service.getState().weekly.completed, 1)
-  service.record('cells', 1000)
+  service.record('travelDistance', 300)
+  service.record('dodgedMeteors', 20)
   assert.equal(service.getState().weekly.completed, 3)
   service.record('cells', 1000)
   service.record('unknown', 1000)
   service.record('cells', -1)
   assert.equal(service.getState().weekly.completed, 3)
-  assert.equal(service.getState().missions[0].progress, 20)
+  assert.equal(service.getState().missions[1].progress, 100)
 })
 test('each claim gives exactly 5 Aetherium and 5 + 3 per advanced tier Chronoshards', () => {
   const { service, storage, setTier } = setup()
@@ -144,14 +145,67 @@ test('partial reward write recovers exactly once, including retry without reload
   assert.equal(storage.getItem('chronoshards'), '5')
   assert.equal(storage.getItem(MARKET_JOURNAL_KEY), null)
 })
-test('play time missions advance from recorded active seconds', () => {
-  const { service } = setup()
-  service.triggerMidnight(); service.triggerMidnight()
-  for (const mission of service.getState().missions) service.completeRandom()
-  for (const mission of service.getState().missions) service.claimMission(mission.id)
-  // Cell/collect objectives free up first, so pick time tasks through persisted fixture.
-  const repository = { read: () => ({ version: 1, lastDay: missionCalendar(Date.now()).day, serial: 1, weekly: { week: missionCalendar(Date.now()).week, completed: 0, claimed: false }, missions: [{ id: 'time', templateId: 'play-120', metric: 'playSeconds', target: 120, progress: 0, isNew: false, completedWeek: null }] }), commit() {} }
-  const timer = createDailyMissions({ repository })
-  timer.record('playSeconds', 120)
-  assert.equal(timer.getState().weekly.completed, 1)
+
+function fixture(metric) {
+  const calendar = missionCalendar(Date.now())
+  const template = MISSION_TEMPLATES.find((item) => item.metric === metric)
+  let saved = { version: 1, lastDay: calendar.day, serial: 1, weekly: { week: calendar.week, completed: 0, claimed: false }, missions: [{ id: 'task', templateId: template.id, metric, target: template.target, progress: 0, isNew: false, completedWeek: null }] }
+  const make = () => createDailyMissions({ repository: { read: () => structuredClone(saved), commit(next) { saved = structuredClone(next) } } })
+  return { service: make(), reload: make }
+}
+test('pool contains exactly the twelve requested goals', () => {
+  assert.deepEqual(MISSION_TEMPLATES.map((m) => m.target), [300,100,20,600,3,180,10,3,5,90,1,1])
+})
+test('active time and fractional progress persist and cap', () => {
+  for (const metric of ['playSeconds','stationarySeconds','rangedSeconds','travelDistance']) {
+    const { service, reload } = fixture(metric)
+    service.record(metric, 0.5)
+    assert.equal(reload().getState().missions[0].progress, 0.5)
+    service.record(metric, 1000)
+    assert.equal(service.getState().weekly.completed, 1)
+  }
+})
+test('distinct creepers count once even after reload', () => {
+  const {service, reload} = fixture('slowedCreepers')
+  service.record('slowedCreepers', 1, 'a')
+  const resumed = reload()
+  resumed.record('slowedCreepers', 1, 'a')
+  assert.equal(resumed.getState().missions[0].progress, 1)
+  for(let i=0;i<9;i++) resumed.record('slowedCreepers',1,String(i))
+  assert.equal(resumed.getState().weekly.completed,1)
+})
+test('bomber escapes require prior entry, a live fuse, and distinct enemies', () => {
+  const {service,reload}=fixture('bomberEscapes')
+  service.observeBomber('a',false)
+  service.observeBomber('a',true)
+  const resumed=reload()
+  resumed.observeBomber('a',false)
+  resumed.observeBomber('a',true); resumed.observeBomber('a',false)
+  resumed.observeBomber('expired',true); resumed.observeBomber('expired',false,false)
+  assert.equal(resumed.getState().missions[0].progress,1)
+  for(const id of ['b','c']) {resumed.observeBomber(id,true);resumed.observeBomber(id,false)}
+  assert.equal(resumed.getState().weekly.completed,1)
+})
+test('three rounds each need 120 seconds and continuations never count twice', () => {
+  const {service,reload}=fixture('longRounds')
+  service.record('roundSeconds',119,'a')
+  assert.equal(service.getState().missions[0].progress,0)
+  const resumed=reload()
+  resumed.record('roundSeconds',1,'a'); resumed.record('roundSeconds',120,'a')
+  assert.equal(resumed.getState().missions[0].progress,1)
+  resumed.record('roundSeconds',119,'short')
+  resumed.record('roundSeconds',1,'b')
+  assert.equal(resumed.getState().missions[0].progress,1)
+  resumed.record('roundSeconds',119,'b');resumed.record('roundSeconds',120,'c')
+  assert.equal(resumed.getState().weekly.completed,1)
+})
+test('obsolete test tasks are replaced without losing earned weekly credit', () => {
+  const {storage,reload}=setup()
+  const saved=JSON.parse(storage.getItem('missions'))
+  saved.missions[0].templateId='cells-20';saved.weekly.completed=4
+  storage.setItem('missions',JSON.stringify(saved))
+  const next=reload().getState()
+  assert.equal(next.missions.length,3)
+  assert.equal(next.weekly.completed,4)
+  assert.ok(next.missions.every((m)=>MISSION_TEMPLATES.some((t)=>t.id===m.templateId)))
 })

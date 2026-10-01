@@ -7,18 +7,18 @@ const DAY = 86400000
 const ISTANBUL_OFFSET = 3 * 3600000 // Europe/Istanbul: UTC+03, no daylight saving.
 
 export const MISSION_TEMPLATES = [
-  { id: 'cells-20', metric: 'cells', target: 20 },
-  { id: 'cells-40', metric: 'cells', target: 40 },
-  { id: 'cells-60', metric: 'cells', target: 60 },
-  { id: 'chrono-2', metric: 'chronoPickups', target: 2 },
-  { id: 'chrono-4', metric: 'chronoPickups', target: 4 },
-  { id: 'chrono-6', metric: 'chronoPickups', target: 6 },
-  { id: 'aetherium-1', metric: 'aetheriumPickups', target: 1 },
-  { id: 'aetherium-2', metric: 'aetheriumPickups', target: 2 },
-  { id: 'aetherium-3', metric: 'aetheriumPickups', target: 3 },
-  { id: 'play-120', metric: 'playSeconds', target: 120 },
-  { id: 'play-300', metric: 'playSeconds', target: 300 },
-  { id: 'play-600', metric: 'playSeconds', target: 600 },
+  { id: 'travel-300', metric: 'travelDistance', target: 300 },
+  { id: 'cells-100', metric: 'cells', target: 100 },
+  { id: 'meteors-20', metric: 'dodgedMeteors', target: 20 },
+  { id: 'survive-600', metric: 'playSeconds', target: 600 },
+  { id: 'rounds-3', metric: 'longRounds', target: 3 },
+  { id: 'stationary-180', metric: 'stationarySeconds', target: 180 },
+  { id: 'creepers-10', metric: 'slowedCreepers', target: 10 },
+  { id: 'bombers-3', metric: 'bomberEscapes', target: 3 },
+  { id: 'chrono-5', metric: 'chronoPickups', target: 5 },
+  { id: 'ranged-90', metric: 'rangedSeconds', target: 90 },
+  { id: 'building-1', metric: 'buildingActions', target: 1 },
+  { id: 'weapon-1', metric: 'weaponCards', target: 1 },
 ]
 
 export function missionCalendar(now) {
@@ -92,6 +92,14 @@ export function createDailyMissions({ repository, now = Date.now, random = Math.
       const calendar = missionCalendar(now())
       const next = structuredClone(state)
       let changed = false
+      // Replace obsolete test tasks without manufacturing progress or altering earned weekly credit.
+      const validIds = new Set(MISSION_TEMPLATES.map((template) => template.id))
+      const obsoleteCount = next.missions.filter((mission) => !validIds.has(mission.templateId)).length
+      if (obsoleteCount) {
+        next.missions = next.missions.filter((mission) => validIds.has(mission.templateId))
+        generate(next, obsoleteCount)
+        changed = true
+      }
       if (next.weekly.week === null || calendar.week > next.weekly.week) {
         next.weekly = { week: calendar.week, completed: 0, claimed: false }
         changed = true
@@ -116,16 +124,59 @@ export function createDailyMissions({ repository, now = Date.now, random = Math.
       for (const mission of next.missions) mission.isNew = false
       commit(next)
     },
-    record(metric, amount = 1) {
-      if (!Number.isFinite(amount) || amount <= 0) return
+    record(metric, amount = 1, eventId) { service.recordBatch([{ metric, amount, eventId }]) },
+    recordBatch(events) {
+      if (!state.missions.some((mission) => mission.progress < mission.target && events.some((event) => event.metric === mission.metric || event.metric === 'roundSeconds' && mission.metric === 'longRounds'))) return
       service.refresh()
       const next = structuredClone(state)
       let changed = false
       for (const mission of next.missions) {
-        if (mission.metric !== metric || mission.progress >= mission.target) continue
-        mission.progress = Math.min(mission.target, mission.progress + amount)
-        complete(next, mission)
-        changed = true
+        if (mission.progress >= mission.target) continue
+        for (const event of events) {
+          if (!Number.isFinite(event.amount) || event.amount <= 0) continue
+          if (event.metric === 'roundSeconds' && mission.metric === 'longRounds') {
+            if (!event.eventId || mission.uniqueEvents?.includes(event.eventId)) continue
+            if (mission.roundId !== event.eventId) { mission.roundId = event.eventId; mission.roundSeconds = 0 }
+            mission.roundSeconds += event.amount
+            changed = true
+            if (mission.roundSeconds < 120 - 1e-7) continue
+            mission.uniqueEvents ??= []
+            mission.uniqueEvents.push(event.eventId)
+            mission.progress++
+          } else {
+            if (mission.metric !== event.metric) continue
+            if (event.eventId) {
+              mission.uniqueEvents ??= []
+              if (mission.uniqueEvents.includes(event.eventId)) continue
+              mission.uniqueEvents.push(event.eventId)
+            }
+            mission.progress = Math.min(mission.target, mission.progress + event.amount)
+            changed = true
+          }
+          complete(next, mission)
+        }
+      }
+      if (changed) commit(next)
+    },
+    observeBomber(id, inside, canEscape = true) {
+      if (!state.missions.some((mission) => mission.metric === 'bomberEscapes' && mission.progress < mission.target && !mission.uniqueEvents?.includes(id) && Boolean(mission.enteredBombers?.includes(id)) !== inside)) return
+      service.refresh()
+      const next = structuredClone(state)
+      let changed = false
+      for (const mission of next.missions) {
+        if (mission.metric !== 'bomberEscapes' || mission.progress >= mission.target || mission.uniqueEvents?.includes(id)) continue
+        mission.enteredBombers ??= []
+        if (inside && !mission.enteredBombers.includes(id)) { mission.enteredBombers.push(id); changed = true }
+        if (!inside && mission.enteredBombers.includes(id)) {
+          mission.enteredBombers = mission.enteredBombers.filter((entry) => entry !== id)
+          if (canEscape) {
+            mission.uniqueEvents ??= []
+            mission.uniqueEvents.push(id)
+            mission.progress++
+            complete(next, mission)
+          }
+          changed = true
+        }
       }
       if (changed) commit(next)
     },

@@ -5,7 +5,7 @@
 .missions-badge[hidden] { display: none; }
 .daily-missions-overlay { position: fixed; inset: 0; z-index: 70; display: grid; place-items: center; padding: 24px; background: #060d18b8; backdrop-filter: blur(5px); }
 .daily-missions-overlay.hidden { display: none; }
-.daily-missions-panel { display: flex; flex-direction: column; width: min(100%, 650px); max-height: calc(100svh - 48px); overflow: hidden; background: #181a32; border: 1px solid #8e7ec2; box-shadow: 0 20px 100px #0008; color: #f2f0ff; font-family: 'Trebuchet MS', Arial, sans-serif; }
+.daily-missions-panel { display: flex; flex-direction: column; width: min(100%, 650px); height: calc(100svh - 48px); max-height: calc(100svh - 48px); overflow: hidden; background: #181a32; border: 1px solid #8e7ec2; box-shadow: 0 20px 100px #0008; color: #f2f0ff; font-family: 'Trebuchet MS', Arial, sans-serif; }
 .missions-header { position: relative; flex-shrink: 0; padding: 20px 24px 16px; background: #3b3569; }
 .missions-header h2 { margin: 15px 0 0; font: 900 25px/1.2 'Trebuchet MS', Arial, sans-serif; letter-spacing: .02em; }
 .missions-balances { display: flex; gap: 24px; padding-right: 48px; }
@@ -13,23 +13,23 @@
 .missions-balances img { width: 25px; height: 25px; }
 .missions-balances b { font-size: 19px; }
 .missions-close { position: absolute; right: 18px; top: 17px; width: 35px; height: 35px; padding: 0; font-size: 28px; line-height: 1; background: transparent; box-shadow: none; color: #fff; }
-.missions-weekly { flex-shrink: 0; padding: 14px 24px 16px; background: radial-gradient(ellipse at 65% 70%, #5c3c9766, transparent 70%), #272352; }
+.missions-weekly { box-sizing: border-box; flex: 0 0 20svh; height: 20svh; min-height: 0; display: flex; flex-direction: column; padding: 8px 24px; background: radial-gradient(ellipse at 65% 70%, #5c3c9766, transparent 70%), #272352; }
 .missions-weekly-meta { display: flex; justify-content: space-between; gap: 10px; color: #c0b4e8; font-size: 11px; }
-.missions-weekly h3 { margin: 15px 0 9px; text-align: center; font: 900 19px/1.2 'Trebuchet MS', Arial, sans-serif; letter-spacing: .03em; color: #fff; }
-.missions-weekly-route { display: flex; align-items: center; gap: 18px; padding: 4px 18px; }
+.missions-weekly h3 { margin: 5px 0; text-align: center; font: 900 17px/1.2 'Trebuchet MS', Arial, sans-serif; letter-spacing: .03em; color: #fff; }
+.missions-weekly-route { display: flex; flex: 1; min-height: 0; align-items: center; gap: 18px; padding: 0 18px; }
 .missions-weekly-track { flex: 1; height: 16px; overflow: hidden; border-radius: 4px; background: #17162e; border: 1px solid #7b5a9e; box-shadow: inset 0 2px 4px #0004; }
 .missions-weekly-track i { display: block; height: 100%; background: linear-gradient(90deg, #bd84dc, #f9d8ff); box-shadow: 0 0 16px #c28cff; transition: width 200ms; }
 .missions-chest { width: 105px; flex-shrink: 0; padding: 0; background: none; box-shadow: none; color: #d9c9ef; display: flex; align-items: center; flex-direction: column; gap: 3px; font: 800 11px/1.3 'Trebuchet MS', Arial, sans-serif; }
-.missions-chest img { width: 72px; height: 63px; }
+.missions-chest img { width: auto; height: clamp(24px, 6svh, 54px); }
 .missions-chest:disabled { cursor: default; opacity: .55; }
 .missions-chest.is-ready img { filter: drop-shadow(0 0 12px #fdc66699); }
 .missions-chest.is-ready { color: #ffe0a7; }
 .missions-chest.is-claimed { opacity: .8; color: #98edc9; }
-.missions-chest-rewards { display: flex; justify-content: center; gap: 24px; margin-top: 8px; color: #e4ddf7; font-size: 13px; }
+.missions-chest-rewards { display: flex; justify-content: center; gap: 24px; margin-top: 3px; color: #e4ddf7; font-size: 12px; }
 .missions-chest-rewards img, .mission-rewards img { width: 21px; height: 21px; }
 .missions-list-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-shrink: 0; background: #504783; padding: 11px 24px; font-size: 12px; }
 .missions-list-heading span { color: #e0d6f6; font-size: 11px; text-align: right; }
-.missions-list { flex: 1; min-height: 120px; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 12px; padding: 18px 24px; scrollbar-width: thin; scrollbar-color: #797194 #181a32; }
+.missions-list { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 12px; padding: 18px 24px; scrollbar-width: thin; scrollbar-color: #797194 #181a32; }
 .mission-node { display: grid; grid-template-columns: 1fr auto; gap: 10px 16px; flex-shrink: 0; padding: 15px; border: 1px solid #494268; background: #24213e; border-radius: 5px; }
 .mission-node.is-complete { border-color: #719c83; background: linear-gradient(110deg, #283740, #24213e); }
 .mission-description { display: flex; align-items: center; gap: 10px; min-width: 0; }
@@ -52,20 +52,22 @@
   .daily-missions-panel { width: 100%; height: 100svh; max-height: 100svh; border: 0; }
   .missions-header { padding: 24px 18px 16px; }
   .missions-header h2 { font-size: 24px; }
-  .missions-weekly { padding: 13px 18px 17px; }
+  .missions-weekly { padding: 8px 18px; }
   .missions-list-heading { padding: 11px 18px; }
   .missions-list { padding: 15px 14px; }
   .mission-node { grid-template-columns: 1fr; gap: 10px; }
   .mission-rewards { margin-left: 40px; }
-  .missions-weekly-route { padding: 4px 4px; }
+  .missions-weekly-route { padding: 0 4px; }
 }
 @media (max-height: 550px) and (orientation: landscape) {
   .missions-header { padding: 10px 18px; }
   .missions-header h2 { font-size: 19px; margin-top: 5px; }
-  .missions-weekly { padding: 8px 18px; }
-  .missions-weekly h3 { margin: 5px 0 0; font-size: 15px; }
-  .missions-chest img { width: 45px; height: 40px; }
-  .missions-chest-rewards { margin-top: 0; }
-  .missions-list { min-height: 70px; }
+  .missions-weekly { padding: 5px 18px; display: grid; grid-template-columns: 1fr auto; grid-template-rows: auto minmax(0, 1fr); gap: 2px 18px; }
+  .missions-weekly h3 { grid-column: 1; grid-row: 1; margin: 0; font-size: 15px; text-align: left; }
+  .missions-weekly-meta { grid-column: 2; grid-row: 1; align-items: center; }
+  .missions-weekly-route { grid-column: 1; grid-row: 2; padding: 0; }
+  .missions-chest { width: 80px; flex-direction: row; }
+  .missions-chest img { height: 30px; width: auto; }
+  .missions-chest-rewards { grid-column: 2; grid-row: 2; align-items: center; margin-top: 0; }
   .missions-return { padding: 10px; }
 }
