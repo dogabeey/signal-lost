@@ -35,6 +35,10 @@ const uiIconAssets = {
   market: publicAsset('ui/market.svg'),
   chronoshards: publicAsset('ui/chronoshards.svg'),
   marketSpecial: publicAsset('ui/market-special.svg'),
+  dailyMissions: publicAsset('ui/daily-missions.svg'),
+  missionChest: publicAsset('ui/mission-chest.svg'),
+  missionCell: publicAsset('ui/mission-cell.svg'),
+  missionClock: publicAsset('ui/mission-clock.svg'),
 }
 
 export function getArtifactAsset(icon) {

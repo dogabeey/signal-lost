@@ -17,6 +17,8 @@ export const CHEAT_CONFIG = {
     cell: 'cell',
     cellObtain: 'cell_obtain',
     god: 'god',
+    triggerMission: 'trigger_misison',
+    completeRandomMission: 'complete_random_mission',
   },
   clearSaveTargets: ['currency', 'game_progress', 'milestones', 'research', 'buildings', 'weapons', 'artifacts', 'all'],
 }

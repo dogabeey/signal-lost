@@ -39,10 +39,13 @@ import { initializeInterstitialAds, showInterstitialAfterPlayerDeath, showReward
 import { recoverMarketTransaction } from './market/repository.js'
 import { initializeGameMarket, getGameMarket } from './market/game_market.js'
 import { getMarketPanelMarkup, createMarketUI } from './market/ui.js'
-import { getSectorDifficultyMultiplier } from './sector_difficulty.js'
+import { getSectorDifficultyMultiplier, getSectorMeteorSpeedMultiplier } from './sector_difficulty.js'
+import { createDailyMissions, createMissionRepository } from './daily_missions.js'
+import { getDailyMissionsMarkup, createDailyMissionsUI } from './daily_missions_ui.js'
 import { clearOnboardingProgress, createOnboarding } from './onboarding.js'
 import './style.css'
 import './market/ui.css'
+import './daily_missions.css'
 
 const IS_STEAM_BUILD = import.meta.env.VITE_STEAM_BUILD === 'true'
 const SHOW_AETHERIUM_AD_CLAIM = import.meta.env.DEV || (!IS_STEAM_BUILD && Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android')
@@ -89,6 +92,7 @@ document.querySelector('#app').innerHTML = `
       <div class="virtual-joystick-knob"></div>
     </div>
     <div class="cash-indicators" id="cash-indicators" aria-live="polite"></div>
+    ${getDailyMissionsMarkup()}
     <button class="aetherium-ad-claim${SHOW_AETHERIUM_AD_CLAIM ? '' : ' hidden'}" id="aetherium-ad-claim" type="button" aria-label="Watch an ad to claim 5 Aetherium"><img class="ad-badge" src="${getUiIconAsset('adReward')}" alt=""><span>CLAIM 5</span><img src="${getUiIconAsset('aetherium')}" alt="Aetherium"></button>
     <section class="debug-reward-screen hidden" id="debug-reward-screen" aria-live="polite"><p>DEBUG REWARDED AD</p><strong>WHITE SCREEN TEST</strong><span id="debug-reward-countdown">10</span><button id="debug-reward-granted" type="button" disabled hidden>REWARD GRANTED</button></section>
     <div class="build-grid-ui hidden" id="build-grid-ui" aria-label="Build locations"></div>
@@ -212,6 +216,10 @@ const menuContent = document.querySelector('#menu-content')
 const marketPanel = document.querySelector('#market-panel')
 const openMarketButton = document.querySelector('#open-market-button')
 const marketUI = createMarketUI({ panel: marketPanel, getMarket: getGameMarket, artifacts: ARTIFACT_CONFIG.artifacts })
+let dailyMissions
+let dailyMissionsUI
+let missionPlayAccumulator = 0
+let missionsPreviousPaused = false
 const openMilestonesButton = document.querySelector('#open-milestones-button')
 const milestonesPanel = document.querySelector('#milestones-panel')
 const closeMilestonesButton = document.querySelector('#close-milestones-button')
@@ -630,7 +638,7 @@ const slotStorageKeys = IS_STEAM_BUILD ? Object.fromEntries(Object.entries(STORA
 const { cellBank: CELL_BANK_STORAGE_KEY, sector: SECTOR_STORAGE_KEY, sectorHighScores: SECTOR_HIGH_SCORES_STORAGE_KEY, cash: CASH_STORAGE_KEY,
   chronoshards: CHRONOSHARDS_STORAGE_KEY, aetherium: AETHERIUM_STORAGE_KEY, aetheriumAdClaimAt: AETHERIUM_AD_CLAIM_AT_STORAGE_KEY, researchLab: RESEARCH_LAB_STORAGE_KEY, savedRound: SAVED_ROUND_STORAGE_KEY,
   buildings: BUILDINGS_STORAGE_KEY, featureUnlocks: FEATURE_UNLOCKS_STORAGE_KEY, milestones: MILESTONES_STORAGE_KEY,
-  settings: SETTINGS_STORAGE_KEY, weaponry: WEAPONRY_STORAGE_KEY, anomalyRewards: ANOMALY_REWARDS_STORAGE_KEY, artifacts: ARTIFACTS_STORAGE_KEY } = slotStorageKeys
+  settings: SETTINGS_STORAGE_KEY, weaponry: WEAPONRY_STORAGE_KEY, anomalyRewards: ANOMALY_REWARDS_STORAGE_KEY, artifacts: ARTIFACTS_STORAGE_KEY, dailyMissions: DAILY_MISSIONS_STORAGE_KEY } = slotStorageKeys
 const firstSlotKey = 'asteroid-belt-slot-1-cash'
 if (IS_STEAM_BUILD && localStorage.getItem(firstSlotKey) === null && localStorage.getItem(STORAGE_KEYS.cash) !== null) {
   for (const key of Object.values(STORAGE_KEYS)) {
@@ -1266,6 +1274,16 @@ function runCheatCommand(rawCommand) {
   const [command, ...argumentsList] = rawCommand.trim().toLowerCase().split(/\s+/)
   const argument = argumentsList[0]
   if (!command) return
+  if (command === CHEAT_CONFIG.commands.triggerMission || command === 'trigger_mission') {
+    const added = dailyMissions.triggerMidnight()
+    setCheatOutput(t('missions.debug_added', { count: added }))
+    return
+  }
+  if (command === CHEAT_CONFIG.commands.completeRandomMission) {
+    const completed = dailyMissions.completeRandom()
+    setCheatOutput(t(completed ? 'missions.debug_completed' : 'missions.debug_none'))
+    return
+  }
   if (command === CHEAT_CONFIG.commands.sandbox) {
     runSandboxCommand(argumentsList)
     return
@@ -1364,6 +1382,7 @@ function runCheatCommand(rawCommand) {
     if (argument === 'weapons' || argument === 'all') clearWeaponrySave()
     if (argument === 'artifacts' || argument === 'all') clearArtifactSave()
     if (argument === 'all') {
+      localStorage.removeItem(DAILY_MISSIONS_STORAGE_KEY)
       clearFeatureUnlocks()
       clearOnboardingProgress()
     }
@@ -3885,6 +3904,7 @@ function updateGame(delta, total) {
       const cellMultiplier = (cellOverdriveTime > 0 ? 2 : 1) * cellObtainMultiplier
       score += cellMultiplier
       if (!sandboxState) {
+        dailyMissions?.record('cells')
         updateBankedCells(cellMultiplier)
         updateCash(cell.userData.cashValue * cellMultiplier)
         showCashIndicator(cell.position, cell.userData.cashValue * cellMultiplier)
@@ -3927,6 +3947,7 @@ function updateGame(delta, total) {
         continue
       }
       const chronoshardsCollected = updateChronoshards(GAME.chronoCellChronoshardValue)
+      if (!sandboxState) dailyMissions?.record('chronoPickups')
       showCurrencyIndicator(chronoCell.position, `+✦${formatCompactNumber(chronoshardsCollected)}`, 'chronoshard-indicator')
       scene.remove(chronoCell)
       chronoCells.splice(index, 1)
@@ -3946,6 +3967,7 @@ function updateGame(delta, total) {
     if (pickup.position.distanceTo(player.position) >= GAME.cellPickupRadius) continue
     soundSystem.playCellCollect(pickup.position)
     updateAetherium(AETHERIUM_PICKUP_REWARD)
+    if (!sandboxState) dailyMissions?.record('aetheriumPickups')
     showCurrencyIndicator(pickup.position, `+${AETHERIUM_PICKUP_REWARD} AETHERIUM`, 'aetherium-indicator')
     scene.remove(pickup)
     aetheriumPickups.splice(index, 1)
@@ -4329,10 +4351,12 @@ function updateGame(delta, total) {
     if (push.remaining <= 0) shockwavePushes.splice(index, 1)
   }
 
+  const meteorFallDuration = GAME.fallingBlockDuration / getSectorMeteorSpeedMultiplier(sandboxState?.sectorIndex ?? selectedSectorIndex)
+  const meteorLifetime = meteorFallDuration + (GAME.fallingBlockLifetime - GAME.fallingBlockDuration)
   for (let index = fallingObstacles.length - 1; index >= 0; index -= 1) {
     const fallingObstacle = fallingObstacles[index]
     fallingObstacle.age += delta
-    const progress = Math.min(fallingObstacle.age / GAME.fallingBlockDuration, 1)
+    const progress = fallingObstacle.landed ? 1 : Math.min(fallingObstacle.age / meteorFallDuration, 1)
     const fallProgress = 1 - (1 - progress) ** 3
     fallingObstacle.obstacle.position.y = THREE.MathUtils.lerp(GAME.fallingBlockStartHeight, GAME.fallingBlockGroundHeight, fallProgress)
     fallingObstacle.obstacle.rotation.x += delta * ANIMATION.fallingObstacleSpinXSpeed
@@ -4359,9 +4383,9 @@ function updateGame(delta, total) {
         if (fallingObstacle.type === 'splinter') createSplinterPieces(fallingObstacle.target)
       }
       fallingObstacle.obstacle.position.y = GAME.fallingBlockGroundHeight
-      fallingObstacle.shadow.material.opacity = Math.max(0, 0.88 - (fallingObstacle.age - GAME.fallingBlockDuration) * 1.8)
-      fallingObstacle.targetRing.material.opacity = Math.max(0, 0.55 - (fallingObstacle.age - GAME.fallingBlockDuration) * 1.5)
-      if (fallingObstacle.age > GAME.fallingBlockLifetime) {
+      fallingObstacle.shadow.material.opacity = Math.max(0, 0.88 - (fallingObstacle.age - meteorFallDuration) * 1.8)
+      fallingObstacle.targetRing.material.opacity = Math.max(0, 0.55 - (fallingObstacle.age - meteorFallDuration) * 1.5)
+      if (fallingObstacle.age > meteorLifetime) {
         scene.remove(fallingObstacle.obstacle, fallingObstacle.shadow, fallingObstacle.targetRing)
         fallingObstacles.splice(index, 1)
       }
@@ -4489,6 +4513,14 @@ function updateGame(delta, total) {
   }
 
   elapsed += delta
+  if (started && !sandboxState) {
+    missionPlayAccumulator += delta
+    if (missionPlayAccumulator >= 1) {
+      const seconds = Math.floor(missionPlayAccumulator)
+      missionPlayAccumulator -= seconds
+      dailyMissions?.record('playSeconds', seconds)
+    }
+  }
   updateHud()
 }
 
@@ -4924,6 +4956,7 @@ cheatInput.addEventListener('keydown', (event) => {
 
 window.addEventListener('keydown', (event) => {
   if (!cheatConsole.classList.contains('hidden')) return
+  if (dailyMissionsUI?.isOpen() && event.key !== CHEAT_CONFIG.hotkey) return
   if (event.key === 'Escape' && started && !onboarding?.isActiveStep('quick-start')) {
     event.preventDefault()
     paused = !paused
@@ -5181,6 +5214,40 @@ void syncArtifactsWithSteam()
 updateStartButton()
 setActiveMenuButton()
 resetGame()
+dailyMissions = createDailyMissions({
+  repository: createMissionRepository({
+    storage: localStorage,
+    stateKey: DAILY_MISSIONS_STORAGE_KEY,
+    aetheriumKey: AETHERIUM_STORAGE_KEY,
+    chronoshardsKey: CHRONOSHARDS_STORAGE_KEY,
+    onReward() {
+      aetherium = readStoredNumber(AETHERIUM_STORAGE_KEY)
+      chronoshards = readStoredNumber(CHRONOSHARDS_STORAGE_KEY)
+      updateAetherium()
+      updateChronoshards()
+      renderWeaponry()
+      if (!marketPanel.classList.contains('hidden')) marketUI.render()
+    },
+  }),
+  getMaxTier: () => getUnlockedSectorIndex() + 1,
+})
+dailyMissionsUI = createDailyMissionsUI({
+  service: dailyMissions,
+  overlay: document.querySelector('#daily-missions-overlay'),
+  button: document.querySelector('#open-daily-missions'),
+  getBalances: () => ({ aetherium, chronoshards }),
+  onOpen() { missionsPreviousPaused = paused; paused = true; keys.clear() },
+  onClose() { paused = missionsPreviousPaused },
+})
+setInterval(() => { dailyMissions.refresh(); dailyMissionsUI.render() }, 1000)
+let dailyMissionResetTimer
+function scheduleDailyMissionReset() {
+  clearTimeout(dailyMissionResetTimer)
+  const delay = Math.max(1, dailyMissions.getState().calendar.nextDayAt - Date.now())
+  dailyMissionResetTimer = setTimeout(() => { dailyMissions.refresh(); scheduleDailyMissionReset() }, delay)
+}
+scheduleDailyMissionReset()
+document.addEventListener('visibilitychange', () => { if (!document.hidden) { dailyMissions.refresh(); dailyMissionsUI.render() } })
 if (IS_STEAM_BUILD && sessionStorage.getItem(SAVE_SLOT_SESSION_KEY) !== String(activeSaveSlot)) {
   renderSaveSlots()
   menuContent.classList.add('hidden')

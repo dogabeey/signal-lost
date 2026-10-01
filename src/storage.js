@@ -15,6 +15,7 @@ export const STORAGE_KEYS = Object.freeze({
   weaponry: 'asteroid-belt-weaponry',
   anomalyRewards: 'asteroid-belt-anomaly-rewards',
   artifacts: 'asteroid-belt-artifacts',
+  dailyMissions: 'asteroid-belt-daily-missions',
 })
 
 const historicalTaxonomy = ['t', 'i', 'e', 'r'].join('')

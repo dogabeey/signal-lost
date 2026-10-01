@@ -7,6 +7,8 @@
   "scripts": {
     "test:market": "node --test tests/market.test.js tests/market_google_play.test.js",
     "test:market:ui": "node tests/market_ui.smoke.mjs",
+    "test:missions": "node --test tests/daily_missions.test.js",
+    "test:missions:ui": "node tests/daily_missions_ui.smoke.mjs",
     "market:server": "node server/market/server.js",
     "dev": "vite",
     "build": "vite build && powershell -NoProfile -Command \"Remove-Item -LiteralPath 'dist.zip' -Force -ErrorAction SilentlyContinue; tar.exe -a -c -f dist.zip -C dist .\"",
