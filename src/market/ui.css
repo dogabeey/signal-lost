@@ -32,7 +32,7 @@
 .market-empty p { font-size: 14px; }
 .market-status { min-height: 20px; margin: 22px 0 0; font: 700 12px/1.5 'Trebuchet MS', Arial, sans-serif; text-align: center; color: #84edcc; }
 .market-status.is-error { color: #ffa59e; }
-#open-market-button { background: #75caba; color: #183c40; box-shadow: 4px 4px #34776f; }
+#open-market-button { background: #3d6551; color: #f1e6cf; box-shadow: 4px 4px #233d31; }
 @media (min-width: 581px) {
   .overlay:has(.market-panel:not(.hidden)) .menu-actions { display: none; }
 }

@@ -39,6 +39,7 @@ import { initializeInterstitialAds, showInterstitialAfterPlayerDeath, showReward
 import { recoverMarketTransaction } from './market/repository.js'
 import { initializeGameMarket, getGameMarket } from './market/game_market.js'
 import { getMarketPanelMarkup, createMarketUI } from './market/ui.js'
+import { getSectorDifficultyMultiplier } from './sector_difficulty.js'
 import { clearOnboardingProgress, createOnboarding } from './onboarding.js'
 import './style.css'
 import './market/ui.css'
@@ -1380,7 +1381,8 @@ function getActiveEnemyCapacity() {
   const difficulty = getCurrentDifficulty()
   if (difficulty.maxActiveEnemies === undefined) return Infinity
   const capacity = Math.max(0, Math.floor(
-    difficulty.maxActiveEnemies + score * (difficulty.maxActiveEnemiesIncrementPerCell ?? 0),
+    (difficulty.maxActiveEnemies + score * (difficulty.maxActiveEnemiesIncrementPerCell ?? 0))
+      * getSectorDifficultyMultiplier(sandboxState?.sectorIndex ?? selectedSectorIndex),
   ))
   return isTowerDefenseRun() ? Math.max(1, Math.floor(capacity * (getActiveAnomalyChallenge()?.difficultyMultiplier ?? 1))) : capacity
 }
@@ -3749,6 +3751,7 @@ function updateGame(delta, total) {
   for (const state of playerDamageStates.values()) state.exposed = false
   const difficulty = getCurrentDifficulty()
   const anomalyDifficultyMultiplier = isTowerDefenseRun() ? (getActiveAnomalyChallenge()?.difficultyMultiplier ?? 1) : 1
+  const sectorDifficultyMultiplier = getSectorDifficultyMultiplier(sandboxState?.sectorIndex ?? selectedSectorIndex)
   const sectorPressure = THREE.MathUtils.lerp(0.16, 0.03, selectedSectorIndex / Math.max(sectorKeys.length - 1, 1))
   const baseObstacleLifetime = (GAME.regularObstacleLifetime + difficulty.obstacleLifetimeOffset
     + score * (GAME.regularObstacleLifetimeIncreasePerCell + difficulty.obstacleLifetimeIncreasePerCellOffset)
@@ -3758,7 +3761,7 @@ function updateGame(delta, total) {
     GAME.obstacleSpawnWarningDuration,
     (GAME.obstacleSpawnInterval + difficulty.obstacleSpawnIntervalOffset
       - score * (GAME.obstacleSpawnDecreasePerCell + difficulty.obstacleSpawnDecreasePerCellOffset)) * (1 - sectorPressure) / anomalyDifficultyMultiplier,
-  )
+  ) / sectorDifficultyMultiplier
   const obstacleSpawnCount = Math.max(
     1,
     Math.floor(
@@ -4479,7 +4482,7 @@ function updateGame(delta, total) {
     GAME.fallingBlockMinInterval / GAME.fallingRockSpawnFrequencyMultiplier,
     (GAME.fallingBlockBaseInterval + difficulty.fallingRockSpawnIntervalOffset
       - score * (GAME.fallingBlockIntervalPerCell + difficulty.fallingRockSpawnDecreasePerCellOffset)) * (1 - sectorPressure) / GAME.fallingRockSpawnFrequencyMultiplier,
-  )
+  ) / sectorDifficultyMultiplier
   if (!isTowerDefenseRun() && simulatesEnemies && hazardTimer > fallingRockSpawnInterval) {
     scheduleFallingObstacles()
     hazardTimer = 0
