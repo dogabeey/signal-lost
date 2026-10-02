@@ -11,7 +11,7 @@ android {
         applicationId "com.solaris.asteroidbelt"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1178
+        versionCode 1179
         versionName "0.9.13"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {

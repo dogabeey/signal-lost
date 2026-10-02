@@ -92,7 +92,6 @@ document.querySelector('#app').innerHTML = `
       <div class="virtual-joystick-knob"></div>
     </div>
     <div class="cash-indicators" id="cash-indicators" aria-live="polite"></div>
-    ${getDailyMissionsMarkup()}
     <button class="aetherium-ad-claim${SHOW_AETHERIUM_AD_CLAIM ? '' : ' hidden'}" id="aetherium-ad-claim" type="button" aria-label="Watch an ad to claim 5 Aetherium"><img class="ad-badge" src="${getUiIconAsset('adReward')}" alt=""><span>CLAIM 5</span><img src="${getUiIconAsset('aetherium')}" alt="Aetherium"></button>
     <section class="debug-reward-screen hidden" id="debug-reward-screen" aria-live="polite"><p>DEBUG REWARDED AD</p><strong>WHITE SCREEN TEST</strong><span id="debug-reward-countdown">10</span><button id="debug-reward-granted" type="button" disabled hidden>REWARD GRANTED</button></section>
     <div class="build-grid-ui hidden" id="build-grid-ui" aria-label="Build locations"></div>
@@ -176,6 +175,7 @@ document.querySelector('#app').innerHTML = `
     <section class="anomaly-run-modal hidden" id="anomaly-run-modal" aria-label="Anomaly Run challenge"><div class="anomaly-run-card"><p class="eyebrow">WEEKLY ANOMALY</p><h2 id="anomaly-challenge-name"></h2><p id="anomaly-challenge-description"></p><p class="anomaly-reward" id="anomaly-reward"></p><p class="anomaly-reset" id="anomaly-reset"></p><p class="anomaly-time-warning hidden" id="anomaly-time-warning" role="alert"></p><div><button class="secondary-button" id="cancel-anomaly-run" type="button">BACK</button><button id="confirm-anomaly-run" type="button">START ANOMALY RUN</button></div></div></section>
     <div class="build-bar hidden" id="build-bar"><span id="build-status">SELECT A BUILDING</span><div id="build-options"></div><button id="exit-build-mode" type="button">DONE</button></div>
     <section class="building-upgrade hidden" id="building-upgrade"></section>
+    ${getDailyMissionsMarkup()}
   </main>
 `
 

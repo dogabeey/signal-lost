@@ -1,5 +1,9 @@
-.daily-missions-button { position: absolute; top: 22px; right: 94px; z-index: 40; display: grid; place-items: center; width: 48px; height: 48px; padding: 7px; background: #343659; border: 1px solid #aaa2d3; box-shadow: 0 3px #1b203a; }
-.daily-missions-button:hover { background: #49436e; transform: none; }
+#open-artifacts-button { anchor-name: --missions-column; }
+.daily-missions-button { position: absolute; top: 184px; right: 32px; z-index: 40; display: grid; place-items: center; width: 48px; height: 48px; padding: 7px; background: #ff795f; border: 0; box-shadow: 4px 4px 0 #862f2a; }
+.daily-missions-button:hover { box-shadow: 2px 2px 0 #862f2a; transform: translate(2px, 2px); }
+@supports (top: anchor(bottom)) {
+  .game-shell:has(.menu-content:not(.hidden)):has(.overlay:not(.hidden)) .daily-missions-button { position-anchor: --missions-column; top: calc(anchor(bottom) + 8px); left: anchor(left); right: auto; width: anchor-size(width); height: anchor-size(height); }
+}
 .daily-missions-button img { width: 32px; height: 32px; }
 .missions-badge { position: absolute; top: -8px; right: -7px; display: grid; place-items: center; min-width: 23px; height: 23px; padding: 0 5px; border-radius: 50%; border: 2px solid #192137; background: #e64d60; color: #fff; font: 800 12px/1 'Trebuchet MS', Arial, sans-serif; }
 .missions-badge[hidden] { display: none; }
@@ -46,7 +50,7 @@
 .daily-missions-panel button:focus-visible, .daily-missions-button:focus-visible { outline: 2px solid #ffe1a4; outline-offset: 3px; }
 .game-shell:has(.daily-missions-overlay:not(.hidden)) .cheat-console { z-index: 90; }
 @media (max-width: 580px), (hover: none) and (pointer: coarse) {
-  .daily-missions-button { top: 12px; right: 72px; width: 42px; height: 42px; padding: 6px; }
+  .daily-missions-button { top: 164px; right: 14px; width: 42px; height: 42px; padding: 6px; }
   .daily-missions-button img { width: 29px; height: 29px; }
   .daily-missions-overlay { padding: 0; }
   .daily-missions-panel { width: 100%; height: 100svh; max-height: 100svh; border: 0; }
